@@ -1,4 +1,4 @@
-package sr.we.data;
+package sr.we.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+
 import java.util.Set;
 
 @Entity

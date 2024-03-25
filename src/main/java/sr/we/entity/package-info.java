@@ -1,4 +1,4 @@
 @NonNullApi
-package sr.we.data;
+package sr.we.entity;
 
 import org.springframework.lang.NonNullApi;

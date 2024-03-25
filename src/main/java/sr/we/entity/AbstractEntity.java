@@ -1,4 +1,4 @@
-package sr.we.data;
+package sr.we.entity;
 
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;

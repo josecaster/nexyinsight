@@ -35,7 +35,7 @@ import com.vaadin.flow.theme.lumo.LumoUtility.Width;
 import java.io.ByteArrayInputStream;
 import java.util.Optional;
 import org.vaadin.lineawesome.LineAwesomeIcon;
-import sr.we.data.User;
+import sr.we.entity.User;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.batches.BatchesView;
 import sr.we.views.dashboard.DashboardView;

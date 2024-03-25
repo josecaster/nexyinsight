@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import sr.we.data.User;
+import sr.we.entity.User;
 import sr.we.data.UserRepository;
 
 @Component

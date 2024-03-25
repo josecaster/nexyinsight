@@ -1,10 +1,16 @@
 package sr.we.views.dashboard;
 
 
+import com.github.appreciated.apexcharts.ApexChartsBuilder;
+import com.github.appreciated.apexcharts.config.NoData;
+import com.github.appreciated.apexcharts.config.builder.*;
+import com.github.appreciated.apexcharts.config.chart.Type;
+import com.github.appreciated.apexcharts.config.chart.builder.ZoomBuilder;
+import com.github.appreciated.apexcharts.config.grid.builder.RowBuilder;
+import com.github.appreciated.apexcharts.config.legend.Position;
+import com.github.appreciated.apexcharts.config.responsive.builder.OptionsBuilder;
+import com.github.appreciated.apexcharts.config.stroke.Curve;
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.board.Board;
-import com.vaadin.flow.component.charts.Chart;
-import com.vaadin.flow.component.charts.model.*;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -21,13 +27,11 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteAlias;
-import com.vaadin.flow.theme.lumo.LumoUtility.BoxSizing;
-import com.vaadin.flow.theme.lumo.LumoUtility.FontSize;
-import com.vaadin.flow.theme.lumo.LumoUtility.FontWeight;
-import com.vaadin.flow.theme.lumo.LumoUtility.Margin;
-import com.vaadin.flow.theme.lumo.LumoUtility.Padding;
-import com.vaadin.flow.theme.lumo.LumoUtility.TextColor;
+import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.annotation.security.PermitAll;
+import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
+import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
+import org.vaadin.addons.yuri0x7c1.bslayout.BsRow;
 import sr.we.views.MainLayout;
 import sr.we.views.dashboard.ServiceHealth.Status;
 
@@ -40,11 +44,13 @@ public class DashboardView extends Main {
     public DashboardView() {
         addClassName("dashboard-view");
 
-        Board board = new Board();
-        board.addRow(createHighlight("Current users", "745", 33.7), createHighlight("View events", "54.6k", -112.45),
-                createHighlight("Conversion rate", "18%", 3.9), createHighlight("Custom metric", "-123.45", 0.0));
-        board.addRow(createViewEvents());
-        board.addRow(createServiceHealth(), createResponseTimes());
+        BsLayout board = new BsLayout();
+        board.addRow(new BsRow(new BsColumn(createHighlight("Current users", "745", 33.7)).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("View events", "54.6k", -112.45)).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Conversion rate", "18%", 3.9)).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Custom metric", "-123.45", 0.0)).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createServiceHealth()).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes()).withSize(BsColumn.Size.XS)));
         add(board);
     }
 
@@ -72,7 +78,7 @@ public class DashboardView extends Main {
         Icon i = icon.create();
         i.addClassNames(BoxSizing.BORDER, Padding.XSMALL);
 
-        Span badge = new Span(i, new Span(prefix + percentage.toString()));
+        Span badge = new Span(i, new Span(prefix + percentage));
         badge.getElement().getThemeList().add(theme);
 
         VerticalLayout layout = new VerticalLayout(h2, span, badge);
@@ -93,28 +99,33 @@ public class DashboardView extends Main {
         header.add(year);
 
         // Chart
-        Chart chart = new Chart(ChartType.AREASPLINE);
-        Configuration conf = chart.getConfiguration();
-        conf.getChart().setStyledMode(true);
-
-        XAxis xAxis = new XAxis();
-        xAxis.setCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-        conf.addxAxis(xAxis);
-
-        conf.getyAxis().setTitle("Values");
-
-        PlotOptionsAreaspline plotOptions = new PlotOptionsAreaspline();
-        plotOptions.setPointPlacement(PointPlacement.ON);
-        plotOptions.setMarker(new Marker(false));
-        conf.addPlotOptions(plotOptions);
-
-        conf.addSeries(new ListSeries("Berlin", 189, 191, 291, 396, 501, 403, 609, 712, 729, 942, 1044, 1247));
-        conf.addSeries(new ListSeries("London", 138, 246, 248, 348, 352, 353, 463, 573, 778, 779, 885, 887));
-        conf.addSeries(new ListSeries("New York", 65, 65, 166, 171, 293, 302, 308, 317, 427, 429, 535, 636));
-        conf.addSeries(new ListSeries("Tokyo", 0, 11, 17, 123, 130, 142, 248, 349, 452, 454, 458, 462));
+        ApexChartsBuilder chart = ApexChartsBuilder.get();
+        NoData noData = new NoData();
+        chart.withChart(ChartBuilder.get().withType(Type.LINE).withHeight("400px").withZoom(ZoomBuilder.get().withEnabled(true).build()).build())//
+                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
+                .withNoData(noData)//e
+                .withGrid(GridBuilder.get().withRow(RowBuilder.get().withColors("#f3f3f3", "transparent").withOpacity(0.5).build()).build());//
+//        Configuration conf = chart.getConfiguration();
+//        conf.getChart().setStyledMode(true);
+//
+//        XAxis xAxis = new XAxis();
+//        xAxis.setCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+//        conf.addxAxis(xAxis);
+//
+//        conf.getyAxis().setTitle("Values");
+//
+//        PlotOptionsAreaspline plotOptions = new PlotOptionsAreaspline();
+//        plotOptions.setPointPlacement(PointPlacement.ON);
+//        plotOptions.setMarker(new Marker(false));
+//        conf.addPlotOptions(plotOptions);
+//
+//        conf.addSeries(new ListSeries("Berlin", 189, 191, 291, 396, 501, 403, 609, 712, 729, 942, 1044, 1247));
+//        conf.addSeries(new ListSeries("London", 138, 246, 248, 348, 352, 353, 463, 573, 778, 779, 885, 887));
+//        conf.addSeries(new ListSeries("New York", 65, 65, 166, 171, 293, 302, 308, 317, 427, 429, 535, 636));
+//        conf.addSeries(new ListSeries("Tokyo", 0, 11, 17, 123, 130, 142, 248, 349, 452, 454, 458, 462));
 
         // Add it all together
-        VerticalLayout viewEvents = new VerticalLayout(header, chart);
+        VerticalLayout viewEvents = new VerticalLayout(header, chart.build());
         viewEvents.addClassName(Padding.LARGE);
         viewEvents.setPadding(false);
         viewEvents.setSpacing(false);
@@ -141,12 +152,9 @@ public class DashboardView extends Main {
         })).setHeader("").setFlexGrow(0).setAutoWidth(true);
         grid.addColumn(ServiceHealth::getCity).setHeader("City").setFlexGrow(1);
         grid.addColumn(ServiceHealth::getInput).setHeader("Input").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(ServiceHealth::getOutput).setHeader("Output").setAutoWidth(true)
-                .setTextAlign(ColumnTextAlign.END);
+        grid.addColumn(ServiceHealth::getOutput).setHeader("Output").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
-        grid.setItems(new ServiceHealth(Status.EXCELLENT, "Münster", 324, 1540),
-                new ServiceHealth(Status.OK, "Cluj-Napoca", 311, 1320),
-                new ServiceHealth(Status.FAILING, "Ciudad Victoria", 300, 1219));
+        grid.setItems(new ServiceHealth(Status.EXCELLENT, "Münster", 324, 1540), new ServiceHealth(Status.OK, "Cluj-Napoca", 311, 1320), new ServiceHealth(Status.FAILING, "Ciudad Victoria", 300, 1219));
 
         // Add it all together
         VerticalLayout serviceHealth = new VerticalLayout(header, grid);
@@ -161,22 +169,29 @@ public class DashboardView extends Main {
         HorizontalLayout header = createHeader("Response times", "Average across all systems");
 
         // Chart
-        Chart chart = new Chart(ChartType.PIE);
-        Configuration conf = chart.getConfiguration();
-        conf.getChart().setStyledMode(true);
-        chart.setThemeName("gradient");
-
-        DataSeries series = new DataSeries();
-        series.add(new DataSeriesItem("System 1", 12.5));
-        series.add(new DataSeriesItem("System 2", 12.5));
-        series.add(new DataSeriesItem("System 3", 12.5));
-        series.add(new DataSeriesItem("System 4", 12.5));
-        series.add(new DataSeriesItem("System 5", 12.5));
-        series.add(new DataSeriesItem("System 6", 12.5));
-        conf.addSeries(series);
+        ApexChartsBuilder chart = ApexChartsBuilder.get();
+        NoData noData = new NoData();
+        noData.setText("No data present at the moment");
+        chart.withChart(ChartBuilder.get().withType(Type.PIE).withHeight("400px").build())
+//                .withLabels("Team A", "Team B", "Team C", "Team D", "Team E")
+                .withLegend(LegendBuilder.get().withPosition(com.github.appreciated.apexcharts.config.legend.Position.RIGHT).build())
+//                .withSeries(44.0, 55.0, 13.0, 43.0, 22.0)
+                .withResponsive(ResponsiveBuilder.get().withBreakpoint(480.0).withOptions(OptionsBuilder.get().withLegend(LegendBuilder.get().withPosition(Position.BOTTOM).build()).build()).build()).withNoData(noData);
+//        Configuration conf = chart.getConfiguration();
+//        conf.getChart().setStyledMode(true);
+//        chart.setThemeName("gradient");
+//
+//        DataSeries series = new DataSeries();
+//        series.add(new DataSeriesItem("System 1", 12.5));
+//        series.add(new DataSeriesItem("System 2", 12.5));
+//        series.add(new DataSeriesItem("System 3", 12.5));
+//        series.add(new DataSeriesItem("System 4", 12.5));
+//        series.add(new DataSeriesItem("System 5", 12.5));
+//        series.add(new DataSeriesItem("System 6", 12.5));
+//        conf.addSeries(series);
 
         // Add it all together
-        VerticalLayout serviceHealth = new VerticalLayout(header, chart);
+        VerticalLayout serviceHealth = new VerticalLayout(header, chart.build());
         serviceHealth.addClassName(Padding.LARGE);
         serviceHealth.setPadding(false);
         serviceHealth.setSpacing(false);

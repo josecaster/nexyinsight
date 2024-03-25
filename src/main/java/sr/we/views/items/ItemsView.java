@@ -20,21 +20,17 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Expression;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.*;
+import org.springframework.data.jpa.domain.Specification;
+import sr.we.controllers.ItemsController;
+import sr.we.entity.eclipsestore.tables.Item;
+import sr.we.views.MainLayout;
+
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.jpa.domain.Specification;
-import sr.we.data.SamplePerson;
-import sr.we.services.SamplePersonService;
-import sr.we.views.MainLayout;
 
 @PageTitle("Items")
 @Route(value = "items", layout = MainLayout.class)
@@ -42,13 +38,12 @@ import sr.we.views.MainLayout;
 @Uses(Icon.class)
 public class ItemsView extends Div {
 
-    private Grid<SamplePerson> grid;
+    private final ItemsController ItemService;
+    private Grid<Item> grid;
+    private final Filters filters;
 
-    private Filters filters;
-    private final SamplePersonService samplePersonService;
-
-    public ItemsView(SamplePersonService SamplePersonService) {
-        this.samplePersonService = SamplePersonService;
+    public ItemsView(ItemsController ItemService) {
+        this.ItemService = ItemService;
         setSizeFull();
         addClassNames("items-view");
 
@@ -64,8 +59,7 @@ public class ItemsView extends Div {
         // Mobile version
         HorizontalLayout mobileFilters = new HorizontalLayout();
         mobileFilters.setWidthFull();
-        mobileFilters.addClassNames(LumoUtility.Padding.MEDIUM, LumoUtility.BoxSizing.BORDER,
-                LumoUtility.AlignItems.CENTER);
+        mobileFilters.addClassNames(LumoUtility.Padding.MEDIUM, LumoUtility.BoxSizing.BORDER, LumoUtility.AlignItems.CENTER);
         mobileFilters.addClassName("mobile-filters");
 
         Icon mobileIcon = new Icon("lumo", "plus");
@@ -84,7 +78,51 @@ public class ItemsView extends Div {
         return mobileFilters;
     }
 
-    public static class Filters extends Div implements Specification<SamplePerson> {
+    private Component createGrid() {
+        grid = new Grid<>(Item.class, false);
+//        grid.addColumn("firstName").setAutoWidth(true);
+//        grid.addColumn("lastName").setAutoWidth(true);
+//        grid.addColumn("email").setAutoWidth(true);
+//        grid.addColumn("phone").setAutoWidth(true);
+//        grid.addColumn("dateOfBirth").setAutoWidth(true);
+//        grid.addColumn("occupation").setAutoWidth(true);
+//        grid.addColumn("role").setAutoWidth(true);
+
+        grid.addColumn(Item::getCreated_at).setHeader("Create date").setFrozen(true).setFlexGrow(1).setResizable(true);
+        grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
+        grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1);
+        grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1);
+        grid.addComponentColumn(l -> {
+            Span span = new Span(l.getVariant().getCost().multiply(BigDecimal.valueOf(l.getStock_level())).toString());
+            if (l.getStock_level() > 0) {
+                span.getElement().getThemeList().add("badge success");
+            } else if (l.getStock_level() < 0) {
+                span.getElement().getThemeList().add("badge error");
+            }
+            return span;
+        }).setHeader("Inventory value").setFlexGrow(1);
+        grid.addColumn(l -> l.getVariant().getDefault_price()).setHeader("Price").setFlexGrow(1);
+        grid.addColumn(l -> {
+            String storeId = l.getVariantStore().getStore_id();
+//            if(list != null){
+//                Optional<LoyStore> any = list.getStores().stream().filter(n -> n.id().equalsIgnoreCase(storeId)).findAny();
+//                return any.map(LoyStore::name).orElse(storeId);
+//            }
+            return storeId;
+        }).setHeader("Link Store").setFlexGrow(1);
+
+        grid.setItems(query -> ItemService.allItems(0L, query.getPage(), query.getPageSize()));
+        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
+        grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
+
+        return grid;
+    }
+
+    private void refreshGrid() {
+        grid.getDataProvider().refreshAll();
+    }
+
+    public static class Filters extends Div implements Specification<Item> {
 
         private final TextField name = new TextField("Name");
         private final TextField phone = new TextField("Phone");
@@ -97,8 +135,7 @@ public class ItemsView extends Div {
 
             setWidthFull();
             addClassName("filter-layout");
-            addClassNames(LumoUtility.Padding.Horizontal.LARGE, LumoUtility.Padding.Vertical.MEDIUM,
-                    LumoUtility.BoxSizing.BORDER);
+            addClassNames(LumoUtility.Padding.Horizontal.LARGE, LumoUtility.Padding.Vertical.MEDIUM, LumoUtility.BoxSizing.BORDER);
             name.setPlaceholder("First or last name");
 
             occupations.setItems("Insurance Clerk", "Mortarman", "Beer Coil Cleaner", "Scale Attendant");
@@ -146,15 +183,13 @@ public class ItemsView extends Div {
         }
 
         @Override
-        public Predicate toPredicate(Root<SamplePerson> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
+        public Predicate toPredicate(Root<Item> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
             List<Predicate> predicates = new ArrayList<>();
 
             if (!name.isEmpty()) {
                 String lowerCaseFilter = name.getValue().toLowerCase();
-                Predicate firstNameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("firstName")),
-                        lowerCaseFilter + "%");
-                Predicate lastNameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("lastName")),
-                        lowerCaseFilter + "%");
+                Predicate firstNameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("firstName")), lowerCaseFilter + "%");
+                Predicate lastNameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("lastName")), lowerCaseFilter + "%");
                 predicates.add(criteriaBuilder.or(firstNameMatch, lastNameMatch));
             }
             if (!phone.isEmpty()) {
@@ -162,28 +197,23 @@ public class ItemsView extends Div {
                 String ignore = "- ()";
 
                 String lowerCaseFilter = ignoreCharacters(ignore, phone.getValue().toLowerCase());
-                Predicate phoneMatch = criteriaBuilder.like(
-                        ignoreCharacters(ignore, criteriaBuilder, criteriaBuilder.lower(root.get(databaseColumn))),
-                        "%" + lowerCaseFilter + "%");
+                Predicate phoneMatch = criteriaBuilder.like(ignoreCharacters(ignore, criteriaBuilder, criteriaBuilder.lower(root.get(databaseColumn))), "%" + lowerCaseFilter + "%");
                 predicates.add(phoneMatch);
 
             }
             if (startDate.getValue() != null) {
                 String databaseColumn = "dateOfBirth";
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get(databaseColumn),
-                        criteriaBuilder.literal(startDate.getValue())));
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get(databaseColumn), criteriaBuilder.literal(startDate.getValue())));
             }
             if (endDate.getValue() != null) {
                 String databaseColumn = "dateOfBirth";
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(criteriaBuilder.literal(endDate.getValue()),
-                        root.get(databaseColumn)));
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(criteriaBuilder.literal(endDate.getValue()), root.get(databaseColumn)));
             }
             if (!occupations.isEmpty()) {
                 String databaseColumn = "occupation";
                 List<Predicate> occupationPredicates = new ArrayList<>();
                 for (String occupation : occupations.getValue()) {
-                    occupationPredicates
-                            .add(criteriaBuilder.equal(criteriaBuilder.literal(occupation), root.get(databaseColumn)));
+                    occupationPredicates.add(criteriaBuilder.equal(criteriaBuilder.literal(occupation), root.get(databaseColumn)));
                 }
                 predicates.add(criteriaBuilder.or(occupationPredicates.toArray(Predicate[]::new)));
             }
@@ -206,39 +236,14 @@ public class ItemsView extends Div {
             return result;
         }
 
-        private Expression<String> ignoreCharacters(String characters, CriteriaBuilder criteriaBuilder,
-                Expression<String> inExpression) {
+        private Expression<String> ignoreCharacters(String characters, CriteriaBuilder criteriaBuilder, Expression<String> inExpression) {
             Expression<String> expression = inExpression;
             for (int i = 0; i < characters.length(); i++) {
-                expression = criteriaBuilder.function("replace", String.class, expression,
-                        criteriaBuilder.literal(characters.charAt(i)), criteriaBuilder.literal(""));
+                expression = criteriaBuilder.function("replace", String.class, expression, criteriaBuilder.literal(characters.charAt(i)), criteriaBuilder.literal(""));
             }
             return expression;
         }
 
-    }
-
-    private Component createGrid() {
-        grid = new Grid<>(SamplePerson.class, false);
-        grid.addColumn("firstName").setAutoWidth(true);
-        grid.addColumn("lastName").setAutoWidth(true);
-        grid.addColumn("email").setAutoWidth(true);
-        grid.addColumn("phone").setAutoWidth(true);
-        grid.addColumn("dateOfBirth").setAutoWidth(true);
-        grid.addColumn("occupation").setAutoWidth(true);
-        grid.addColumn("role").setAutoWidth(true);
-
-        grid.setItems(query -> samplePersonService.list(
-                PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query)),
-                filters).stream());
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
-        grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
-
-        return grid;
-    }
-
-    private void refreshGrid() {
-        grid.getDataProvider().refreshAll();
     }
 
 }

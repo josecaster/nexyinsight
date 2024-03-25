@@ -1,4 +1,4 @@
-package sr.we.data;
+package sr.we.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.validation.constraints.Email;

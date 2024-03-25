@@ -5,7 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import sr.we.data.User;
+import sr.we.entity.User;
 import sr.we.data.UserRepository;
 
 @Service
