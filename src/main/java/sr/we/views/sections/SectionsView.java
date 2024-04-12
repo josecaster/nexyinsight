@@ -5,11 +5,11 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.HeaderRow;
-import com.vaadin.flow.component.grid.dataview.GridListDataView;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -24,22 +24,29 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
+import sr.we.controllers.CategoryRestController;
+import sr.we.controllers.DevicesRestController;
+import sr.we.controllers.StoresRestController;
 import sr.we.entity.eclipsestore.tables.Category;
 import sr.we.entity.eclipsestore.tables.Device;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.MainLayout;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 @PageTitle("Sections")
 @Route(value = "sections", layout = MainLayout.class)
 @RolesAllowed("ADMIN")
 public class SectionsView extends Div implements BeforeEnterObserver {
 
+    private final StoresRestController sectionService;
+    private final CategoryRestController categoryRestController;
+    private final DevicesRestController devicesRestController;
+    private Button newButton;
     private Grid<Section> grid;
-    private GridListDataView<Section> gridListDataView;
     private Binder<Section> binder;
-    private List<Section> sections;
     private List<Device> deciveList;
     private List<Category> categoryList;
     private ComboBox<String> storeComboBox;
@@ -47,11 +54,53 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     private MultiSelectComboBox<String> categoryComboBox;
     private MultiSelectComboBox<String> deviceComboBox;
 
-    public SectionsView() {
+    public SectionsView(StoresRestController sectionService, CategoryRestController categoryRestController, DevicesRestController devicesRestController) {
+        this.sectionService = sectionService;
+        this.categoryRestController = categoryRestController;
+        this.devicesRestController = devicesRestController;
+
         addClassName("sections-view");
         setSizeFull();
         createGrid();
-        add(grid);
+
+        createButton();
+
+        add(newButton, grid);
+    }
+
+    private void createButton() {
+        newButton = new Button("add new section");
+        newButton.addClickListener(l -> {
+            TextField textField = new TextField();
+            ComboBox<String> storeComboBox = new ComboBox<>();
+
+            storeComboBox.setWidthFull();
+
+            storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));
+            storeComboBox.setItemLabelGenerator(m -> {
+                Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(m)).findAny();
+                return any.map(n -> StringUtils.isBlank(n.getDefault_name()) ? "!" : n.getDefault_name()).orElse(m);
+            });
+
+            Dialog dialog = new Dialog();
+            dialog.setHeaderTitle("Create new section");
+            dialog.add(textField);
+            dialog.add(storeComboBox);
+
+            Button button = new Button("Save");
+            button.addClickListener(n -> {
+                Section item = new Section();
+                item.setBusinessId(getBusinessId());
+                item.setName(textField.getValue());
+                item.setId(storeComboBox.getValue());
+                addNewStore(item);
+                grid.getDataProvider().refreshAll();
+                dialog.close();
+            });
+            dialog.getFooter().add(button);
+            dialog.open();
+
+        });
     }
 
     private void createGrid() {
@@ -66,8 +115,16 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_COLUMN_BORDERS);
         grid.setHeight("100%");
 
-        List<Section> sections = getSections();
-        gridListDataView = grid.setItems(sections);
+        grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), this::check));
+
+    }
+
+    private Long getBusinessId() {
+        return 0L;
+    }
+
+    public boolean check(Section receipt) {
+        return true;
     }
 
     private void addColumnsToGrid() {
@@ -104,12 +161,11 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private Section addNewStore(Section item) {
-        item.setUuId(UUID.randomUUID().toString());
-        return item;
+        return sectionService.addNewStore(item);
     }
 
     private Section updateStore(Section item) {
-        return item;
+        return sectionService.updateStore(item);
     }
 
     private void createStoreNameColumn() {
@@ -122,11 +178,8 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
     private void createLinkStoreColumn() {
         Grid.Column<Section> linkStoreColumn = grid.addColumn(l -> {
-            if (sections != null) {
-                Optional<Section> any = sections.stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(l.getId())).findAny();
-                return any.map(Section::getDefault_name).orElse(l.getId());
-            }
-            return l.getId();
+            Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(l.getId())).findAny();
+            return any.map(Section::getDefault_name).orElse(l.getId());
         }).setHeader("Link store");
         storeComboBox = new ComboBox<>();
         storeComboBox.setWidthFull();
@@ -204,46 +257,6 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         editColumn.setEditorComponent(actions);
     }
 
-//    private void createSectionColumn() {
-//        sectionColumn = grid.addColumn(new ComponentRenderer<>(section -> {
-//            HorizontalLayout hl = new HorizontalLayout();
-//            hl.setAlignItems(Alignment.CENTER);
-//            Image img = new Image(section.getImg(), "");
-//            Span span = new Span();
-//            span.setClassName("name");
-//            span.setText(section.getSection());
-//            hl.add(img, span);
-//            return hl;
-//        })).setComparator(section -> section.getSection()).setHeader("Section");
-//    }
-//
-//    private void createAmountColumn() {
-//        amountColumn = grid.addColumn(Section::getAmount).setHeader("Amount");
-////                .addEditColumn(Section::getAmount,
-////                        new NumberRenderer<>(section -> section.getAmount(), NumberFormat.getCurrencyInstance(Locale.US)))
-////                .text((item, newValue) -> item.setAmount(Double.parseDouble(newValue)))
-////                .setComparator(section -> section.getAmount()).setHeader("Amount");
-//    }
-//
-//    private void createStatusColumn() {
-//        statusColumn = grid.addComponentColumn(section -> {
-//            Span span = new Span();
-//            span.setText(section.getStatus());
-//            span.getElement().setAttribute("theme", "badge " + section.getStatus().toLowerCase());
-//            return span;
-//        }).setHeader("Status");
-////                .addEditColumn(Section::getSection, new ComponentRenderer<>(section -> {
-////            Span span = new Span();
-////            span.setText(section.getStatus());
-////            span.getElement().setAttribute("theme", "badge " + section.getStatus().toLowerCase());
-////            return span;
-////        })).select((item, newValue) -> item.setStatus(newValue), Arrays.asList("Pending", "Success", "Error"))
-////                .setComparator(section -> section.getStatus()).setHeader("Status");
-//    }
-//
-//    private void createDateColumn() {
-//        dateColumn = grid.addColumn(new LocalDateRenderer<>(section -> LocalDate.parse(section.getDate()), () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setComparator(section -> section.getDate()).setHeader("Date").setWidth("180px").setFlexGrow(0);
-//    }
 
     private void addFiltersToGrid() {
         HeaderRow filterRow = grid.appendHeaderRow();
@@ -253,76 +266,15 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         sectionFilter.setClearButtonVisible(true);
         sectionFilter.setWidth("100%");
         sectionFilter.setValueChangeMode(ValueChangeMode.EAGER);
-        sectionFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> StringUtils.containsIgnoreCase(section.getName(), sectionFilter.getValue())));
+//        sectionFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> StringUtils.containsIgnoreCase(section.getName(), sectionFilter.getValue())));
         filterRow.getCell(myStoreNameColumn).setComponent(sectionFilter);
 
-//        TextField amountFilter = new TextField();
-//        amountFilter.setPlaceholder("Filter");
-//        amountFilter.setClearButtonVisible(true);
-//        amountFilter.setWidth("100%");
-//        amountFilter.setValueChangeMode(ValueChangeMode.EAGER);
-//        amountFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> StringUtils.containsIgnoreCase(Double.toString(section.getAmount()), amountFilter.getValue())));
-//        filterRow.getCell(amountColumn).setComponent(amountFilter);
-//
-//        ComboBox<String> statusFilter = new ComboBox<>();
-//        statusFilter.setItems(Arrays.asList("Pending", "Success", "Error"));
-//        statusFilter.setPlaceholder("Filter");
-//        statusFilter.setClearButtonVisible(true);
-//        statusFilter.setWidth("100%");
-//        statusFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> areStatusesEqual(section, statusFilter)));
-//        filterRow.getCell(statusColumn).setComponent(statusFilter);
-//
-//        DatePicker dateFilter = new DatePicker();
-//        dateFilter.setPlaceholder("Filter");
-//        dateFilter.setClearButtonVisible(true);
-//        dateFilter.setWidth("100%");
-//        dateFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> areDatesEqual(section, dateFilter)));
-//        filterRow.getCell(dateColumn).setComponent(dateFilter);
+
     }
 
-//    private boolean areStatusesEqual(Section section, ComboBox<String> statusFilter) {
-//        String statusFilterValue = statusFilter.getValue();
-//        if (statusFilterValue != null) {
-//            return StringUtils.equals(section.getStatus(), statusFilterValue);
-//        }
-//        return true;
-//    }
-//
-//    private boolean areDatesEqual(Section section, DatePicker dateFilter) {
-//        LocalDate dateFilterValue = dateFilter.getValue();
-//        if (dateFilterValue != null) {
-//            LocalDate sectionDate = LocalDate.parse(section.getDate());
-//            return dateFilterValue.equals(sectionDate);
-//        }
-//        return true;
-//    }
-
-    private List<Section> getSections() {
-        String string = UUID.randomUUID().toString();
-        return Arrays.asList(createSection(1001, string, "Tals Bijoux N.V."), //
-                createSection(1002, string, "Chessed Apparel"), //
-                createSection(1003, string, "Cynthia Read"), //
-                createSection(1005, string, "Kimiko's"), //
-                createSection(1006, string, "Mommy and Me"), //
-                createSection(1007, string, "Glam By Cheora"), //
-                createSection(1008, string, "Grow by ruth"), //
-                createSection(1004, string, "Point Plaza", true), //
-                createSection(1009, string, "Kie's Beauty shop"));
-    }
-
-    private Section createSection(int id, String img, String section) {
-        return new Section((long) id, img, section);
-    }
-
-    private Section createSection(int id, String img, String section, boolean defaultSection) {
-        Section section1 = createSection(id, img, section);
-        section1.setUuId(id+"");
-        return section1;
-    }
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
-        sections = getSections();
         deciveList = getDevices();
         categoryList = getCategories();
 
@@ -338,18 +290,19 @@ public class SectionsView extends Div implements BeforeEnterObserver {
             return any.map(Device::getName).orElse(l);
         });
 
-        storeComboBox.setItems(sections.stream().filter(Section::isDefault).map(Section::getId).toList());
+//        storeComboBox.setItems(sections.stream().filter(Section::isDefault).map(Section::getId).toList());
+        storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));
         storeComboBox.setItemLabelGenerator(l -> {
-            Optional<Section> any = sections.stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(l)).findAny();
+            Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(l)).findAny();
             return any.map(n -> StringUtils.isBlank(n.getDefault_name()) ? "!" : n.getDefault_name()).orElse(l);
         });
     }
 
     private List<Category> getCategories() {
-        return new ArrayList<>();
+        return categoryRestController.allStores(getBusinessId());
     }
 
     private List<Device> getDevices() {
-        return new ArrayList<>();
+        return devicesRestController.allStores(getBusinessId());
     }
 }

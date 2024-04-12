@@ -9,11 +9,12 @@ import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import sr.we.data.SyncTimeRepository;
+import sr.we.entity.SyncTime;
 import sr.we.entity.eclipsestore.tables.*;
 import sr.we.integration.*;
 import sr.we.storage.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -25,10 +26,6 @@ import java.util.Optional;
 public class JobbyLauncher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JobbyLauncher.class);
-    @Value("${sr.we.loyverse.token}")
-    private String loyverseToken;
-    @Value("${sr.we.business.id}")
-    private Long businessId;
     @Autowired
     IStoreStorage storeStorage;
     @Autowired
@@ -42,6 +39,8 @@ public class JobbyLauncher {
     @Autowired
     IItemStorage itemStorage;
     @Autowired
+    SyncTimeRepository syncTimeRepository;
+    @Autowired
     LoyStoresController loyStoreController;
     @Autowired
     LoyCategoryController loyCategoryController;
@@ -53,6 +52,10 @@ public class JobbyLauncher {
     LoyInventoryController inventoryController;
     @Autowired
     LoyReceiptsController loyReceiptsController;
+    @Value("${sr.we.loyverse.token}")
+    private String loyverseToken;
+    @Value("${sr.we.business.id}")
+    private Long businessId;
     private boolean itemsBusy = false;
 
     private String getLoyverseToken() {
@@ -78,6 +81,13 @@ public class JobbyLauncher {
             }
             itemsBusy = false;
         }
+    }
+
+    @Scheduled(cron = "0 */5 * * * *")
+    private void updateStockLevels() {
+        LOGGER.info("SCHEDULED run of stock levels STARTED");
+        List<StockLevel> levels = getStockLevels(); // get stock levels
+        iterateItems(itemStorage.allItems(getBusinessId()), levels);// rectify the amounts
     }
 
     @Scheduled(cron = "0 */10 * * * *")
@@ -193,7 +203,7 @@ public class JobbyLauncher {
     private void storeItems() {
         String cursor = null;
 
-        LocalDateTime maxTime = getItemsLastUpdated();
+        LocalDateTime maxTime = getItemsLastUpdated(false);
         boolean run;
 
         run = true;
@@ -210,18 +220,42 @@ public class JobbyLauncher {
             LOGGER.debug("Items: " + (listLoyItems == null ? 0 : (listLoyItems.getItems() == null ? 0 : listLoyItems.getItems().size())));
         }
 
-        List<StockLevel> levels = getStockLevels(); // get stock levels
-        iterateItems(items, levels);// rectify the amounts
-
-
+        getItemsLastUpdated(true);
     }
 
-    private LocalDateTime getItemsLastUpdated() {
-        List<Item> itemss = itemStorage.allItems(getBusinessId());
+
+
+    private LocalDateTime getItemsLastUpdated(boolean update) {
+        SyncTime byType = syncTimeRepository.getByTypeAndBusinessId(SyncTime.SyncType.ITEMS, getBusinessId());
         LocalDateTime maxTime = null;
-        if (itemss != null && !itemss.isEmpty()) {
-            maxTime = itemss.stream().map(Item::getUpdated_at).max(LocalDateTime::compareTo).get();
+        if(!update) {
+            if (byType == null) {
+                List<Item> itemss = itemStorage.allItems(getBusinessId());
+                if (itemss != null && !itemss.isEmpty()) {
+                    maxTime = itemss.stream().map(Item::getUpdated_at).max(LocalDateTime::compareTo).get();
+                }
+                byType = new SyncTime();
+                byType.setType(SyncTime.SyncType.ITEMS);
+                byType.setMaxTime(maxTime);
+                byType.setBusinessId(getBusinessId());
+            } else {
+                maxTime = byType.getMaxTime();
+            }
+
+            if (maxTime == null && byType.getId() != null) {
+                syncTimeRepository.delete(byType);
+            } else {
+                syncTimeRepository.save(byType);
+            }
+        } else {
+            List<Item> itemss = itemStorage.allItems(getBusinessId());
+            if (itemss != null && !itemss.isEmpty()) {
+                maxTime = itemss.stream().map(Item::getUpdated_at).max(LocalDateTime::compareTo).get();
+            }
+            byType.setMaxTime(maxTime);
+            syncTimeRepository.save(byType);
         }
+
         return maxTime;
     }
 
@@ -255,78 +289,88 @@ public class JobbyLauncher {
         run = true;
         List<Receipt> receipts = new ArrayList<>();
 
-        List<Receipt> items = receiptsStorage.allReceipts(getBusinessId());
-
-        LocalDateTime maxTime = null;
-        if (items != null && !items.isEmpty()) {
-            maxTime = items.stream().map(Receipt::getCreated_at).max(LocalDateTime::compareTo).get();
-        }
+        LocalDateTime maxTime = getReceiptsMaxTime(false);
 
 
         while (run) {
-            CollectReceipts listLoyItems = loyReceiptsController.getListLoyStores(maxTime, null, null, null, 250, cursor, getLoyverseToken());
+            CollectReceipts listLoyItems = loyReceiptsController.getListLoyStores(null, null, maxTime, null, 250, cursor, getLoyverseToken());
             cursor = listLoyItems == null ? null : listLoyItems.getCursor();
             run = StringUtils.isNotBlank(cursor);
 
             if (listLoyItems != null && listLoyItems.getReceipts() != null) {
-                for (Receipt receipt : listLoyItems.getReceipts()) {
-                    Receipt receipt1 = receiptsStorage.oneReceiptNumber(receipt.getReceipt_number());
-                    if (receipt1 != null) {
-                        receipt.setUuId(receipt1.getUuId());// dont proceed yet, still need to figure out how we will handle it
-                    } else {
-                        receipts.add(receipt);
-                    }
-                }
+                receipts.addAll(listLoyItems.getReceipts());
             }
         }
-
-//        if (items != null && !items.isEmpty()) {
-//            for (Receipt receipt : items){
-//                Optional<Receipt> any = receipts.stream().filter(l -> l.getReceipt_number().compareTo(receipt.getReceipt_number()) == 0).findAny();
-//                if(any.isEmpty()) {
-//                    receipts.add(receipt);
-//                }
-//            }
-//        }
 
 
         if (!receipts.isEmpty()) {
             for (Receipt receipt : receipts) {
-                if (receiptsStorage.oneReceipt(receipt.getReceipt_number()) == null) {
-                    receipt.setBusinessId(getBusinessId());
-//                    String uuId = receipt.getUuId();
-                    receiptsStorage.saveOrUpdate(receipt);
-                    for (LineItem item : receipt.getLine_items()) {
-                        String id = item.getItem_id() + "|" + item.getVariant_id() + "|" + receipt.getStore_id();
-                        Item item1 = itemStorage.oneItemByLoyId(id);
-
-                        if (item1 != null && item1.isTrack_stock() && (item1.getLastUpdateStockLevel() == null || receipt.getReceipt_date().isAfter(item1.getLastUpdateStockLevel()))) {
-                            Optional<Section> section = storeStorage.findSection(getBusinessId(), receipt.getStore_id(), item1.getCategory_id(), receipt.getPos_device_id(), true);
-                            if (section.isPresent()) {
-                                InventoryHistory inventoryHistory = new InventoryHistory();
-                                inventoryHistory.setBusinessId(getBusinessId());
-
-                                Section section1 = section.get();
-                                inventoryHistory.setSection_id(section1.getUuId());
-                                inventoryHistory.setLocalDateTime(receipt.getReceipt_date());
-                                inventoryHistory.setItem_id(item1.getUuId());
-
-                                BigDecimal bigDecimal = item1.getStoreCountMap().get(section1.getUuId());
-                                BigDecimal sale = (bigDecimal == null ? BigDecimal.ZERO : bigDecimal).add(BigDecimal.valueOf(receipt.getReceipt_type().equalsIgnoreCase("SALE") ? item.getQuantity() * -1 : item.getQuantity()));
-                                inventoryHistory.setStock_after(sale.intValue());
-
-                                inventoryHistory.setAdjustment(receipt.getReceipt_type().equalsIgnoreCase("SALE") ? item.getQuantity() * -1 : item.getQuantity());
-                                inventoryHistory.setType(receipt.getReceipt_type().equalsIgnoreCase("SALE") ? InventoryHistory.Type.SALE : InventoryHistory.Type.REFUND);
-
-                                item1.addStoreCount(section1.getUuId(), sale);
-                                itemStorage.saveOrUpdate(item1);
-                                inventoryHistoryStorage.saveOrUpdate(inventoryHistory);
-                            }
+                String receiptNumber = receipt.getReceipt_number();
+                for (LineItem item : receipt.getLine_items()) {
+                    String id = receiptNumber + "-" + item.getId();
+                    Receipt receipt1 = receiptsStorage.oneReceiptNumber(id);
+                    if (receipt1 != null) {
+//                        receipt.setUuId(receipt1.getUuId());// dont proceed yet, still need to figure out how we will handle it
+                        update(receipt1, item, id);
+                    } else {
+                        if (StringUtils.isNotBlank(receipt.getUuId())) {
+                            update(receipt.clone(), item, id);
+                        } else {
+                            update(receipt, item, id);
                         }
                     }
+
+
                 }
             }
         }
+
+        getReceiptsMaxTime(true);
+    }
+
+    private LocalDateTime getReceiptsMaxTime(boolean update) {
+
+        SyncTime byType = syncTimeRepository.getByTypeAndBusinessId(SyncTime.SyncType.RECEIPTS, getBusinessId());
+        LocalDateTime maxTime = null;
+
+        if(!update) {
+            if (byType == null) {
+                List<Receipt> items = receiptsStorage.allReceipts(getBusinessId());
+                if (items != null && !items.isEmpty()) {
+                    maxTime = items.stream().map(Receipt::getUpdated_at).max(LocalDateTime::compareTo).get();
+                }
+                byType = new SyncTime();
+                byType.setMaxTime(maxTime);
+                byType.setType(SyncTime.SyncType.RECEIPTS);
+                byType.setBusinessId(getBusinessId());
+            } else {
+                maxTime = byType.getMaxTime();
+            }
+
+            if (maxTime == null && byType.getId() != null) {
+                syncTimeRepository.delete(byType);
+            } else {
+                syncTimeRepository.save(byType);
+            }
+        } else {
+            List<Receipt> items = receiptsStorage.allReceipts(getBusinessId());
+            if (items != null && !items.isEmpty()) {
+                maxTime = items.stream().map(Receipt::getUpdated_at).max(LocalDateTime::compareTo).get();
+            }
+            byType.setMaxTime(maxTime);
+            syncTimeRepository.save(byType);
+        }
+        return maxTime;
+    }
+
+    private void update(Receipt receipt, LineItem item, String id) {
+        receipt.setLine_items(null);
+        receipt.setLine_item(item);
+        Item item1 = itemStorage.oneItemByLoyId(item.getItem_id() + "|" + receipt.getLine_item().getVariant_id() + "|" + receipt.getStore_id());
+        receipt.setCategory_id(item1 == null ? null : item1.getCategory_id());
+        receipt.setReceipt_number(id);
+        receipt.setBusinessId(getBusinessId());
+        receiptsStorage.saveOrUpdate(receipt);
     }
 
     /**
@@ -347,9 +391,10 @@ public class JobbyLauncher {
                     if (oneItem != null) {
                         // transfer all needed fields from oneTime to item
 //                                        .setUuId(oneItem.getUuId());
+                        oneItem.setCategory_id(item.getCategory_id());
                         iterateStockLevels(oneItem, variant, store, levels, id);
                     } else {
-                        if (StringUtils.isNotBlank(item.getUuId())) {
+                        if (StringUtils.isNotBlank(item.getUuId())) {// this is to split item variants in different nexy-insight items
                             iterateStockLevels(item.clone(), variant, store, levels, id);
                         } else {
                             iterateStockLevels(item, variant, store, levels, id);

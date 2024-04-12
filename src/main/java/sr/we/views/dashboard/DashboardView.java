@@ -11,6 +11,7 @@ import com.github.appreciated.apexcharts.config.legend.Position;
 import com.github.appreciated.apexcharts.config.responsive.builder.OptionsBuilder;
 import com.github.appreciated.apexcharts.config.stroke.Curve;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -24,64 +25,138 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.RouteAlias;
+import com.vaadin.flow.router.*;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.annotation.security.PermitAll;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsRow;
+import sr.we.controllers.ItemsController;
+import sr.we.entity.User;
+import sr.we.entity.eclipsestore.tables.Item;
+import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 import sr.we.views.dashboard.ServiceHealth.Status;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 @PageTitle("Dashboard")
 @Route(value = "dashboard", layout = MainLayout.class)
 @RouteAlias(value = "", layout = MainLayout.class)
 @PermitAll
-public class DashboardView extends Main {
+public class DashboardView extends Main implements BeforeEnterObserver {
 
-    public DashboardView() {
+
+    private final ItemsController ItemService;
+    private final AuthenticatedUser authenticatedUser;
+    private final UI ui;
+    private User user;
+
+    public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser) {
         addClassName("dashboard-view");
+        this.ui = UI.getCurrent();
+        this.ItemService = ItemService;
+        this.authenticatedUser = authenticatedUser;
+
+        Optional<User> maybeUser = authenticatedUser.get();
+        maybeUser.ifPresent(value -> user = value);
 
         BsLayout board = new BsLayout();
-        board.addRow(new BsRow(new BsColumn(createHighlight("Current users", "745", 33.7)).withSize(BsColumn.Size.XS), //
-                new BsColumn(createHighlight("View events", "54.6k", -112.45)).withSize(BsColumn.Size.XS), //
-                new BsColumn(createHighlight("Conversion rate", "18%", 3.9)).withSize(BsColumn.Size.XS), //
-                new BsColumn(createHighlight("Custom metric", "-123.45", 0.0)).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createHighlight("Total inventory value", span -> {
+            new Thread(() -> {
+                BigDecimal reduce = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                ui.access(() -> {
+                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(reduce);
+                    span.setText(format);
+                });
+            }).start();
+            return null;
+        })).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Total retail value", span -> {
+                    new Thread(() -> {
+                        BigDecimal reduce = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        ui.access(() -> {
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(reduce);
+                            span.setText(format);
+                        });
+                    }).start();
+                    return null;
+                })).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Potential profit", span -> {
+                    new Thread(() -> {
+                        List<Item> itemStream = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).toList();
+                        BigDecimal price = itemStream.stream().map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal cost = itemStream.stream().map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        ui.access(() -> {
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(price.subtract(cost));
+                            span.setText(format);
+                        });
+                    }).start();
+                    return null;
+                })).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Margin", span -> {
+                    new Thread(() -> {
+                        List<Item> itemStream = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).toList();
+                        BigDecimal price = itemStream.stream().map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal cost = itemStream.stream().map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        ui.access(() -> {
+                            String format = new DecimalFormat(" #,##0.00 '%'").format(BigDecimal.valueOf(100).subtract(cost.divide(price, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))));
+                            span.setText(format);
+                        });
+                    }).start();
+                    return null;
+                })).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createServiceHealth()).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes()).withSize(BsColumn.Size.XS)));
         add(board);
     }
 
-    private Component createHighlight(String title, String value, Double percentage) {
+    private static boolean check(Item item) {
+        return true;
+    }
+
+    private Long getBusinessId() {
+        return 0L;
+    }
+
+
+    private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
         VaadinIcon icon = VaadinIcon.ARROW_UP;
         String prefix = "";
         String theme = "badge";
 
-        if (percentage == 0) {
-            prefix = "±";
-        } else if (percentage > 0) {
-            prefix = "+";
-            theme += " success";
-        } else if (percentage < 0) {
-            icon = VaadinIcon.ARROW_DOWN;
-            theme += " error";
-        }
+//        if (percentage == 0) {
+//            prefix = "±";
+//        } else if (percentage > 0) {
+//            prefix = "+";
+//            theme += " success";
+//        } else if (percentage < 0) {
+//            icon = VaadinIcon.ARROW_DOWN;
+//            theme += " error";
+//        }
 
         H2 h2 = new H2(title);
         h2.addClassNames(FontWeight.NORMAL, Margin.NONE, TextColor.SECONDARY, FontSize.XSMALL);
 
-        Span span = new Span(value);
+        Span span = new Span();
+
         span.addClassNames(FontWeight.SEMIBOLD, FontSize.XXXLARGE);
+
+        buildParameter.build(span);
 
         Icon i = icon.create();
         i.addClassNames(BoxSizing.BORDER, Padding.XSMALL);
 
-        Span badge = new Span(i, new Span(prefix + percentage));
-        badge.getElement().getThemeList().add(theme);
+//        Span badge = new Span(i, new Span(prefix + percentage));
+//        badge.getElement().getThemeList().add(theme);
 
-        VerticalLayout layout = new VerticalLayout(h2, span, badge);
+        VerticalLayout layout = new VerticalLayout(h2, span);
         layout.addClassName(Padding.LARGE);
         layout.setPadding(false);
         layout.setSpacing(false);
@@ -241,4 +316,9 @@ public class DashboardView extends Main {
         return theme;
     }
 
+    @Override
+    public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
+        Optional<User> maybeUser = authenticatedUser.get();
+        maybeUser.ifPresent(value -> user = value);
+    }
 }

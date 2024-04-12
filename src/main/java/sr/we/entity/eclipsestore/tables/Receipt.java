@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class Receipt extends SuperDao{
+public class Receipt extends SuperDao implements Cloneable{
     private Long businessId;
     private String receipt_number;
     private String note;
@@ -32,7 +32,9 @@ public class Receipt extends SuperDao{
     private BigDecimal tip;
     private BigDecimal surcharge;
     private List<LineItem> line_items;
+    private LineItem line_item;
     private List<Payment> payments;
+    private String category_id;
 
     public String getReceipt_number() {
         return receipt_number;
@@ -224,5 +226,37 @@ public class Receipt extends SuperDao{
 
     public void setBusinessId(Long businessId) {
         this.businessId = businessId;
+    }
+
+    public LineItem getLine_item() {
+        return line_item;
+    }
+
+    public void setLine_item(LineItem line_item) {
+        this.line_item = line_item;
+    }
+
+    public String getCategory_id() {
+        return category_id;
+    }
+
+    public void setCategory_id(String category_id) {
+        this.category_id = category_id;
+    }
+
+    @Override
+    public Receipt clone() {
+        try {
+            Receipt clone = (Receipt) super.clone();
+            clone.setUuId(null);
+            clone.setReceipt_number(null);
+            clone.setLine_items(null);
+            clone.setLine_item(null);
+            clone.setCategory_id(null);
+            // TODO: copy mutable state here, so the clone can't change the internals of the original
+            return clone;
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError();
+        }
     }
 }

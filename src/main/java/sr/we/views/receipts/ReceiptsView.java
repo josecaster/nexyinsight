@@ -1,18 +1,15 @@
-package sr.we.views.items;
+package sr.we.views.receipts;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.CheckboxGroup;
-import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.Uses;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
-import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -21,68 +18,43 @@ import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
-import com.vaadin.flow.component.textfield.BigDecimalField;
-import com.vaadin.flow.component.textfield.IntegerField;
-import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
-import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.jpa.domain.Specification;
-import sr.we.controllers.ItemsController;
+import sr.we.controllers.ReceiptsController;
 import sr.we.controllers.StoresRestController;
-import sr.we.entity.User;
-import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
-import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 
-import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-@PageTitle("Items")
-@Route(value = "items", layout = MainLayout.class)
+@PageTitle("Receipts")
+@Route(value = "receipts", layout = MainLayout.class)
 @PermitAll
 @Uses(Icon.class)
-public class ItemsView extends Div implements BeforeEnterObserver {
+public class ReceiptsView extends Div {
 
-    private final ItemsController ItemService;
-    private final Filters filters;
+    private final ReceiptsController receiptService;
     private final StoresRestController sectionService;
-    private final AuthenticatedUser authenticatedUser;
-    private Grid<Item> grid;
-    private Grid.Column<Item> storeColumn;
-    private Grid.Column<Item> priceColumn;
-    private Grid.Column<Item> inventoryValueColumn;
-    private Grid.Column<Item> costColumn;
-    private Grid.Column<Item> stockLevelColumn;
-    private Grid.Column<Item> itemNameColumn;
-    private TextField itemNameFld;
-    private IntegerField stockLevelFld;
-    private BigDecimalField costFld;
-    private BigDecimalField inventoryValueFld;
-    private BigDecimalField priceFld;
-    private ComboBox<Section> storeFld;
+    private final Filters filters;
+    private Grid<Receipt> grid;
 
-    public ItemsView(ItemsController ItemService, StoresRestController sectionService, AuthenticatedUser authenticatedUser) {
-        this.ItemService = ItemService;
+    public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService) {
+        this.receiptService = ReceiptService;
         this.sectionService = sectionService;
-        this.authenticatedUser = authenticatedUser;
         setSizeFull();
         addClassNames("items-view");
 
-        filters = new Filters(() -> refreshGrid());
+        filters = new Filters(this::refreshGrid);
         VerticalLayout layout = new VerticalLayout(createMobileFilters(), filters, createGrid());
         layout.setSizeFull();
         layout.setPadding(false);
@@ -90,7 +62,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         add(layout);
     }
 
-    private long getBusinessId() {
+    private static long getBusinessId() {
         return 0L;
     }
 
@@ -118,126 +90,79 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     }
 
     private Component createGrid() {
-        grid = new Grid<>(Item.class, false);
-        grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        grid = new Grid<>(Receipt.class, false);
+//        grid.addColumn("firstName").setAutoWidth(true);
+//        grid.addColumn("lastName").setAutoWidth(true);
+//        grid.addColumn("email").setAutoWidth(true);
+//        grid.addColumn("phone").setAutoWidth(true);
+//        grid.addColumn("dateOfBirth").setAutoWidth(true);
+//        grid.addColumn("occupation").setAutoWidth(true);
+//        grid.addColumn("role").setAutoWidth(true);
 
-        itemNameColumn = grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
-        grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
-        stockLevelColumn = grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-        costColumn = grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-        inventoryValueColumn = grid.addComponentColumn(l -> {
-            Span span = new Span(l.getVariant().getCost().multiply(BigDecimal.valueOf(l.getStock_level())).toString());
-            if (l.getStock_level() > 0) {
-                span.getElement().getThemeList().add("badge success");
-            } else if (l.getStock_level() < 0) {
-                span.getElement().getThemeList().add("badge error");
-            }
-            return span;
-        }).setHeader("Inventory value").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-        priceColumn = grid.addColumn(l -> l.getVariant().getDefault_price()).setHeader("Price").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-        storeColumn = grid.addColumn(l -> {
-            String storeId = l.getVariantStore().getStore_id();
+        grid.addColumn(Receipt::getReceipt_date).setHeader("Create date").setAutoWidth(true).setResizable(true);
+        grid.addColumn(Receipt::getReceipt_number).setHeader("Receipt #").setAutoWidth(true).setResizable(true);
+        grid.addColumn(Receipt::getReceipt_type).setHeader("Type").setAutoWidth(true);
+        grid.addColumn(l -> {
+            String storeId = l.getStore_id();
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(storeId)).findAny();
             return any.map(Section::getDefault_name).orElse(storeId);
-        }).setHeader("Link Store").setFlexGrow(1);
+        }).setHeader("Store").setAutoWidth(true);
+//        grid.addColumn(Receipt::getPos_device_id).setHeader("Device").setAutoWidth(true);
+        grid.addColumn(r -> r.getLine_item().getItem_name()).setHeader("Item").setAutoWidth(true);
+        grid.addComponentColumn(r -> {
+//            MultiSelectComboBox<Section> sectionMultiSelectComboBox = new MultiSelectComboBox<>();
+//            sectionMultiSelectComboBox.setItemLabelGenerator(Section::getName);
+//            sectionMultiSelectComboBox.setItems(sections);
+            List<Section> sections = sectionService.allStores(getBusinessId());
+            List<Section> collect = sections.stream().filter(l -> {
+
+                boolean containsDevice = true;
+                boolean containsCatregory = true;
+                boolean containsStore = l.getId().equalsIgnoreCase(r.getStore_id());
+                if (containsStore) {
+                    if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+                        // check on pos device
+                        containsDevice = l.getDevices().contains(r.getPos_device_id());
+                    }
+
+                    if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                        // check on item category
+                        containsCatregory = l.getCategories().contains(r.getCategory_id());
+                    }
+                }
+                return containsStore && containsDevice && containsCatregory;
+            }).toList();
+            if(collect.size() > 1){
+                collect = collect.stream().filter(l -> !l.isDefault()).toList();
+            }
+//            sectionMultiSelectComboBox.setValue(collect);
+            Span span = new Span(collect.stream().map(Section::getName).collect(Collectors.joining("\n")));
+            span.getStyle().set("white-space", "pre-line");
+            span.getElement().getThemeList().add("badge warning");
+            span.setWidthFull();
+            return span;
+        }).setHeader("Section").setAutoWidth(true);
+//        grid.addColumn(r -> r.getLine_item().getVariant_id()).setHeader("Variant").setAutoWidth(true);
+        grid.addColumn(r -> r.getLine_item().getCost_total()).setHeader("Cost").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        grid.addColumn(r -> r.getLine_item().getTotal_discount()).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        grid.addColumn(r -> r.getLine_item().getTotal_money()).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
 
+        grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), filters::check));
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
 
-        createGridFilter();
-
         return grid;
-    }
-
-    private void createGridFilter() {
-        HeaderRow headerRow = grid.appendHeaderRow();
-
-        itemNameFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
-        stockLevelFld = new IntegerField("", null, l -> grid.getDataProvider().refreshAll());
-        costFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
-        inventoryValueFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
-        priceFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
-        storeFld = new ComboBox<>(l -> grid.getDataProvider().refreshAll());
-        storeFld.setItemLabelGenerator(Section::getDefault_name);
-        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f-> true).filter(Section::isDefault));
-
-        itemNameFld.setPlaceholder("Filter");
-        stockLevelFld.setPlaceholder("Filter");
-        costFld.setPlaceholder("Filter");
-        inventoryValueFld.setPlaceholder("Filter");
-        priceFld.setPlaceholder("Filter");
-        storeFld.setPlaceholder("Filter");
-
-        itemNameFld.setWidthFull();
-        stockLevelFld.setWidthFull();
-        costFld.setWidthFull();
-        inventoryValueFld.setWidthFull();
-        priceFld.setWidthFull();
-        storeFld.setWidthFull();
-
-        itemNameFld.setClearButtonVisible(true);
-        stockLevelFld.setClearButtonVisible(true);
-        costFld.setClearButtonVisible(true);
-        inventoryValueFld.setClearButtonVisible(true);
-        priceFld.setClearButtonVisible(true);
-        storeFld.setClearButtonVisible(true);
-
-        stockLevelFld.setStepButtonsVisible(true);
-
-        headerRow.getCell(itemNameColumn).setComponent(itemNameFld);
-        headerRow.getCell(stockLevelColumn).setComponent(stockLevelFld);
-        headerRow.getCell(costColumn).setComponent(costFld);
-        headerRow.getCell(inventoryValueColumn).setComponent(inventoryValueFld);
-        headerRow.getCell(priceColumn).setComponent(priceFld);
-        headerRow.getCell(storeColumn).setComponent(storeFld);
     }
 
     private void refreshGrid() {
         grid.getDataProvider().refreshAll();
     }
 
-    @Override
-    public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
-        Optional<User> maybeUser = authenticatedUser.get();
-        if (maybeUser.isPresent()) {
-            User user = maybeUser.get();
-            grid.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), user, this::check));
-        }
-    }
-
-    private boolean check(Item item) {
-
-        boolean check = true;
-        if (StringUtils.isNotBlank(itemNameFld.getValue())) {
-            check = item.getItem_name().toUpperCase().contains(itemNameFld.getValue().toUpperCase());
-        }
-        if (check && storeFld.getValue() != null) {
-            check = item.getVariantStore().getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
-        }
-        if (check && stockLevelFld.getValue() != null) {
-            check = item.getStock_level() == stockLevelFld.getValue();
-        }
-        if (check && costFld.getValue() != null) {
-            check = item.getVariant().getCost().compareTo(costFld.getValue()) == 0;
-        }
-        if (check && priceFld.getValue() != null) {
-            check = item.getVariant().getDefault_price() != null && item.getVariant().getDefault_price().compareTo(priceFld.getValue()) == 0;
-        }
-        if (check && inventoryValueFld.getValue() != null) {
-            check = item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())).compareTo(inventoryValueFld.getValue()) == 0;
-        }
-
-        if(check){
-            check = filters.check(item);
-        }
-
-        return check;
-    }
-
     public static class Filters extends Div {
         private final Select<String> selector = new Select<>();
-        private final DatePicker startDate = new DatePicker("Stock level date");
+        private final DatePicker startDate = new DatePicker("Receipt date");
         private final DatePicker endDate = new DatePicker();
 
         public Filters(Runnable onSearch) {
@@ -253,6 +178,10 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             resetBtn.addClickListener(e -> {
                 startDate.clear();
                 endDate.clear();
+//                name.clear();
+//                phone.clear();
+//                occupations.clear();
+//                roles.clear();
                 onSearch.run();
             });
             Button searchBtn = new Button("Search");
@@ -263,7 +192,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             actions.addClassName(LumoUtility.Gap.SMALL);
             actions.addClassName("actions");
 
-            add(createDateRangeFilter(), actions);
+            add(/*name, phone, */createDateRangeFilter()/*, occupations, roles*/, actions);
         }
 
         private Component createDateRangeFilter() {
@@ -329,14 +258,29 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             dateRangeComponent.getElement().getStyle().set("justify-self", "self-start");
             dateRangeComponent.addClassName(LumoUtility.Gap.XSMALL);
 
+//            Optional<Cookie> any = Arrays.stream(VaadinService.getCurrentRequest().getCookies()).filter(cookie -> cookie.getName().equalsIgnoreCase("date-range")).findAny();
+//            if(any.isPresent()){
+//                Cookie cookie = any.get();
+//                String value = cookie.getValue();
+//                String[] split = value.split("//");
+//                if(split.length==2){
+//                    String startDateString = split[0];
+//                    String endDateString = split[1];
+//
+//                    startDate.setValue(LocalDate.parse(startDateString));
+//                    endDate.setValue(LocalDate.parse(endDateString));
+//                }
+//            }
+
+
             return dateRangeComponent;
         }
 
 
-        public boolean check(Item item) {
+        public boolean check(Receipt receipt) {
             boolean check = true;
             if (startDate.getValue() != null && endDate.getValue() != null) {
-                LocalDate receiptDate = item.getLastUpdateStockLevel().toLocalDate();
+                LocalDate receiptDate = receipt.getReceipt_date().toLocalDate();
                 if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
                     check = false;
                 }

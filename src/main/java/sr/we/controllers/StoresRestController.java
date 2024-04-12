@@ -7,7 +7,10 @@ import sr.we.integration.LoyItemsController;
 import sr.we.integration.Parent;
 import sr.we.storage.*;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 @Controller
 public class StoresRestController extends Parent {
@@ -49,4 +52,7 @@ public class StoresRestController extends Parent {
     }
 
 
+    public Stream<Section> allSections(Long businessId, Integer page, Integer pageSize, Predicate<? super Section> predicate) {
+        return (page == null || pageSize == null) ? (predicate != null ? storeStorage.allStores(businessId).stream().filter(predicate) : storeStorage.allStores(businessId).stream()) : (predicate != null ? storeStorage.allStores(businessId).stream().filter(predicate).sorted(Comparator.comparing(Section::getId).reversed()).skip((long) page * pageSize).limit(pageSize) : storeStorage.allStores(businessId).stream().sorted(Comparator.comparing(Section::getId).reversed()).skip((long) page * pageSize).limit(pageSize));
+    }
 }

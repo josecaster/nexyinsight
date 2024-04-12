@@ -62,6 +62,7 @@ public class ReceiptStorage extends EclipseStoreSuperService<Receipt> implements
             f.setTip(receipt.getTip());
             f.setSurcharge(receipt.getSurcharge());
             f.setBusinessId(receipt.getBusinessId());
+            f.setCategory_id(receipt.getCategory_id());
             return f;
         });
     }

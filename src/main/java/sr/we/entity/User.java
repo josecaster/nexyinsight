@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -58,4 +59,7 @@ public class User extends AbstractEntity {
         this.profilePicture = profilePicture;
     }
 
+    public List<String> getLinkSections() {
+        return null;// TODO still need to add link sections
+    }
 }

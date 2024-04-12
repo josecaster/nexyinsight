@@ -2,25 +2,50 @@ package sr.we.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import sr.we.entity.Role;
+import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Item;
+import sr.we.entity.eclipsestore.tables.Receipt;
+import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.integration.LoyItemsController;
 import sr.we.integration.Parent;
 import sr.we.storage.IItemStorage;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 
 @Controller
-public class ItemsController extends Parent{
+public class ItemsController extends Parent {
 
     @Autowired
     private IItemStorage itemStorage;
 
     @Autowired
     private LoyItemsController loyItemsController;
+
+    @Autowired
+    private StoresRestController storesRestController;
+
+    private static Predicate<Item> getItemPredicate(List<Section> sectionIds) {
+        return f -> {
+            boolean contains = true;
+            if (sectionIds != null) {
+                contains = sectionIds.stream().anyMatch(l -> {
+                    boolean cont = l.getId().equalsIgnoreCase(f.getVariantStore().getStore_id());
+                    if (cont && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                        cont = l.getCategories().contains(f.getCategory_id());
+                    }
+                    return cont;
+                });
+            }
+            return contains && f.getStock_level() != 0;
+        };
+    }
 
     public Item oneItem(Long businessId, String id) {
         return itemStorage.oneItem(id);
@@ -32,10 +57,23 @@ public class ItemsController extends Parent{
      * @param businessId
      * @param page
      * @param pageSize
+     * @param user
      * @return
      */
-    public Stream<Item> allItems(Long businessId, Integer page, Integer pageSize) {
-        return (page == null || pageSize == null) ? itemStorage.allItems(businessId).stream().filter(f -> f.getStock_level() != 0): itemStorage.allItems(businessId).stream().filter(f -> f.getStock_level() != 0).sorted(Comparator.comparing(Item::getItem_name)).skip((long) page * pageSize).limit(pageSize);
+    public Stream<Item> allItems(Long businessId, Integer page, Integer pageSize, User user, Predicate<? super Item> predicate) {
+
+        List<String> sectionIds;
+        List<Section> sections = storesRestController.allStores(businessId);
+        if (user != null && !user.getRoles().contains(Role.ADMIN)) {
+            sectionIds = user.getLinkSections();
+            if (sectionIds != null) {
+                sections = sections.stream().filter(f -> sectionIds.contains(f.getUuId())).toList();
+            }
+        } else {
+            sectionIds = null;
+        }
+
+        return (page == null || pageSize == null) ? itemStorage.allItems(businessId).stream().filter(getItemPredicate(sections)).filter(predicate) : itemStorage.allItems(businessId).stream().filter(getItemPredicate(sections)).filter(predicate).sorted(Comparator.comparing(Item::getItem_name)).skip((long) page * pageSize).limit(pageSize);
     }
 
     public Item addNewItem(@RequestBody Item item) {
@@ -143,16 +181,9 @@ public class ItemsController extends Parent{
     public Item updateItem(Item item) {
         return itemStorage.saveOrUpdate(item);
     }
-    
+
     public boolean deleteItem(String id) {
         return itemStorage.deleteItem(id);
     }
 
-    public long getCount(Long businessId) {
-        return allItems(businessId, null, null).count();
-    }
-
-    public BigDecimal inventoryValue(Long businessId) {
-        return allItems(businessId, null, null).filter(f -> f.getStock_level() > 0).map(f -> f.getVariant().getCost().multiply(BigDecimal.valueOf(f.getStock_level()))).reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
 }

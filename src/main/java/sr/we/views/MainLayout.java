@@ -40,6 +40,7 @@ import sr.we.security.AuthenticatedUser;
 import sr.we.views.batches.BatchesView;
 import sr.we.views.dashboard.DashboardView;
 import sr.we.views.items.ItemsView;
+import sr.we.views.receipts.ReceiptsView;
 import sr.we.views.sections.SectionsView;
 import sr.we.views.users.UsersView;
 
@@ -158,13 +159,14 @@ public class MainLayout extends AppLayout {
         return new MenuItemInfo[]{ //
                 new MenuItemInfo("Dashboard", LineAwesomeIcon.CHART_AREA_SOLID.create(), DashboardView.class), //
 
-                new MenuItemInfo("Sections", LineAwesomeIcon.TH_SOLID.create(), SectionsView.class), //
+                new MenuItemInfo("Sections", LineAwesomeIcon.LAYER_GROUP_SOLID.create(), SectionsView.class), //
 
-                new MenuItemInfo("Batches", LineAwesomeIcon.COLUMNS_SOLID.create(), BatchesView.class), //
+                new MenuItemInfo("Batches", LineAwesomeIcon.OBJECT_GROUP.create(), BatchesView.class), //
 
-                new MenuItemInfo("Items", LineAwesomeIcon.FILTER_SOLID.create(), ItemsView.class), //
+                new MenuItemInfo("Items", LineAwesomeIcon.PRODUCT_HUNT.create(), ItemsView.class), //
+                new MenuItemInfo("Receipts", LineAwesomeIcon.RECEIPT_SOLID.create(), ReceiptsView.class), //
 
-                new MenuItemInfo("Users", LineAwesomeIcon.TH_SOLID.create(), UsersView.class), //
+                new MenuItemInfo("Users", LineAwesomeIcon.USERS_SOLID.create(), UsersView.class), //
 
         };
     }
