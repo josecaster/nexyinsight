@@ -220,6 +220,9 @@ public class JobbyLauncher {
             LOGGER.info("Items: " + (listLoyItems == null ? 0 : (listLoyItems.getItems() == null ? 0 : listLoyItems.getItems().size())));
         }
 
+        List<StockLevel> levels = getStockLevels(); // get stock levels
+        iterateItems(items, levels);// rectify the amounts
+
         getItemsLastUpdated(true);
     }
 
