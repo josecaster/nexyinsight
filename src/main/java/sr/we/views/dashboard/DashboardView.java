@@ -11,7 +11,6 @@ import com.github.appreciated.apexcharts.config.grid.builder.RowBuilder;
 import com.github.appreciated.apexcharts.config.legend.Position;
 import com.github.appreciated.apexcharts.config.responsive.builder.OptionsBuilder;
 import com.github.appreciated.apexcharts.config.series.SeriesType;
-import com.github.appreciated.apexcharts.config.stroke.Curve;
 import com.github.appreciated.apexcharts.helper.Series;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.DetachEvent;
@@ -42,7 +41,6 @@ import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.InventoryValuation;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.security.AuthenticatedUser;
-import sr.we.storage.IInventoryValuationStorage;
 import sr.we.views.MainLayout;
 import sr.we.views.dashboard.ServiceHealth.Status;
 
@@ -71,8 +69,8 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private final AuthenticatedUser authenticatedUser;
     private final UI ui;
     private final InventoryValuationController inventoryValuationStorage;
-    private User user;
     private final ExecutorService executorService;
+    private User user;
     private ApexChartsBuilder chart;
     private Future<Void> submit2;
     private Future<?> submit;
@@ -137,6 +135,10 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
     private static boolean check(Item item) {
         return true;
+    }
+
+    private static BigDecimal getValue(Map<Pair<Integer, Month>, List<InventoryValuation>> collect, Integer year, Month month, Function<InventoryValuation, BigDecimal> function) {
+        return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).min(Comparator.comparing(InventoryValuation::getLocalDate).reversed()).map(function).orElse(BigDecimal.ZERO);
     }
 
     private Long getBusinessId() {
@@ -204,34 +206,35 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
         submit = executorService.submit(() -> {
             Map<Pair<Integer, Month>, List<InventoryValuation>> collect = inventoryValuationStorage.allInventoryValuations(getBusinessId()).stream().collect(Collectors.groupingBy(g -> Pair.of(g.getLocalDate().getYear(), g.getLocalDate().getMonth())));
-            Number[] data = new Number[]{
-                    getValue(collect, Month.JANUARY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.FEBRUARY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.MARCH, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.APRIL, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.MAY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.JUNE, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.JULY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.AUGUST, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.SEPTEMBER, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.OCTOBER, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.NOVEMBER, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.DECEMBER, InventoryValuation::getInventoryValue)
+            int year1 = LocalDate.now().getYear();
+            Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.MARCH, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.APRIL, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.MAY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.JUNE, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.JULY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.AUGUST, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.SEPTEMBER, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.OCTOBER, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.NOVEMBER, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year1, Month.DECEMBER, InventoryValuation::getInventoryValue)
 
             };
-            Number[] data1 = new Number[]{
-                    getValue(collect, Month.JANUARY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.FEBRUARY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.MARCH, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.APRIL, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.MAY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.JUNE, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.JULY, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.AUGUST, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.SEPTEMBER, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.OCTOBER, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.NOVEMBER, InventoryValuation::getInventoryValue),
-                    getValue(collect, Month.DECEMBER, InventoryValuation::getInventoryValue)
+
+            int year2 = year1--;
+            Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.MARCH, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.APRIL, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.MAY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.JUNE, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.JULY, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.AUGUST, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.SEPTEMBER, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.OCTOBER, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.NOVEMBER, InventoryValuation::getInventoryValue),//
+                    getValue(collect, year2, Month.DECEMBER, InventoryValuation::getInventoryValue)
 
             };
 
@@ -282,10 +285,6 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         viewEvents.setSpacing(false);
         viewEvents.getElement().getThemeList().add("spacing-l");
         return viewEvents;
-    }
-
-    private static BigDecimal getValue(Map<Pair<Integer, Month>, List<InventoryValuation>> collect, Month month, Function<InventoryValuation, BigDecimal> function) {
-        return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(LocalDate.now().getYear()) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).min(Comparator.comparing(InventoryValuation::getLocalDate).reversed()).map(function).orElse(BigDecimal.ZERO);
     }
 
     private Component createServiceHealth() {
