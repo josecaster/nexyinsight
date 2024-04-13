@@ -252,6 +252,11 @@ public class JobbyLauncher {
             if (itemss != null && !itemss.isEmpty()) {
                 maxTime = itemss.stream().map(Item::getUpdated_at).max(LocalDateTime::compareTo).get();
             }
+            if(byType == null){
+                byType = new SyncTime();
+                byType.setType(SyncTime.SyncType.ITEMS);
+                byType.setBusinessId(getBusinessId());
+            }
             byType.setMaxTime(maxTime);
             syncTimeRepository.save(byType);
         }
