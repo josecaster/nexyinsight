@@ -3,14 +3,18 @@ package sr.we.views.dashboard;
 
 import com.github.appreciated.apexcharts.ApexChartsBuilder;
 import com.github.appreciated.apexcharts.config.NoData;
+import com.github.appreciated.apexcharts.config.XAxis;
 import com.github.appreciated.apexcharts.config.builder.*;
 import com.github.appreciated.apexcharts.config.chart.Type;
 import com.github.appreciated.apexcharts.config.chart.builder.ZoomBuilder;
 import com.github.appreciated.apexcharts.config.grid.builder.RowBuilder;
 import com.github.appreciated.apexcharts.config.legend.Position;
 import com.github.appreciated.apexcharts.config.responsive.builder.OptionsBuilder;
+import com.github.appreciated.apexcharts.config.series.SeriesType;
 import com.github.appreciated.apexcharts.config.stroke.Curve;
+import com.github.appreciated.apexcharts.helper.Series;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
@@ -28,23 +32,33 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.annotation.security.PermitAll;
+import org.apache.commons.lang3.tuple.Pair;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsRow;
+import sr.we.controllers.InventoryValuationController;
 import sr.we.controllers.ItemsController;
 import sr.we.entity.User;
+import sr.we.entity.eclipsestore.tables.InventoryValuation;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.security.AuthenticatedUser;
+import sr.we.storage.IInventoryValuationStorage;
 import sr.we.views.MainLayout;
 import sr.we.views.dashboard.ServiceHealth.Status;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
+import java.time.Month;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @PageTitle("Dashboard")
 @Route(value = "dashboard", layout = MainLayout.class)
@@ -56,13 +70,21 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private final ItemsController ItemService;
     private final AuthenticatedUser authenticatedUser;
     private final UI ui;
+    private final InventoryValuationController inventoryValuationStorage;
     private User user;
+    private final ExecutorService executorService;
+    private ApexChartsBuilder chart;
+    private Future<Void> submit2;
+    private Future<?> submit;
+    private VerticalLayout viewEvents;
 
-    public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser) {
+    public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser, InventoryValuationController inventoryValuationStorage) {
         addClassName("dashboard-view");
         this.ui = UI.getCurrent();
         this.ItemService = ItemService;
         this.authenticatedUser = authenticatedUser;
+        this.inventoryValuationStorage = inventoryValuationStorage;
+        executorService = Executors.newFixedThreadPool(5);
 
         Optional<User> maybeUser = authenticatedUser.get();
         maybeUser.ifPresent(value -> user = value);
@@ -70,9 +92,9 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         BsLayout board = new BsLayout();
         board.addRow(new BsRow(new BsColumn(createHighlight("Total inventory value", span -> {
             new Thread(() -> {
-                BigDecimal reduce = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                 ui.access(() -> {
-                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(reduce);
+                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getInventoryValue() : BigDecimal.ZERO);
                     span.setText(format);
                 });
             }).start();
@@ -80,9 +102,9 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Total retail value", span -> {
                     new Thread(() -> {
-                        BigDecimal reduce = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(reduce);
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getRetailValue() : BigDecimal.ZERO);
                             span.setText(format);
                         });
                     }).start();
@@ -90,11 +112,9 @@ public class DashboardView extends Main implements BeforeEnterObserver {
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Potential profit", span -> {
                     new Thread(() -> {
-                        List<Item> itemStream = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).toList();
-                        BigDecimal price = itemStream.stream().map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal cost = itemStream.stream().map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(price.subtract(cost));
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getPotentialProfit() : BigDecimal.ZERO);
                             span.setText(format);
                         });
                     }).start();
@@ -102,11 +122,9 @@ public class DashboardView extends Main implements BeforeEnterObserver {
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Margin", span -> {
                     new Thread(() -> {
-                        List<Item> itemStream = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, user, DashboardView::check).filter(f -> f.getStock_level() > 0).toList();
-                        BigDecimal price = itemStream.stream().map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal cost = itemStream.stream().map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                         ui.access(() -> {
-                            String format = new DecimalFormat(" #,##0.00 '%'").format(BigDecimal.valueOf(100).subtract(cost.divide(price, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))));
+                            String format = new DecimalFormat(" #,##0.00 '%'").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getMargin() : BigDecimal.ZERO);
                             span.setText(format);
                         });
                     }).start();
@@ -124,7 +142,6 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private Long getBusinessId() {
         return 0L;
     }
-
 
     private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
         VaadinIcon icon = VaadinIcon.ARROW_UP;
@@ -170,16 +187,75 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         year.setValue("2021");
         year.setWidth("100px");
 
-        HorizontalLayout header = createHeader("View events", "City/month");
+        HorizontalLayout header = createHeader("Inventory valuation", "Track potential profit");
         header.add(year);
 
         // Chart
-        ApexChartsBuilder chart = ApexChartsBuilder.get();
+        chart = ApexChartsBuilder.get();
         NoData noData = new NoData();
-        chart.withChart(ChartBuilder.get().withType(Type.LINE).withHeight("400px").withZoom(ZoomBuilder.get().withEnabled(true).build()).build())//
-                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
+        chart.withChart(ChartBuilder.get().withHeight("400px").withZoom(ZoomBuilder.get().withEnabled(true).build()).build())//
+//                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
                 .withNoData(noData)//e
-                .withGrid(GridBuilder.get().withRow(RowBuilder.get().withColors("#f3f3f3", "transparent").withOpacity(0.5).build()).build());//
+                .withGrid(GridBuilder.get().withRow(RowBuilder.get().build()).build());//
+
+        XAxisBuilder xAxis = XAxisBuilder.get();
+        XAxis axis = xAxis.withCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").build();
+        chart = chart.withXaxis(axis);
+
+        submit = executorService.submit(() -> {
+            Map<Pair<Integer, Month>, List<InventoryValuation>> collect = inventoryValuationStorage.allInventoryValuations(getBusinessId()).stream().collect(Collectors.groupingBy(g -> Pair.of(g.getLocalDate().getYear(), g.getLocalDate().getMonth())));
+            Number[] data = new Number[]{
+                    getValue(collect, Month.JANUARY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.FEBRUARY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.MARCH, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.APRIL, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.MAY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.JUNE, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.JULY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.AUGUST, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.SEPTEMBER, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.OCTOBER, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.NOVEMBER, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.DECEMBER, InventoryValuation::getInventoryValue)
+
+            };
+            Number[] data1 = new Number[]{
+                    getValue(collect, Month.JANUARY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.FEBRUARY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.MARCH, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.APRIL, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.MAY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.JUNE, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.JULY, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.AUGUST, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.SEPTEMBER, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.OCTOBER, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.NOVEMBER, InventoryValuation::getInventoryValue),
+                    getValue(collect, Month.DECEMBER, InventoryValuation::getInventoryValue)
+
+            };
+
+            Series<Number>[] listSeries = new Series[2];
+
+            Series<Number> flowIn = new Series<>();
+            flowIn.setName("Inventory value");
+            flowIn.setData(data);
+            flowIn.setType(SeriesType.LINE);
+            listSeries[0] = flowIn;
+
+
+            Series<Number> flowOut = new Series<>();
+            flowOut.setName("Inventory value last year");
+            flowOut.setData(data1);
+            flowOut.setType(SeriesType.COLUMN);
+            listSeries[1] = flowOut;
+
+            submit2 = ui.access(() -> {
+                chart = chart.withSeries(listSeries);
+                viewEvents.removeAll();
+                viewEvents.add(header, chart.build());
+            });
+        });
 //        Configuration conf = chart.getConfiguration();
 //        conf.getChart().setStyledMode(true);
 //
@@ -200,12 +276,16 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 //        conf.addSeries(new ListSeries("Tokyo", 0, 11, 17, 123, 130, 142, 248, 349, 452, 454, 458, 462));
 
         // Add it all together
-        VerticalLayout viewEvents = new VerticalLayout(header, chart.build());
+        viewEvents = new VerticalLayout(header, chart.build());
         viewEvents.addClassName(Padding.LARGE);
         viewEvents.setPadding(false);
         viewEvents.setSpacing(false);
         viewEvents.getElement().getThemeList().add("spacing-l");
         return viewEvents;
+    }
+
+    private static BigDecimal getValue(Map<Pair<Integer, Month>, List<InventoryValuation>> collect, Month month, Function<InventoryValuation, BigDecimal> function) {
+        return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(LocalDate.now().getYear()) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).min(Comparator.comparing(InventoryValuation::getLocalDate).reversed()).map(function).orElse(BigDecimal.ZERO);
     }
 
     private Component createServiceHealth() {
@@ -320,5 +400,25 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         Optional<User> maybeUser = authenticatedUser.get();
         maybeUser.ifPresent(value -> user = value);
+    }
+
+    @Override
+    protected void onDetach(DetachEvent detachEvent) {
+        shut();
+        if (!executorService.isShutdown()) {
+            executorService.shutdownNow();
+        }
+        super.onDetach(detachEvent);
+
+    }
+
+    private void shut() {
+        if (submit != null) {
+            submit.cancel(true);
+        }
+        if (submit2 != null) {
+            submit2.cancel(true);
+        }
+
     }
 }

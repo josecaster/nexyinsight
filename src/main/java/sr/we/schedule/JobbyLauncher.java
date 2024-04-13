@@ -15,12 +15,12 @@ import sr.we.entity.eclipsestore.tables.*;
 import sr.we.integration.*;
 import sr.we.storage.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Component
 public class JobbyLauncher {
@@ -52,6 +52,8 @@ public class JobbyLauncher {
     LoyInventoryController inventoryController;
     @Autowired
     LoyReceiptsController loyReceiptsController;
+    @Autowired
+    private IInventoryValuationStorage iInventoryValuationStorage;
     @Value("${sr.we.loyverse.token}")
     private String loyverseToken;
     @Value("${sr.we.business.id}")
@@ -66,7 +68,7 @@ public class JobbyLauncher {
         return businessId;
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(fixedDelay = 300000)
     public void runItems() {
         LOGGER.info("SCHEDULED run of items STARTED");
         if (!itemsBusy) {
@@ -83,14 +85,14 @@ public class JobbyLauncher {
         }
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
     private void updateStockLevels() {
         LOGGER.info("SCHEDULED run of stock levels STARTED");
         List<StockLevel> levels = getStockLevels(); // get stock levels
         iterateItems(itemStorage.allItems(getBusinessId()), levels);// rectify the amounts
     }
 
-    @Scheduled(cron = "0 */10 * * * *")
+    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
     public void runReceipts() {
         LOGGER.info("SCHEDULED run of receipts STARTED");
         if (!itemsBusy) {
@@ -391,6 +393,9 @@ public class JobbyLauncher {
     private void iterateItems(List<Item> list, List<StockLevel> levels) {
         for (Item item : list) {
             String itemId = item.getId();
+            if (item.getVariants() == null) {
+                continue;
+            }
             for (Variant variant : item.getVariants()) {
 
                 for (VariantStore store : variant.getStores()) {
@@ -414,6 +419,38 @@ public class JobbyLauncher {
                 }
             }
 
+        }
+
+        updateInventoryEvaluation();
+    }
+
+    private void updateInventoryEvaluation() {
+        // update inventory evaluation
+        List<Item> items = itemStorage.allItems(getBusinessId());
+        LocalDate now = LocalDate.now();
+        Optional<InventoryValuation> inventoryValuationOptional = iInventoryValuationStorage.getInventoryValuation(getBusinessId(), now);
+        InventoryValuation inventoryValuation = null;
+        if (inventoryValuationOptional.isPresent()) {
+            inventoryValuation = inventoryValuationOptional.get();
+        } else {
+            inventoryValuation = new InventoryValuation();
+            inventoryValuation.setLocalDate(now);
+            inventoryValuation.setBusinessId(getBusinessId());
+            inventoryValuation.setType(InventoryValuation.Type.AUTOMATIC);
+        }
+        if (inventoryValuation.getType().compareTo(InventoryValuation.Type.AUTOMATIC) == 0) {
+            BigDecimal inventoryValue = items.stream().filter(f -> f.getStock_level() > 0).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal retailValue = items.stream().filter(f -> f.getStock_level() > 0).map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal profit = retailValue.subtract(inventoryValue);
+            BigDecimal margin = BigDecimal.valueOf(100).subtract(inventoryValue.divide(retailValue, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)));
+            inventoryValuation.setRetailValue(retailValue);
+            inventoryValuation.setInventoryValue(inventoryValue);
+            inventoryValuation.setPotentialProfit(profit);
+            inventoryValuation.setMargin(margin);
+            inventoryValuation = iInventoryValuationStorage.saveOrUpdate(inventoryValuation);
+            LOGGER.info(inventoryValuation.toString());
+        } else {
+            LOGGER.info("Can't update inventory valuation manual ["+now+"]");
         }
     }
 

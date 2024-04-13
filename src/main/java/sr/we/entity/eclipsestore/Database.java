@@ -25,6 +25,9 @@ public class Database implements Serializable {
     @Table(InventoryHistory.class)
     private final Grid<InventoryHistory> inventoryHistory = new Grid<>();
 
+    @Table(InventoryValuation.class)
+    private final Grid<InventoryValuation> inventoryValuation = new Grid<>();
+
     /**
      * This gets the list of data within the lazy field
      *
