@@ -222,7 +222,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
             };
 
-            int year2 = year1--;
+            int year2 = year1-1;
             Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, InventoryValuation::getInventoryValue),//
                     getValue(collect, year2, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
                     getValue(collect, year2, Month.MARCH, InventoryValuation::getInventoryValue),//
