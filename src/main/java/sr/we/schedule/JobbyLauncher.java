@@ -217,18 +217,18 @@ public class JobbyLauncher {
 
             cursor = listLoyItems == null ? null : listLoyItems.getCursor();
             run = StringUtils.isNotBlank(cursor);
-            LOGGER.debug("Items: " + (listLoyItems == null ? 0 : (listLoyItems.getItems() == null ? 0 : listLoyItems.getItems().size())));
+            LOGGER.info("Items: " + (listLoyItems == null ? 0 : (listLoyItems.getItems() == null ? 0 : listLoyItems.getItems().size())));
         }
 
         getItemsLastUpdated(true);
     }
 
 
-
     private LocalDateTime getItemsLastUpdated(boolean update) {
         SyncTime byType = syncTimeRepository.getByTypeAndBusinessId(SyncTime.SyncType.ITEMS, getBusinessId());
         LocalDateTime maxTime = null;
-        if(!update) {
+        LOGGER.info("Item Update?[" + update + "] " + byType);
+        if (!update) {
             if (byType == null) {
                 List<Item> itemss = itemStorage.allItems(getBusinessId());
                 if (itemss != null && !itemss.isEmpty()) {
@@ -252,7 +252,7 @@ public class JobbyLauncher {
             if (itemss != null && !itemss.isEmpty()) {
                 maxTime = itemss.stream().map(Item::getUpdated_at).max(LocalDateTime::compareTo).get();
             }
-            if(byType == null){
+            if (byType == null) {
                 byType = new SyncTime();
                 byType.setType(SyncTime.SyncType.ITEMS);
                 byType.setBusinessId(getBusinessId());
@@ -260,7 +260,7 @@ public class JobbyLauncher {
             byType.setMaxTime(maxTime);
             syncTimeRepository.save(byType);
         }
-
+        LOGGER.info("Item Update?[" + update + "] MaxTime[" + maxTime + "]");
         return maxTime;
     }
 
@@ -337,8 +337,8 @@ public class JobbyLauncher {
 
         SyncTime byType = syncTimeRepository.getByTypeAndBusinessId(SyncTime.SyncType.RECEIPTS, getBusinessId());
         LocalDateTime maxTime = null;
-
-        if(!update) {
+        LOGGER.info("Receipt Update?[" + update + "] " + byType);
+        if (!update) {
             if (byType == null) {
                 List<Receipt> items = receiptsStorage.allReceipts(getBusinessId());
                 if (items != null && !items.isEmpty()) {
@@ -365,6 +365,7 @@ public class JobbyLauncher {
             byType.setMaxTime(maxTime);
             syncTimeRepository.save(byType);
         }
+        LOGGER.info("Receipt Update?[" + update + "] MaxTime[" + maxTime + "]");
         return maxTime;
     }
 

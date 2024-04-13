@@ -42,4 +42,13 @@ public class SyncTime extends AbstractEntity {
     public enum SyncType {
         ITEMS,RECEIPTS
     }
+
+    @Override
+    public String toString() {
+        return "SyncTime{" +
+                "maxTime=" + maxTime +
+                ", type=" + type +
+                ", businessId=" + businessId +
+                '}';
+    }
 }
