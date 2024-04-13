@@ -3,6 +3,7 @@ package sr.we.views.dashboard;
 
 import com.github.appreciated.apexcharts.ApexChartsBuilder;
 import com.github.appreciated.apexcharts.config.NoData;
+import com.github.appreciated.apexcharts.config.Theme;
 import com.github.appreciated.apexcharts.config.XAxis;
 import com.github.appreciated.apexcharts.config.builder.*;
 import com.github.appreciated.apexcharts.config.chart.Type;
@@ -11,6 +12,7 @@ import com.github.appreciated.apexcharts.config.grid.builder.RowBuilder;
 import com.github.appreciated.apexcharts.config.legend.Position;
 import com.github.appreciated.apexcharts.config.responsive.builder.OptionsBuilder;
 import com.github.appreciated.apexcharts.config.series.SeriesType;
+import com.github.appreciated.apexcharts.config.theme.Mode;
 import com.github.appreciated.apexcharts.helper.Series;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.DetachEvent;
@@ -195,8 +197,11 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         // Chart
         chart = ApexChartsBuilder.get();
         NoData noData = new NoData();
+        Theme theme = new Theme();
+        theme.setMode(Mode.DARK);
         chart.withChart(ChartBuilder.get().withHeight("400px").withZoom(ZoomBuilder.get().withEnabled(true).build()).build())//
 //                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
+                .withTheme(theme)
                 .withNoData(noData)//e
                 .withGrid(GridBuilder.get().withRow(RowBuilder.get().build()).build());//
 
