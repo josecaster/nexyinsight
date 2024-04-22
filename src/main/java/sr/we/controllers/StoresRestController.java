@@ -31,8 +31,8 @@ public class StoresRestController extends Parent {
     LoyItemsController loyItemsController;
 
 
-    public Section oneStore(Long businessId, String id) {
-        return storeStorage.oneStore(id);
+    public Section oneStore(Long businessId, String uuId) {
+        return storeStorage.oneStore(uuId);
     }
 
     public List<Section> allStores(Long businessId) {

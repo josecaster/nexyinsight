@@ -1,16 +1,14 @@
 package sr.we.views.batches;
 
-import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.Focusable;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
-import com.vaadin.flow.component.grid.editor.Editor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
@@ -20,10 +18,8 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
-import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.data.renderer.LocalDateRenderer;
@@ -32,15 +28,17 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
-import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import sr.we.controllers.StoresRestController;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
 import sr.we.entity.Role;
 import sr.we.entity.User;
+import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
@@ -49,6 +47,7 @@ import sr.we.views.MainLayout;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +56,7 @@ import java.util.Set;
 
 @PageTitle("Batches")
 @Route(value = "batch/:batchId?/:action?(edit)", layout = MainLayout.class)
-@PermitAll
+@RolesAllowed({"ADMIN", "SECTION_OWNER"})
 public class BatchesView extends Div implements BeforeEnterObserver {
 
     final String BATCH_ID = "batchId";
@@ -67,21 +66,28 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private final Button save = new Button("Save");
     private final BeanValidationBinder<Batch> binder;
     private final BatchItemsService batchItemsService;
+    private final StoresRestController storesRestController;
     private final BatchService batchService;
     private final AuthenticatedUser authenticatedUser;
     TextField description;
     DatePicker startDate;
     DatePicker endDate;
     Select<Batch.Status> status;
+    ComboBox<String> sectionId;
     private Span batchIdFld;
     private Button uploadBtn;
     private Batch batch;
     private Grid<BatchItems> itemImportGrid;
+    private Set<String> linkSections;
 
-    public BatchesView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser) {
+    public BatchesView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
+        this.storesRestController = storesRestController;
+
+        User user = authenticatedUser.get().get();
+        linkSections = user.getLinkSections();
 
         addClassNames("batches-view");
 
@@ -99,7 +105,11 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         grid.addColumn(new LocalDateRenderer<>(Batch::getStartDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("Start date").setAutoWidth(true);
         grid.addColumn(new LocalDateRenderer<>(Batch::getEndDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("End date").setAutoWidth(true);
         grid.addColumn("status").setAutoWidth(true);
-        grid.setItems(query -> batchService.list(PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query))).stream());
+
+        grid.setItems(query -> {
+            PageRequest pageable = PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query));
+            return user.getRoles().contains(Role.ADMIN) ? batchService.list(pageable).stream() : batchService.list(pageable, (root, query2, cb) -> root.get("sectionId").in(linkSections)).stream();
+        });
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 
         // when a row is selected or deselected, populate form
@@ -142,81 +152,27 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
             } catch (ValidationException validationException) {
                 Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+            } catch (IOException ex) {
+                Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
             }
         });
     }
 
     private void doForUploadBtn() {
 
-        // create grid function
-        itemImportGrid = new Grid<>(BatchItems.class, false);
-        Grid.Column<BatchItems> skuColumn = itemImportGrid.addColumn(BatchItems::getSku).setHeader("SKU").setAutoWidth(true);
-        Grid.Column<BatchItems> codeColumn = itemImportGrid.addColumn(BatchItems::getCode).setHeader("CODE").setAutoWidth(true);
-        Grid.Column<BatchItems> nameColumn = itemImportGrid.addColumn(BatchItems::getName).setHeader("NAME").setAutoWidth(true);
-        Grid.Column<BatchItems> quantityColumn = itemImportGrid.addColumn(BatchItems::getQuantity).setHeader("QUANTITY").setAutoWidth(true);
-        Grid.Column<BatchItems> costColumn = itemImportGrid.addColumn(BatchItems::getCost).setHeader("COST").setAutoWidth(true);
-        Grid.Column<BatchItems> priceColumn = itemImportGrid.addColumn(BatchItems::getPrice).setHeader("PRICE").setAutoWidth(true);
-
-        // enable editor
-        Binder<BatchItems> binder1 = new Binder<>(BatchItems.class);
-        Editor<BatchItems> editor = itemImportGrid.getEditor();
-        editor.setBuffered(false);
-        editor.setBinder(binder1);
-
-        TextField skuFld = new TextField();
-        TextField codeFld = new TextField();
-        TextField nameFld = new TextField();
-        TextField quantityFld = new TextField();
-        TextField costFld = new TextField();
-        TextField priceFld = new TextField();
-
-
-
-        binder1.forField(skuFld).bind(BatchItems::getSku,BatchItems::setSku);
-        binder1.forField(codeFld).bind(BatchItems::getCode,BatchItems::setCode);
-        binder1.forField(nameFld).bind(BatchItems::getName,BatchItems::setName);
-        binder1.forField(quantityFld).bind(BatchItems::getQuantity,BatchItems::setQuantity);
-        binder1.forField(costFld).bind(BatchItems::getCost,BatchItems::setCost);
-        binder1.forField(priceFld).bind(BatchItems::getPrice,BatchItems::setPrice);
-
-        skuColumn.setEditorComponent(skuFld);
-        codeColumn.setEditorComponent(codeFld);
-        nameColumn.setEditorComponent(nameFld);
-        quantityColumn.setEditorComponent(quantityFld);
-        costColumn.setEditorComponent(costFld);
-        priceColumn.setEditorComponent(priceFld);
-
-
-        itemImportGrid.addItemDoubleClickListener(e -> {
-            editor.editItem(e.getItem());
-            Component editorComponent = e.getColumn().getEditorComponent();
-            if (editorComponent instanceof Focusable) {
-                ((Focusable) editorComponent).focus();
-            }
-        });
-
-
-
-        List<BatchItems> byBatchId = batchItemsService.findByBatchId(batch.getId());
-        itemImportGrid.setItems(byBatchId);
-
-        // create upload function
-        MemoryBuffer receiver = new MemoryBuffer();
-        Upload upload = new Upload(receiver);
-        upload.addSucceededListener(n -> {
-            doForUploadSucceed(receiver, itemImportGrid);
-        });
 
         // create confirm dialog
         ConfirmDialog dialog = new ConfirmDialog();
-        dialog.setHeader("Upload your items");
+        dialog.setHeader("Batch items");
         dialog.setWidth("80%");
-        dialog.add(upload);
-        dialog.add(itemImportGrid);
+        UploadItemsView uploadItemsView = new UploadItemsView(batchItemsService, batchService, authenticatedUser, storesRestController, batch);
+        dialog.add(uploadItemsView);
+        dialog.setCancelable(true);
         dialog.open();
-        dialog.addConfirmListener(l ->{
-            List<BatchItems> list = itemImportGrid.getDataProvider().fetch(new Query<>()).toList();
-            batchItemsService.update(batch.getId(),list);
+        dialog.addConfirmListener(l -> {
+            List<BatchItems> list = uploadItemsView.getGrid().getDataProvider().fetch(new Query<>()).toList();
+            batchItemsService.update(batch.getId(), list);
+            Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
         });
     }
 
@@ -225,7 +181,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
             Reader in = new InputStreamReader(receiver.getInputStream());
 
 
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "QUANTITY","PRICE","COST").setSkipHeaderRecord(true).build();
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "QUANTITY", "PRICE", "COST").setSkipHeaderRecord(true).build();
 
             Iterable<CSVRecord> records = null;
             records = csvFormat.parse(in);
@@ -238,7 +194,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                 String quantity = record.get("QUANTITY");
                 String price = record.get("PRICE");
                 String cost = record.get("COST");
-                list.add(new BatchItems(BatchesView.this.batch.getId(), sku, code, name, quantity, price, cost));
+                list.add(new BatchItems(BatchesView.this.batch.getId(), sku, code, name, Integer.valueOf(quantity), BigDecimal.valueOf(Double.parseDouble(price)), BigDecimal.valueOf(Double.parseDouble(cost))));
                 itemImportGrid.setItems(list);
             }
         } catch (IOException e) {
@@ -277,11 +233,31 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         status = new Select<>("Status", l -> {
         });
         status.setItems(Batch.Status.values());
+        sectionId = new ComboBox<>("Section");
+        sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
+        sectionId.setItems(query -> storesRestController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
+            Optional<User> userOptional = authenticatedUser.get();
+            if (userOptional.isEmpty()) {
+                return false;
+            }
+            User user = userOptional.get();
+            if (user.getRoles().contains(Role.ADMIN)) {
+                return true;
+            } else {
+                // check sections uu ids
+                linkSections = user.getLinkSections();
+                if (linkSections.isEmpty()) {
+                    return false;
+                }
+                return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
+            }
+
+        }).map(Section::getUuId));
         description = new TextField("Description");
         startDate = new DatePicker("Start date");
         endDate = new DatePicker("End date");
-        uploadBtn = new Button("Upload .csv file");
-        formLayout.add(batchIdFld, status, description, startDate, endDate, uploadBtn);
+        uploadBtn = new Button("Add batch items");
+        formLayout.add(batchIdFld, status, sectionId, description, startDate, endDate, uploadBtn);
 
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);
@@ -295,7 +271,12 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         });
     }
 
+    private Long getBusinessId() {
+        return 0L;
+    }
+
     private void setStatusNew() {
+        status.setItems(Batch.Status.NEW);
         status.setValue(Batch.Status.NEW);
         status.setReadOnly(true);
     }
@@ -347,15 +328,28 @@ public class BatchesView extends Div implements BeforeEnterObserver {
 
             // upload
             uploadBtn.setVisible(false);
+            sectionId.setReadOnly(false);
+            description.setReadOnly(false);
+            startDate.setReadOnly(false);
+            endDate.setReadOnly(false);
+            save.setVisible(true);
+
         }
     }
 
     private void setStatusField(Batch batch) {
         status.setReadOnly(false);
         uploadBtn.setVisible(false);
+        status.setReadOnly(false);
+        sectionId.setReadOnly(false);
+        description.setReadOnly(false);
+        startDate.setReadOnly(false);
+        endDate.setReadOnly(false);
         Optional<User> user = authenticatedUser.get();
         if (user.isPresent()) {
             Set<Role> roles = user.get().getRoles();
+            uploadBtn.setText("View batch items");
+            save.setVisible(true);
             switch (batch.getStatus()) {
                 case NEW -> {
                     status.setItems(Batch.Status.NEW, Batch.Status.UPLOAD_ITEMS, Batch.Status.CANCEL);
@@ -365,30 +359,55 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                     status.setItems(Batch.Status.UPLOAD_ITEMS, Batch.Status.VALIDATE_ITEMS, Batch.Status.CANCEL);
                     status.setValue(Batch.Status.UPLOAD_ITEMS);
                     uploadBtn.setVisible(true);
+                    uploadBtn.setText("Add batch items");
                 }
                 case VALIDATE_ITEMS -> {
-                    status.setItems(Batch.Status.VALIDATE_ITEMS, Batch.Status.SEND_FOR_APPROVAL, Batch.Status.CANCEL);
-                    status.setValue(Batch.Status.VALIDATE_ITEMS);
-                }
-                case SEND_FOR_APPROVAL -> {
                     if (roles.contains(Role.ADMIN)) {
-                        status.setItems(Batch.Status.SEND_FOR_APPROVAL, Batch.Status.APPROVED, Batch.Status.REJECTED, Batch.Status.CANCEL);
+                        status.setItems(Batch.Status.VALIDATE_ITEMS, Batch.Status.APPROVED, Batch.Status.REJECTED, Batch.Status.CANCEL);
                     } else {
-                        status.setItems(Batch.Status.SEND_FOR_APPROVAL, Batch.Status.CANCEL);
+                        status.setItems(Batch.Status.VALIDATE_ITEMS, Batch.Status.CANCEL);
                     }
-                    status.setValue(Batch.Status.SEND_FOR_APPROVAL);
+                    status.setValue(Batch.Status.VALIDATE_ITEMS);
+                    uploadBtn.setVisible(true);
+                    uploadBtn.setText("Count batch items");
                 }
+//                case SEND_FOR_APPROVAL -> {
+//                    if (roles.contains(Role.ADMIN)) {
+//                        status.setItems(Batch.Status.SEND_FOR_APPROVAL, Batch.Status.APPROVED, Batch.Status.REJECTED, Batch.Status.CANCEL);
+//                    } else {
+//                        status.setItems(Batch.Status.SEND_FOR_APPROVAL, Batch.Status.CANCEL);
+//                    }
+//                    status.setValue(Batch.Status.SEND_FOR_APPROVAL);
+//                }
                 case APPROVED -> {
                     status.setItems(Batch.Status.APPROVED);
                     status.setValue(Batch.Status.APPROVED);
+                    save.setVisible(false);
+                    status.setReadOnly(true);
+                    sectionId.setReadOnly(true);
+                    description.setReadOnly(true);
+                    startDate.setReadOnly(true);
+                    endDate.setReadOnly(true);
                 }
                 case REJECTED -> {
                     status.setItems(Batch.Status.REJECTED, Batch.Status.VALIDATE_ITEMS);
                     status.setValue(Batch.Status.REJECTED);
+                    save.setVisible(false);
+                    status.setReadOnly(true);
+                    sectionId.setReadOnly(true);
+                    description.setReadOnly(true);
+                    startDate.setReadOnly(true);
+                    endDate.setReadOnly(true);
                 }
                 case CANCEL -> {
                     status.setItems(Batch.Status.CANCEL);
                     status.setValue(Batch.Status.CANCEL);
+                    save.setVisible(false);
+                    status.setReadOnly(true);
+                    sectionId.setReadOnly(true);
+                    description.setReadOnly(true);
+                    startDate.setReadOnly(true);
+                    endDate.setReadOnly(true);
                 }
             }
         } else {

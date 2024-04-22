@@ -22,6 +22,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import sr.we.controllers.InventoryValuationController;
 import sr.we.entity.eclipsestore.tables.InventoryValuation;
@@ -32,9 +33,9 @@ import java.text.DecimalFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
-@PageTitle("Batches")
+@PageTitle("Inventory valuation")
 @Route(value = "inventoryValuation/:inventoryValuationId?/:action?(edit)", layout = MainLayout.class)
-@PermitAll
+@RolesAllowed("ADMIN")
 public class InventoryValuationView extends Div implements BeforeEnterObserver {
 
     final String IV_ID = "inventoryValuationId";

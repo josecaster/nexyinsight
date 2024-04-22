@@ -14,6 +14,7 @@ public class Batch extends AbstractEntity {
     private LocalDate endDate;
     @Enumerated(EnumType.STRING)
     private Status status;
+    private String sectionId;
 
     public enum Status {
         NEW, UPLOAD_ITEMS, VALIDATE_ITEMS,SEND_FOR_APPROVAL,APPROVED,REJECTED,CANCEL
@@ -49,5 +50,13 @@ public class Batch extends AbstractEntity {
 
     public void setStatus(Status status) {
         this.status = status;
+    }
+
+    public String getSectionId() {
+        return sectionId;
+    }
+
+    public void setSectionId(String sectionId) {
+        this.sectionId = sectionId;
     }
 }

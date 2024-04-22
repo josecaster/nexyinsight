@@ -30,9 +30,12 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
+import com.vaadin.flow.dom.ThemeList;
 import com.vaadin.flow.router.*;
+import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.annotation.security.PermitAll;
+import jakarta.servlet.http.Cookie;
 import org.apache.commons.lang3.tuple.Pair;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
@@ -43,6 +46,7 @@ import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.InventoryValuation;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.security.AuthenticatedUser;
+import sr.we.views.CookieUtil;
 import sr.we.views.MainLayout;
 import sr.we.views.dashboard.ServiceHealth.Status;
 
@@ -77,6 +81,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private Future<Void> submit2;
     private Future<?> submit;
     private VerticalLayout viewEvents;
+    private HorizontalLayout header;
 
     public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser, InventoryValuationController inventoryValuationStorage) {
         addClassName("dashboard-view");
@@ -186,32 +191,50 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
     private Component createViewEvents() {
         // Header
+        LocalDate now = LocalDate.now();
         Select year = new Select();
-        year.setItems("2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021");
-        year.setValue("2021");
+        year.setItems(now.minusYears(5), now.minusYears(4), now.minusYears(3), now.minusYears(2), now.minusYears(1), now);
+        year.setValue(now);
+        year.setWidth("100px");
         year.setWidth("100px");
 
-        HorizontalLayout header = createHeader("Inventory valuation", "Track potential profit");
+        header = createHeader("Inventory valuation", "Track potential profit");
         header.add(year);
 
         // Chart
         chart = ApexChartsBuilder.get();
         NoData noData = new NoData();
         Theme theme = new Theme();
-        theme.setMode(Mode.DARK);
+        Cookie cookieByName = CookieUtil.getCookieByName(CookieUtil.THEME);
+        if (cookieByName == null || cookieByName.getValue().equalsIgnoreCase("DARK")) {
+            theme.setMode(Mode.DARK);
+        } else {
+            theme.setMode(Mode.LIGHT);
+        }
         chart.withChart(ChartBuilder.get().withHeight("400px").withZoom(ZoomBuilder.get().withEnabled(true).build()).build())//
 //                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
-                .withTheme(theme)
-                .withNoData(noData)//e
+                .withTheme(theme).withNoData(noData)//e
                 .withGrid(GridBuilder.get().withRow(RowBuilder.get().build()).build());//
 
         XAxisBuilder xAxis = XAxisBuilder.get();
         XAxis axis = xAxis.withCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").build();
         chart = chart.withXaxis(axis);
 
+        refreshGrid(now);
+
+        // Add it all together
+        viewEvents = new VerticalLayout(header, chart.build());
+        viewEvents.addClassName(Padding.LARGE);
+        viewEvents.setPadding(false);
+        viewEvents.setSpacing(false);
+        viewEvents.getElement().getThemeList().add("spacing-l");
+        return viewEvents;
+    }
+
+    private void refreshGrid(LocalDate now) {
         submit = executorService.submit(() -> {
             Map<Pair<Integer, Month>, List<InventoryValuation>> collect = inventoryValuationStorage.allInventoryValuations(getBusinessId()).stream().collect(Collectors.groupingBy(g -> Pair.of(g.getLocalDate().getYear(), g.getLocalDate().getMonth())));
-            int year1 = LocalDate.now().getYear();
+            int year1 = now.getYear();
             Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, InventoryValuation::getInventoryValue),//
                     getValue(collect, year1, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
                     getValue(collect, year1, Month.MARCH, InventoryValuation::getInventoryValue),//
@@ -227,7 +250,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
             };
 
-            int year2 = year1-1;
+            int year2 = year1 - 1;
             Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, InventoryValuation::getInventoryValue),//
                     getValue(collect, year2, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
                     getValue(collect, year2, Month.MARCH, InventoryValuation::getInventoryValue),//
@@ -264,32 +287,6 @@ public class DashboardView extends Main implements BeforeEnterObserver {
                 viewEvents.add(header, chart.build());
             });
         });
-//        Configuration conf = chart.getConfiguration();
-//        conf.getChart().setStyledMode(true);
-//
-//        XAxis xAxis = new XAxis();
-//        xAxis.setCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-//        conf.addxAxis(xAxis);
-//
-//        conf.getyAxis().setTitle("Values");
-//
-//        PlotOptionsAreaspline plotOptions = new PlotOptionsAreaspline();
-//        plotOptions.setPointPlacement(PointPlacement.ON);
-//        plotOptions.setMarker(new Marker(false));
-//        conf.addPlotOptions(plotOptions);
-//
-//        conf.addSeries(new ListSeries("Berlin", 189, 191, 291, 396, 501, 403, 609, 712, 729, 942, 1044, 1247));
-//        conf.addSeries(new ListSeries("London", 138, 246, 248, 348, 352, 353, 463, 573, 778, 779, 885, 887));
-//        conf.addSeries(new ListSeries("New York", 65, 65, 166, 171, 293, 302, 308, 317, 427, 429, 535, 636));
-//        conf.addSeries(new ListSeries("Tokyo", 0, 11, 17, 123, 130, 142, 248, 349, 452, 454, 458, 462));
-
-        // Add it all together
-        viewEvents = new VerticalLayout(header, chart.build());
-        viewEvents.addClassName(Padding.LARGE);
-        viewEvents.setPadding(false);
-        viewEvents.setSpacing(false);
-        viewEvents.getElement().getThemeList().add("spacing-l");
-        return viewEvents;
     }
 
     private Component createServiceHealth() {

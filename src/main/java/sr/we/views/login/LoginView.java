@@ -1,7 +1,9 @@
 package sr.we.views.login;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.login.LoginOverlay;
+import com.vaadin.flow.dom.ThemeList;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -9,7 +11,10 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.internal.RouteUtil;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import com.vaadin.flow.theme.lumo.Lumo;
+import jakarta.servlet.http.Cookie;
 import sr.we.security.AuthenticatedUser;
+import sr.we.views.CookieUtil;
 
 @AnonymousAllowed
 @PageTitle("Login")
@@ -31,6 +36,15 @@ public class LoginView extends LoginOverlay implements BeforeEnterObserver {
 
         setForgotPasswordButtonVisible(false);
         setOpened(true);
+
+        Cookie cookieByName = CookieUtil.getCookieByName(CookieUtil.THEME);
+        if(cookieByName == null || cookieByName.getValue().equalsIgnoreCase("DARK")){
+            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+            themeList.add(Lumo.DARK);
+        } else {
+            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+            themeList.remove(Lumo.DARK);
+        }
     }
 
     @Override

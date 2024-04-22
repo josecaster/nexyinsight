@@ -30,15 +30,18 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.jpa.domain.Specification;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresRestController;
+import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
+import sr.we.entity.eclipsestore.tables.VariantStore;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 
@@ -50,10 +53,12 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @PageTitle("Items")
 @Route(value = "items", layout = MainLayout.class)
-@PermitAll
+@RolesAllowed({"ADMIN","SECTION_OWNER"})
 @Uses(Icon.class)
 public class ItemsView extends Div implements BeforeEnterObserver {
 
@@ -75,12 +80,18 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     private BigDecimalField priceFld;
     private ComboBox<Section> storeFld;
 
+    private Set<String> linkSections;
+    private User user;
+    private List<Section> sections;
+
     public ItemsView(ItemsController ItemService, StoresRestController sectionService, AuthenticatedUser authenticatedUser) {
         this.ItemService = ItemService;
         this.sectionService = sectionService;
         this.authenticatedUser = authenticatedUser;
         setSizeFull();
         addClassNames("items-view");
+
+        linkSections = authenticatedUser.get().get().getLinkSections();
 
         filters = new Filters(() -> refreshGrid());
         VerticalLayout layout = new VerticalLayout(createMobileFilters(), filters, createGrid());
@@ -140,6 +151,32 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(storeId)).findAny();
             return any.map(Section::getDefault_name).orElse(storeId);
         }).setHeader("Link Store").setFlexGrow(1);
+        grid.addComponentColumn(r -> {
+            List<Section> collect = sections.stream().filter(l -> {
+
+                VariantStore variantStore = r.getVariantStore();
+                String storeId = variantStore.getStore_id();
+
+                boolean containsCatregory = true;
+                boolean containsStore = l.getId().equalsIgnoreCase(storeId);
+                if (containsStore) {
+                    if ( l.getCategories() != null && !l.getCategories().isEmpty()) {
+                        // check on item category
+                        containsCatregory = l.getCategories().contains(r.getCategory_id());
+                    }
+                }
+                return containsStore && containsCatregory;
+            }).toList();
+            if(collect.size() > 1){
+                collect = collect.stream().filter(l -> !l.isDefault()).toList();
+            }
+//            sectionMultiSelectComboBox.setValue(collect);
+            Span span = new Span(collect.stream().map(Section::getName).collect(Collectors.joining("\n")));
+            span.getStyle().set("white-space", "pre-line");
+            span.getElement().getThemeList().add("badge warning");
+            span.setWidthFull();
+            return span;
+        }).setHeader("Section").setAutoWidth(true);
 
 
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
@@ -201,7 +238,8 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         Optional<User> maybeUser = authenticatedUser.get();
         if (maybeUser.isPresent()) {
-            User user = maybeUser.get();
+            user = maybeUser.get();
+            sections = sectionService.allStores(getBusinessId());
             grid.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), user, this::check));
         }
     }
@@ -232,6 +270,16 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             check = filters.check(item);
         }
 
+        if(user.getRoles().contains(Role.SECTION_OWNER)) {
+            String categoryId = item.getCategory_id();
+            VariantStore variantStore = item.getVariantStore();
+            String storeId = variantStore.getStore_id();
+
+            Optional<Section> any = sections.stream().filter(f -> f.getId().compareTo(storeId) == 0 && (f.getCategories() == null || f.getCategories().contains(categoryId))).findAny();
+            if(any.isEmpty()){
+                check = false;
+            }
+        }
         return check;
     }
 
@@ -346,3 +394,5 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     }
 
 }
+
+

@@ -15,6 +15,7 @@ import sr.we.storage.IItemStorage;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -62,7 +63,7 @@ public class ItemsController extends Parent {
      */
     public Stream<Item> allItems(Long businessId, Integer page, Integer pageSize, User user, Predicate<? super Item> predicate) {
 
-        List<String> sectionIds;
+        Set<String> sectionIds;
         List<Section> sections = storesRestController.allStores(businessId);
         if (user != null && !user.getRoles().contains(Role.ADMIN)) {
             sectionIds = user.getLinkSections();

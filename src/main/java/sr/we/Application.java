@@ -26,7 +26,7 @@ import sr.we.data.SamplePersonRepository;
  *
  */
 @SpringBootApplication
-@Theme(value = "nexy-insight", variant = Lumo.DARK)
+@Theme(value = "nexy-insight")
 @EntityScan(basePackages = {"sr.we.entity"})
 @Import(EclipseStoreSpringBoot.class)
 public class Application implements AppShellConfigurator {

@@ -22,11 +22,16 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import sr.we.controllers.ReceiptsController;
 import sr.we.controllers.StoresRestController;
+import sr.we.entity.Role;
+import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
+import sr.we.entity.eclipsestore.tables.VariantStore;
+import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 
 import java.time.DayOfWeek;
@@ -39,18 +44,22 @@ import java.util.stream.Collectors;
 
 @PageTitle("Receipts")
 @Route(value = "receipts", layout = MainLayout.class)
-@PermitAll
+@RolesAllowed({"ADMIN","SECTION_OWNER"})
 @Uses(Icon.class)
 public class ReceiptsView extends Div {
 
     private final ReceiptsController receiptService;
     private final StoresRestController sectionService;
+    private final AuthenticatedUser authenticatedUser;
     private final Filters filters;
     private Grid<Receipt> grid;
+    private static List<Section> sections;
+    private static User user;
 
-    public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService) {
+    public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser) {
         this.receiptService = ReceiptService;
         this.sectionService = sectionService;
+        this.authenticatedUser = authenticatedUser;
         setSizeFull();
         addClassNames("items-view");
 
@@ -113,7 +122,7 @@ public class ReceiptsView extends Div {
 //            MultiSelectComboBox<Section> sectionMultiSelectComboBox = new MultiSelectComboBox<>();
 //            sectionMultiSelectComboBox.setItemLabelGenerator(Section::getName);
 //            sectionMultiSelectComboBox.setItems(sections);
-            List<Section> sections = sectionService.allStores(getBusinessId());
+
             List<Section> collect = sections.stream().filter(l -> {
 
                 boolean containsDevice = true;
@@ -149,6 +158,11 @@ public class ReceiptsView extends Div {
         grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
 
+        sections = sectionService.allStores(getBusinessId());
+        Optional<User> userOptional = authenticatedUser.get();
+        if(userOptional.isPresent()){
+            user = userOptional.get();
+        }
         grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), filters::check));
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
@@ -282,6 +296,29 @@ public class ReceiptsView extends Div {
             if (startDate.getValue() != null && endDate.getValue() != null) {
                 LocalDate receiptDate = receipt.getReceipt_date().toLocalDate();
                 if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
+                    check = false;
+                }
+            }
+            if(user.getRoles().contains(Role.SECTION_OWNER)) {
+
+                Optional<Section> any = sections.stream().filter(l -> {
+                    boolean containsDevice = true;
+                    boolean containsCatregory = true;
+                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+                    if (containsStore) {
+                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+                            // check on pos device
+                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+                        }
+
+                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                            // check on item category
+                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+                        }
+                    }
+                    return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
+                }).findAny();
+                if(any.isEmpty()){
                     check = false;
                 }
             }

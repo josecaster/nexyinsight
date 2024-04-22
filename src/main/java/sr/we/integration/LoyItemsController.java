@@ -32,7 +32,7 @@ public class LoyItemsController extends Parent {
     }
 
     public ListLoyItems getListLoyItems(String items_ids, LocalDateTime created_at_min, LocalDateTime created_at_max, LocalDateTime updated_at_min, LocalDateTime updated_at_max, Integer limit, String cursor, String loyverseToken) {
-        String url = "https://api.loyverse.com/v1.0/items?show_deleted=false";
+        String url = "https://api.loyverse.com/v1.0/items?show_deleted=true";
         StringBuilder stringBuilder = new StringBuilder(url);
         if (StringUtils.isNotBlank(items_ids)) {
             stringBuilder.append("&items_ids=").append(items_ids);

@@ -1,186 +1,305 @@
 package sr.we.views.users;
 
-import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.avatar.Avatar;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.combobox.MultiSelectComboBox;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
-import com.vaadin.flow.component.grid.HeaderRow;
-import com.vaadin.flow.component.grid.dataview.GridListDataView;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.Notification.Position;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
-import com.vaadin.flow.data.renderer.LocalDateRenderer;
-import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import io.micrometer.common.util.StringUtils;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
-import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.vaadin.addons.joelpop.changepassword.ChangePassword;
+import org.vaadin.addons.joelpop.changepassword.ChangePasswordDialog;
+import org.vaadin.addons.joelpop.changepassword.ChangePasswordRule;
+import sr.we.controllers.StoresRestController;
+import sr.we.entity.Role;
+import sr.we.entity.User;
+import sr.we.entity.eclipsestore.tables.Section;
+import sr.we.security.AuthenticatedUser;
+import sr.we.services.UserService;
 import sr.we.views.MainLayout;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-@PageTitle("Users")
-@Route(value = "users", layout = MainLayout.class)
+@PageTitle("users")
+@Route(value = "users/:usersId?/:action?(edit)", layout = MainLayout.class)
+@PermitAll
 @RolesAllowed("ADMIN")
-public class UsersView extends Div {
+public class UsersView extends Div implements BeforeEnterObserver {
 
-    private Grid<Client> grid;
-    private GridListDataView<Client> gridListDataView;
+    final String IV_ID = "usersId";
+    private final String IV_EDIT_ROUTE_TEMPLATE = "users/%s/edit";
+    private final Grid<User> grid = new Grid<>(User.class, false);
+    private final Button cancel = new Button("Add new user");
+    private final Button save = new Button("Save");
+    private final BeanValidationBinder<User> binder;
+    private final UserService userService;
+    private final AuthenticatedUser authenticatedUser;
+    private final StoresRestController storesRestController;
+    private final PasswordEncoder passwordEncoder;
+    private TextField username;
+    private TextField name;
+    //    private PasswordField hashedPassword;
+    private MultiSelectComboBox<Role> roles;
 
-    private Grid.Column<Client> clientColumn;
-    private Grid.Column<Client> amountColumn;
-    private Grid.Column<Client> statusColumn;
-    private Grid.Column<Client> dateColumn;
-    private Binder<Client> binder;
+    //    private TextField profilePicture;
+    private EmailField email;
+    private MultiSelectComboBox<String> linkSections;
+    private Checkbox enabled;
+    private User user;
+    private Button changePwdBtn;
 
-    public UsersView() {
-        addClassName("users-view");
-        setSizeFull();
-        createGrid();
-        add(grid);
-    }
+    public UsersView(UserService userService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController, PasswordEncoder passwordEncoder) {
 
-    private void createGrid() {
-        createGridComponent();
-        addColumnsToGrid();
-        addFiltersToGrid();
-    }
+        this.userService = userService;
+        this.authenticatedUser = authenticatedUser;
+        this.storesRestController = storesRestController;
+        this.passwordEncoder = passwordEncoder;
 
-    private void createGridComponent() {
-        grid = new Grid<>();
-        grid.setSelectionMode(SelectionMode.MULTI);
-        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_COLUMN_BORDERS);
-        grid.setHeight("100%");
+        addClassNames("batches-view");
 
-        List<Client> clients = getClients();
-        gridListDataView = grid.setItems(clients);
-    }
+        // Create UI
+        SplitLayout splitLayout = new SplitLayout();
 
-    private void addColumnsToGrid() {
-        binder = new Binder<>(Client.class);
-        grid.getEditor().setBinder(binder);
-        grid.getEditor().setBuffered(true);
-        createClientColumn();
-        createAmountColumn();
-        createStatusColumn();
-        createDateColumn();
-    }
+        createGridLayout(splitLayout);
+        createEditorLayout(splitLayout);
 
-    private void createClientColumn() {
-        clientColumn = grid.addColumn(new ComponentRenderer<>(client -> {
+        add(splitLayout);
+
+        // Configure Grid
+        grid.addColumn(new ComponentRenderer<>(client -> {
             HorizontalLayout hl = new HorizontalLayout();
-            hl.setAlignItems(Alignment.CENTER);
-            Image img = new Image(client.getImg(), "");
+            hl.setAlignItems(FlexComponent.Alignment.CENTER);
+            Avatar avatar = new Avatar(client.getName());
+//            StreamResource resource = new StreamResource("profile-pic", () -> null/*new ByteArrayInputStream(client.getProfilePicture())*/);
+//            avatar.setImageResource(resource);
+            avatar.setThemeName("xsmall");
+            avatar.getElement().setAttribute("tabindex", "-1");
             Span span = new Span();
             span.setClassName("name");
-            span.setText(client.getClient());
-            hl.add(img, span);
+            span.setText(client.getName());
+            hl.add(avatar, span);
             return hl;
-        })).setComparator(client -> client.getClient()).setHeader("Client");
+        })).setComparator(User::getName).setHeader("User");
+        grid.addColumn(User::getUsername).setHeader("Username").setAutoWidth(true);
+        grid.addColumn(User::getEmail).setHeader("Email").setAutoWidth(true);
+        grid.setItems(query -> userService.list(PageRequest.of(query.getPage(), query.getPageSize())).get());
+        grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
+
+        // when a row is selected or deselected, populate form
+        grid.asSingleSelect().addValueChangeListener(event -> {
+            if (event.getValue() != null) {
+                UI.getCurrent().navigate(String.format(IV_EDIT_ROUTE_TEMPLATE, event.getValue().getId()));
+            } else {
+                clearForm();
+                UI.getCurrent().navigate(UsersView.class);
+            }
+        });
+
+        // Configure Form
+        binder = new BeanValidationBinder<>(User.class);
+
+        // Bind fields. This is where you'd define e.g. validation rules
+
+        binder.bindInstanceFields(this);
+
+        cancel.addClickListener(e -> {
+            clearForm();
+            refreshGrid();
+        });
+
+        save.addClickListener(e -> {
+            try {
+                if (this.user == null) {
+                    this.user = new User();
+                    this.user.setBusinessId(getBusinessId());
+                }
+                binder.writeBean(UsersView.this.user);
+                User update = userService.update(this.user);
+                clearForm();
+                refreshGrid();
+                populateForm(update);
+                Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                UI.getCurrent().navigate(UsersView.class);
+            } catch (ObjectOptimisticLockingFailureException exception) {
+                Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
+                n.setPosition(Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            } catch (ValidationException validationException) {
+                Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+            }
+        });
     }
 
-    private void createAmountColumn() {
-        amountColumn = grid.addColumn(Client::getAmount).setHeader("Amount");
-//                .addEditColumn(Client::getAmount,
-//                        new NumberRenderer<>(client -> client.getAmount(), NumberFormat.getCurrencyInstance(Locale.US)))
-//                .text((item, newValue) -> item.setAmount(Double.parseDouble(newValue)))
-//                .setComparator(client -> client.getAmount()).setHeader("Amount");
+    private Long getBusinessId() {
+        return 0L;
     }
 
-    private void createStatusColumn() {
-        statusColumn = grid.addComponentColumn(client -> {
-            Span span = new Span();
-            span.setText(client.getStatus());
-            span.getElement().setAttribute("theme", "badge " + client.getStatus().toLowerCase());
-            return span;
-        }).setHeader("Status");
-//                .addEditColumn(Client::getClient, new ComponentRenderer<>(client -> {
-//            Span span = new Span();
-//            span.setText(client.getStatus());
-//            span.getElement().setAttribute("theme", "badge " + client.getStatus().toLowerCase());
-//            return span;
-//        })).select((item, newValue) -> item.setStatus(newValue), Arrays.asList("Pending", "Success", "Error"))
-//                .setComparator(client -> client.getStatus()).setHeader("Status");
-    }
-
-    private void createDateColumn() {
-        dateColumn = grid.addColumn(new LocalDateRenderer<>(client -> LocalDate.parse(client.getDate()), () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setComparator(client -> client.getDate()).setHeader("Date").setWidth("180px").setFlexGrow(0);
-    }
-
-    private void addFiltersToGrid() {
-        HeaderRow filterRow = grid.appendHeaderRow();
-
-        TextField clientFilter = new TextField();
-        clientFilter.setPlaceholder("Filter");
-        clientFilter.setClearButtonVisible(true);
-        clientFilter.setWidth("100%");
-        clientFilter.setValueChangeMode(ValueChangeMode.EAGER);
-        clientFilter.addValueChangeListener(event -> gridListDataView.addFilter(client -> StringUtils.containsIgnoreCase(client.getClient(), clientFilter.getValue())));
-        filterRow.getCell(clientColumn).setComponent(clientFilter);
-
-        TextField amountFilter = new TextField();
-        amountFilter.setPlaceholder("Filter");
-        amountFilter.setClearButtonVisible(true);
-        amountFilter.setWidth("100%");
-        amountFilter.setValueChangeMode(ValueChangeMode.EAGER);
-        amountFilter.addValueChangeListener(event -> gridListDataView.addFilter(client -> StringUtils.containsIgnoreCase(Double.toString(client.getAmount()), amountFilter.getValue())));
-        filterRow.getCell(amountColumn).setComponent(amountFilter);
-
-        ComboBox<String> statusFilter = new ComboBox<>();
-        statusFilter.setItems(Arrays.asList("Pending", "Success", "Error"));
-        statusFilter.setPlaceholder("Filter");
-        statusFilter.setClearButtonVisible(true);
-        statusFilter.setWidth("100%");
-        statusFilter.addValueChangeListener(event -> gridListDataView.addFilter(client -> areStatusesEqual(client, statusFilter)));
-        filterRow.getCell(statusColumn).setComponent(statusFilter);
-
-        DatePicker dateFilter = new DatePicker();
-        dateFilter.setPlaceholder("Filter");
-        dateFilter.setClearButtonVisible(true);
-        dateFilter.setWidth("100%");
-        dateFilter.addValueChangeListener(event -> gridListDataView.addFilter(client -> areDatesEqual(client, dateFilter)));
-        filterRow.getCell(dateColumn).setComponent(dateFilter);
-    }
-
-    private boolean areStatusesEqual(Client client, ComboBox<String> statusFilter) {
-        String statusFilterValue = statusFilter.getValue();
-        if (statusFilterValue != null) {
-            return StringUtils.equals(client.getStatus(), statusFilterValue);
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Optional<String> usersId = event.getRouteParameters().get(IV_ID);
+        if (usersId.isPresent()) {
+            Optional<User> optionalUser = userService.get(Long.valueOf(usersId.get()));
+            if (optionalUser.isPresent()) {
+                populateForm(optionalUser.get());
+            } else {
+                Notification.show(String.format("The requested user was not found, ID = %s", usersId.get()), 10000, Position.BOTTOM_START).addThemeVariants(NotificationVariant.LUMO_WARNING);
+                // when a row is selected but the data is no longer available,
+                // refresh grid
+                refreshGrid();
+                event.forwardTo(UsersView.class);
+            }
         }
-        return true;
     }
 
-    private boolean areDatesEqual(Client client, DatePicker dateFilter) {
-        LocalDate dateFilterValue = dateFilter.getValue();
-        if (dateFilterValue != null) {
-            LocalDate clientDate = LocalDate.parse(client.getDate());
-            return dateFilterValue.equals(clientDate);
+    private void createEditorLayout(SplitLayout splitLayout) {
+        Div editorLayoutDiv = new Div();
+        editorLayoutDiv.setClassName("editor-layout");
+
+        Div editorDiv = new Div();
+        editorDiv.setClassName("editor");
+        editorLayoutDiv.add(editorDiv);
+
+        FormLayout formLayout = new FormLayout();
+
+        username = new TextField("Username");
+        name = new TextField("Name");
+//        hashedPassword = new PasswordField("Password");
+        roles = new MultiSelectComboBox<>("Roles", Role.ADMIN, Role.SECTION_OWNER);
+//        profilePicture = new TextField("Profile picture");
+        email = new EmailField("Email");
+        linkSections = new MultiSelectComboBox<>("Link sections");
+        enabled = new Checkbox("Enabled");
+
+        username.setWidthFull();
+        name.setWidthFull();
+//        hashedPassword.setWidthFull();
+        roles.setWidthFull();
+//        profilePicture.setWidthFull();
+        email.setWidthFull();
+        linkSections.setWidthFull();
+//        enabled.setWidthFull();
+
+        username.setClearButtonVisible(true);
+        name.setClearButtonVisible(true);
+        roles.setClearButtonVisible(true);
+        email.setClearButtonVisible(true);
+        linkSections.setClearButtonVisible(true);
+
+        linkSections.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
+        linkSections.setItems(query -> storesRestController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).map(Section::getUuId));
+
+        changePwdBtn = new Button("change password");
+        changePwdBtn.setVisible(false);
+        changePwdBtn.addClickListener(click -> {
+            ChangePasswordDialog changePasswordDialog = new ChangePasswordDialog();
+            changePasswordDialog.setChangePasswordMode(ChangePassword.ChangePasswordMode.ESTABLISH_NEW);
+            changePasswordDialog.addOkListener(ok -> {
+//                boolean matches = passwordEncoder.matches(ok.getCurrentPassword(), user.getHashedPassword());
+                if (user.getUsername().equalsIgnoreCase(ok.getUserid())) {
+                    user.setHashedPassword(passwordEncoder.encode(ok.getDesiredPassword()));
+                    userService.update(user);
+                } else {
+                    Notification n = Notification.show("You may not edit the userid. Password not changed");
+                    n.setPosition(Notification.Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
+            });
+            List<ChangePasswordRule> rules = new ArrayList<>();
+            rules.add(ChangePasswordRule.length(Double.valueOf(8).intValue()));
+            rules.add(ChangePasswordRule.hasUppercaseLetters(Double.valueOf(1).intValue()));
+            rules.add(ChangePasswordRule.hasLowercaseLetters(Double.valueOf(1).intValue()));
+            rules.add(ChangePasswordRule.hasDigits(Double.valueOf(1).intValue()));
+            rules.add(ChangePasswordRule.hasSpecials(Double.valueOf(1).intValue()));
+            changePasswordDialog.addPasswordRules(rules.toArray(new ChangePasswordRule[]{}));
+            changePasswordDialog.setUserid(user.getUsername());
+            changePasswordDialog.open();
+        });
+        formLayout.add(username, name, roles, email, linkSections, changePwdBtn, enabled);
+
+        editorDiv.add(formLayout);
+        createButtonLayout(editorLayoutDiv);
+
+        splitLayout.addToSecondary(editorLayoutDiv);
+
+    }
+
+    private void createButtonLayout(Div editorLayoutDiv) {
+        HorizontalLayout buttonLayout = new HorizontalLayout();
+        buttonLayout.setClassName("button-layout");
+        cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        buttonLayout.add(save, cancel);
+        editorLayoutDiv.add(buttonLayout);
+    }
+
+    private void createGridLayout(SplitLayout splitLayout) {
+        Div wrapper = new Div();
+        wrapper.setClassName("grid-wrapper");
+        splitLayout.addToPrimary(wrapper);
+        wrapper.add(grid);
+    }
+
+    private void refreshGrid() {
+        grid.select(null);
+        grid.getDataProvider().refreshAll();
+    }
+
+    private void clearForm() {
+        populateForm(null);
+    }
+
+    private void populateForm(User value) {
+        this.user = value;
+        binder.readBean(this.user);
+        if (value != null) {
+            // user Id
+            username.setValue(StringUtils.isBlank(user.getUsername()) ? "" : user.getUsername());
+            username.setReadOnly(true);
+            name.setValue(StringUtils.isBlank(user.getName()) ? "" : user.getName());
+            roles.setValue(user.getRoles());
+            email.setValue(StringUtils.isBlank(user.getEmail()) ? "" : user.getEmail());
+            linkSections.setValue(user.getLinkSections());
+            enabled.setValue(user.isEnabled());
+            changePwdBtn.setVisible(true);
+        } else {
+            username.setReadOnly(false);
+            changePwdBtn.setVisible(false);
+
+            username.clear();
+            name.clear();
+            roles.clear();
+            email.clear();
+            linkSections.clear();
+            enabled.setValue(true);
         }
-        return true;
     }
 
-    private List<Client> getClients() {
-        return Arrays.asList(createClient(4957, "https://randomuser.me/api/portraits/women/42.jpg", "Amarachi Nkechi", 47427.0, "Success", "2019-05-09"), createClient(675, "https://randomuser.me/api/portraits/women/24.jpg", "Bonelwa Ngqawana", 70503.0, "Success", "2019-05-09"), createClient(6816, "https://randomuser.me/api/portraits/men/42.jpg", "Debashis Bhuiyan", 58931.0, "Success", "2019-05-07"), createClient(5144, "https://randomuser.me/api/portraits/women/76.jpg", "Jacqueline Asong", 25053.0, "Pending", "2019-04-25"), createClient(9800, "https://randomuser.me/api/portraits/men/24.jpg", "Kobus van de Vegte", 7319.0, "Pending", "2019-04-22"), createClient(3599, "https://randomuser.me/api/portraits/women/94.jpg", "Mattie Blooman", 18441.0, "Error", "2019-04-17"), createClient(3989, "https://randomuser.me/api/portraits/men/76.jpg", "Oea Romana", 33376.0, "Pending", "2019-04-17"), createClient(1077, "https://randomuser.me/api/portraits/men/94.jpg", "Stephanus Huggins", 75774.0, "Success", "2019-02-26"), createClient(8942, "https://randomuser.me/api/portraits/men/16.jpg", "Torsten Paulsson", 82531.0, "Pending", "2019-02-21"));
-    }
 
-    private Client createClient(int id, String img, String client, double amount, String status, String date) {
-        Client c = new Client();
-        c.setId(id);
-        c.setImg(img);
-        c.setClient(client);
-        c.setAmount(amount);
-        c.setStatus(status);
-        c.setDate(date);
-
-        return c;
-    }
 }

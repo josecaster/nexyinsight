@@ -12,7 +12,7 @@ public class Item extends SuperDao implements Cloneable{
     private Long businessId;
     private String seaqnsUuId;
     private String handle;
-    private String item_name;
+    private String item_name, description;
     private String reference_id;
     private String category_id;
     private boolean track_stock;
@@ -268,6 +268,14 @@ public class Item extends SuperDao implements Cloneable{
 
     public void setStoreCountMap(Map<String, BigDecimal> storeCountMap) {
         this.storeCountMap = storeCountMap;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public void addStoreCount(String uuId, BigDecimal value) {

@@ -91,6 +91,18 @@
             <artifactId>mysql-connector-java</artifactId>
             <version>8.0.29</version>
         </dependency>
+        <dependency>
+            <groupId>org.vaadin.addons.joelpop</groupId>
+            <artifactId>flow-change-password</artifactId>
+            <version>24.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.vaadin.componentfactory</groupId>
+            <artifactId>togglebutton</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
 
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>

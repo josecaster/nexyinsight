@@ -1,5 +1,6 @@
 package sr.we.schedule;
 
+import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,11 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class JobbyLauncher {
@@ -78,10 +83,45 @@ public class JobbyLauncher {
                 storeCategories();
                 storeDevices();
                 storeItems();
+//                syncItems();
             } catch (Exception ex) {
                 LOGGER.error(ex.getMessage());
             }
             itemsBusy = false;
+        }
+    }
+
+    private void syncItems() {
+        List<Item> items = itemStorage.allItems(getBusinessId());
+        if (items != null && !items.isEmpty()) {
+
+//            String itemIds = items.stream().map(l -> {
+//                return l.getId().split("\\|")[0];
+//            }).collect(Collectors.joining(","));
+            LOGGER.info("Sync size ["+items.size()+"]");
+            for(Item iitem : items){
+                ListLoyItems listLoyItems = loyItemsController.getListLoyItems(iitem.getId().split("\\|")[0], null, null, null, null, null, null, loyverseToken);
+                if (listLoyItems.getItems() != null && !listLoyItems.getItems().isEmpty()) {
+                    for (Item item : listLoyItems.getItems()) {
+                        String itemId = item.getId();
+                        if (item.getVariants() == null) {
+                            continue;
+                        }
+                        for (Variant variant : item.getVariants()) {
+                            for (VariantStore store : variant.getStores()) {
+                                String id = itemId + "|" + variant.getVariant_id() + "|" + store.getStore_id();
+                                Item oneItem = itemStorage.oneItemByLoyId(id);
+                                if (oneItem != null) {
+                                    oneItem.setDeleted_at(item.getDeleted_at());
+                                    itemStorage.saveOrUpdate(oneItem);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            LOGGER.info("Sync done");
+
         }
     }
 
@@ -211,7 +251,7 @@ public class JobbyLauncher {
         run = true;
         List<Item> items = new ArrayList<>();
         while (run) {
-            ListLoyItems listLoyItems = loyItemsController.getListLoyItems(null, null, null, maxTime, null, 250, cursor, getLoyverseToken());
+            ListLoyItems listLoyItems = loyItemsController.getListLoyItems(null, null, null, (maxTime == null ? null : maxTime.minusDays(1)), null, 250, cursor, getLoyverseToken());
 
             if (listLoyItems != null && listLoyItems.getItems() != null) {
                 items.addAll(listLoyItems.getItems());
@@ -439,10 +479,11 @@ public class JobbyLauncher {
             inventoryValuation.setType(InventoryValuation.Type.AUTOMATIC);
         }
         if (inventoryValuation.getType().compareTo(InventoryValuation.Type.AUTOMATIC) == 0) {
-            BigDecimal inventoryValue = items.stream().filter(f -> f.getStock_level() > 0).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal retailValue = items.stream().filter(f -> f.getStock_level() > 0).map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal inventoryValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal retailValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal profit = retailValue.subtract(inventoryValue);
-            BigDecimal margin = BigDecimal.valueOf(100).subtract(inventoryValue.divide(retailValue, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)));
+            BigDecimal divide = inventoryValue.divide(retailValue, 8, RoundingMode.HALF_UP);
+            BigDecimal margin = BigDecimal.valueOf(100).subtract(divide.multiply(BigDecimal.valueOf(100)));
             inventoryValuation.setRetailValue(retailValue);
             inventoryValuation.setInventoryValue(inventoryValue);
             inventoryValuation.setPotentialProfit(profit);
@@ -450,7 +491,7 @@ public class JobbyLauncher {
             inventoryValuation = iInventoryValuationStorage.saveOrUpdate(inventoryValuation);
             LOGGER.info(inventoryValuation.toString());
         } else {
-            LOGGER.info("Can't update inventory valuation manual ["+now+"]");
+            LOGGER.info("Can't update inventory valuation manual [" + now + "]");
         }
     }
 

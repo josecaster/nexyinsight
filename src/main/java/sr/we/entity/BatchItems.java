@@ -3,16 +3,20 @@ package sr.we.entity;
 import jakarta.persistence.Entity;
 import sr.we.entity.AbstractEntity;
 
+import java.math.BigDecimal;
+
 @Entity
 public class BatchItems extends AbstractEntity {
 
-    private String sku,code,name,quantity,price,cost;
+    private String sku,code,name;
+    private BigDecimal price,cost;
+    private Integer quantity, realQuantity;
     private Long batchId;
 
     public BatchItems() {
     }
 
-    public BatchItems(Long batchId, String sku, String code, String name, String quantity, String price, String cost) {
+    public BatchItems(Long batchId, String sku, String code, String name, Integer quantity, BigDecimal price, BigDecimal cost) {
         this.batchId = batchId;
         this.sku = sku;
         this.code = code;
@@ -22,19 +26,35 @@ public class BatchItems extends AbstractEntity {
         this.cost = cost;
     }
 
-    public String getPrice() {
+    public Integer getRealQuantity() {
+        return realQuantity;
+    }
+
+    public void setRealQuantity(Integer realQuantity) {
+        this.realQuantity = realQuantity;
+    }
+
+    public Long getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(Long batchId) {
+        this.batchId = batchId;
+    }
+
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(String price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 
-    public String getCost() {
+    public BigDecimal getCost() {
         return cost;
     }
 
-    public void setCost(String cost) {
+    public void setCost(BigDecimal cost) {
         this.cost = cost;
     }
 
@@ -62,11 +82,11 @@ public class BatchItems extends AbstractEntity {
         this.name = name;
     }
 
-    public String getQuantity() {
+    public Integer getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(String quantity) {
+    public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
 }

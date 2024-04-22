@@ -1,5 +1,6 @@
 package sr.we.integration;
 
+import com.google.gson.GsonBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -59,4 +60,11 @@ public class LoyInventoryController extends Parent {
     }
 
 
+    public void add(String loyverseToken, InventoryLevels inventoryLevels) {
+        String url = "https://api.loyverse.com/v1.0/inventory";
+        String json = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().toJson(inventoryLevels);
+        RestTemplate restTemplate = new RestTemplate();
+        HttpEntity<String> httpEntity = getAuthHttpEntity(json, loyverseToken);
+        ResponseEntity<InventoryLevels> exchange = restTemplate.exchange(url, HttpMethod.POST, httpEntity, InventoryLevels.class);
+    }
 }

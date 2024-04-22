@@ -6,7 +6,7 @@ public class StockLevel {
     private Long businessId;
     private String variant_id;
     private String store_id;
-    private int in_stock;
+    private int in_stock, stock_after;
     private LocalDateTime updated_at;
 
     public String getVariant_id() {
@@ -49,5 +49,11 @@ public class StockLevel {
         this.businessId = businessId;
     }
 
+    public int getStock_after() {
+        return stock_after;
+    }
 
+    public void setStock_after(int stock_after) {
+        this.stock_after = stock_after;
+    }
 }

@@ -1,5 +1,5 @@
 package sr.we.entity;
 
 public enum Role {
-    USER, ADMIN;
+    SECTION_OWNER, ADMIN, USER;
 }
