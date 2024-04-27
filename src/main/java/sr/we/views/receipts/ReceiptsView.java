@@ -1,10 +1,10 @@
 package sr.we.views.receipts;
 
+import com.flowingcode.vaadin.addons.gridexporter.GridExporter;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.Uses;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
@@ -21,7 +21,6 @@ import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import sr.we.controllers.ReceiptsController;
@@ -30,31 +29,33 @@ import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
-import sr.we.entity.eclipsestore.tables.VariantStore;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 
+import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @PageTitle("Receipts")
 @Route(value = "receipts", layout = MainLayout.class)
-@RolesAllowed({"ADMIN","SECTION_OWNER"})
+@RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
 public class ReceiptsView extends Div {
 
+    private static List<Section> sections;
+    private static User user;
     private final ReceiptsController receiptService;
     private final StoresRestController sectionService;
     private final AuthenticatedUser authenticatedUser;
     private final Filters filters;
     private Grid<Receipt> grid;
-    private static List<Section> sections;
-    private static User user;
 
     public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser) {
         this.receiptService = ReceiptService;
@@ -73,6 +74,31 @@ public class ReceiptsView extends Div {
 
     private static long getBusinessId() {
         return 0L;
+    }
+
+    private static List<Section> getSections(Receipt r) {
+        List<Section> collect = sections.stream().filter(l -> {
+
+            boolean containsDevice = true;
+            boolean containsCatregory = true;
+            boolean containsStore = l.getId().equalsIgnoreCase(r.getStore_id());
+            if (containsStore) {
+                if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+                    // check on pos device
+                    containsDevice = l.getDevices().contains(r.getPos_device_id());
+                }
+
+                if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                    // check on item category
+                    containsCatregory = l.getCategories().contains(r.getCategory_id());
+                }
+            }
+            return containsStore && containsDevice && containsCatregory;
+        }).toList();
+        if (collect.size() > 1) {
+            collect = collect.stream().filter(l -> !l.isDefault()).toList();
+        }
+        return collect;
     }
 
     private HorizontalLayout createMobileFilters() {
@@ -100,14 +126,6 @@ public class ReceiptsView extends Div {
 
     private Component createGrid() {
         grid = new Grid<>(Receipt.class, false);
-//        grid.addColumn("firstName").setAutoWidth(true);
-//        grid.addColumn("lastName").setAutoWidth(true);
-//        grid.addColumn("email").setAutoWidth(true);
-//        grid.addColumn("phone").setAutoWidth(true);
-//        grid.addColumn("dateOfBirth").setAutoWidth(true);
-//        grid.addColumn("occupation").setAutoWidth(true);
-//        grid.addColumn("role").setAutoWidth(true);
-
         grid.addColumn(Receipt::getReceipt_date).setHeader("Create date").setAutoWidth(true).setResizable(true);
         grid.addColumn(Receipt::getReceipt_number).setHeader("Receipt #").setAutoWidth(true).setResizable(true);
         grid.addColumn(Receipt::getReceipt_type).setHeader("Type").setAutoWidth(true);
@@ -116,42 +134,16 @@ public class ReceiptsView extends Div {
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(storeId)).findAny();
             return any.map(Section::getDefault_name).orElse(storeId);
         }).setHeader("Store").setAutoWidth(true);
-//        grid.addColumn(Receipt::getPos_device_id).setHeader("Device").setAutoWidth(true);
         grid.addColumn(r -> r.getLine_item().getItem_name()).setHeader("Item").setAutoWidth(true);
-        grid.addComponentColumn(r -> {
-//            MultiSelectComboBox<Section> sectionMultiSelectComboBox = new MultiSelectComboBox<>();
-//            sectionMultiSelectComboBox.setItemLabelGenerator(Section::getName);
-//            sectionMultiSelectComboBox.setItems(sections);
+        Grid.Column<Receipt> sectionColumn = grid.addComponentColumn(r -> {
 
-            List<Section> collect = sections.stream().filter(l -> {
-
-                boolean containsDevice = true;
-                boolean containsCatregory = true;
-                boolean containsStore = l.getId().equalsIgnoreCase(r.getStore_id());
-                if (containsStore) {
-                    if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-                        // check on pos device
-                        containsDevice = l.getDevices().contains(r.getPos_device_id());
-                    }
-
-                    if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                        // check on item category
-                        containsCatregory = l.getCategories().contains(r.getCategory_id());
-                    }
-                }
-                return containsStore && containsDevice && containsCatregory;
-            }).toList();
-            if(collect.size() > 1){
-                collect = collect.stream().filter(l -> !l.isDefault()).toList();
-            }
-//            sectionMultiSelectComboBox.setValue(collect);
+            List<Section> collect = getSections(r);
             Span span = new Span(collect.stream().map(Section::getName).collect(Collectors.joining("\n")));
             span.getStyle().set("white-space", "pre-line");
             span.getElement().getThemeList().add("badge warning");
             span.setWidthFull();
             return span;
         }).setHeader("Section").setAutoWidth(true);
-//        grid.addColumn(r -> r.getLine_item().getVariant_id()).setHeader("Variant").setAutoWidth(true);
         grid.addColumn(r -> r.getLine_item().getCost_total()).setHeader("Cost").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         grid.addColumn(r -> r.getLine_item().getTotal_discount()).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         grid.addColumn(r -> r.getLine_item().getTotal_money()).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
@@ -160,12 +152,21 @@ public class ReceiptsView extends Div {
 
         sections = sectionService.allStores(getBusinessId());
         Optional<User> userOptional = authenticatedUser.get();
-        if(userOptional.isPresent()){
-            user = userOptional.get();
-        }
+        userOptional.ifPresent(value -> user = value);
         grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), filters::check));
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
+
+        GridExporter<Receipt> exporter = GridExporter.createFor(grid);
+        exporter.setCsvExportEnabled(false);
+        exporter.setDocxExportEnabled(false);
+        exporter.setPdfExportEnabled(false);
+        exporter.setTitle("Receipts");
+        exporter.setExportValue(sectionColumn, r -> {
+            List<Section> collect = getSections(r);
+            return collect.stream().map(Section::getName).collect(Collectors.joining("\n"));
+        });
+        exporter.setFileName("GridExportReceipts" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
 
         return grid;
     }
@@ -299,7 +300,7 @@ public class ReceiptsView extends Div {
                     check = false;
                 }
             }
-            if(user.getRoles().contains(Role.SECTION_OWNER)) {
+            if (user.getRoles().contains(Role.SECTION_OWNER)) {
 
                 Optional<Section> any = sections.stream().filter(l -> {
                     boolean containsDevice = true;
@@ -318,7 +319,7 @@ public class ReceiptsView extends Div {
                     }
                     return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
                 }).findAny();
-                if(any.isEmpty()){
+                if (any.isEmpty()) {
                     check = false;
                 }
             }

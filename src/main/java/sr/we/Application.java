@@ -2,7 +2,7 @@ package sr.we;
 
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.theme.Theme;
-import com.vaadin.flow.theme.lumo.Lumo;
+
 import javax.sql.DataSource;
 
 import org.eclipse.store.integrations.spring.boot.types.EclipseStoreSpringBoot;
@@ -13,8 +13,7 @@ import org.springframework.boot.autoconfigure.sql.init.SqlDataSourceScriptDataba
 import org.springframework.boot.autoconfigure.sql.init.SqlInitializationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import sr.we.data.SamplePersonRepository;
+import sr.we.repository.SamplePersonRepository;
 
 
 

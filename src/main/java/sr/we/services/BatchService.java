@@ -6,8 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import sr.we.controllers.StoresRestController;
-import sr.we.data.BatchItemsRepository;
-import sr.we.data.BatchRepository;
+import sr.we.repository.BatchItemsRepository;
+import sr.we.repository.BatchRepository;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
 import sr.we.entity.eclipsestore.tables.*;
@@ -15,7 +15,6 @@ import sr.we.integration.LoyInventoryController;
 import sr.we.integration.LoyItemsController;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 

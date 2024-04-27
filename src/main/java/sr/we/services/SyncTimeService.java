@@ -4,7 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import sr.we.data.SyncTimeRepository;
+import sr.we.repository.SyncTimeRepository;
 import sr.we.entity.SyncTime;
 
 import java.util.Optional;

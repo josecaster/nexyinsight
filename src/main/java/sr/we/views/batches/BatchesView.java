@@ -77,7 +77,6 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private Span batchIdFld;
     private Button uploadBtn;
     private Batch batch;
-    private Grid<BatchItems> itemImportGrid;
     private Set<String> linkSections;
 
     public BatchesView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
@@ -174,32 +173,6 @@ public class BatchesView extends Div implements BeforeEnterObserver {
             batchItemsService.update(batch.getId(), list);
             Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
         });
-    }
-
-    private void doForUploadSucceed(MemoryBuffer receiver, Grid<BatchItems> itemImportGrid) {
-        try {
-            Reader in = new InputStreamReader(receiver.getInputStream());
-
-
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "QUANTITY", "PRICE", "COST").setSkipHeaderRecord(true).build();
-
-            Iterable<CSVRecord> records = null;
-            records = csvFormat.parse(in);
-
-            List<BatchItems> list = new ArrayList<>();
-            for (CSVRecord record : records) {
-                String sku = record.get("SKU");
-                String code = record.get("CODE");
-                String name = record.get("NAME");
-                String quantity = record.get("QUANTITY");
-                String price = record.get("PRICE");
-                String cost = record.get("COST");
-                list.add(new BatchItems(BatchesView.this.batch.getId(), sku, code, name, Integer.valueOf(quantity), BigDecimal.valueOf(Double.parseDouble(price)), BigDecimal.valueOf(Double.parseDouble(cost))));
-                itemImportGrid.setItems(list);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override

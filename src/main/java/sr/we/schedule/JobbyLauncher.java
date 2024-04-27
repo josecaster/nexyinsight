@@ -1,6 +1,5 @@
 package sr.we.schedule;
 
-import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +9,7 @@ import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import sr.we.data.SyncTimeRepository;
+import sr.we.repository.SyncTimeRepository;
 import sr.we.entity.SyncTime;
 import sr.we.entity.eclipsestore.tables.*;
 import sr.we.integration.*;
@@ -25,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Component
 public class JobbyLauncher {

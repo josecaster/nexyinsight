@@ -1,4 +1,4 @@
-package sr.we.data;
+package sr.we.repository;
 
 
 import org.springframework.data.jpa.repository.JpaRepository;

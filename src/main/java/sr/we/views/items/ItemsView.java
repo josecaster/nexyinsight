@@ -1,12 +1,11 @@
 package sr.we.views.items;
 
+import com.flowingcode.vaadin.addons.gridexporter.GridExporter;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.CheckboxGroup;
 import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.Uses;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
@@ -29,28 +28,25 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.jpa.domain.Specification;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresRestController;
 import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Item;
-import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.entity.eclipsestore.tables.VariantStore;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 
 import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -58,7 +54,7 @@ import java.util.stream.Collectors;
 
 @PageTitle("Items")
 @Route(value = "items", layout = MainLayout.class)
-@RolesAllowed({"ADMIN","SECTION_OWNER"})
+@RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
 public class ItemsView extends Div implements BeforeEnterObserver {
 
@@ -80,7 +76,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     private BigDecimalField priceFld;
     private ComboBox<Section> storeFld;
 
-    private Set<String> linkSections;
+    private final Set<String> linkSections;
     private User user;
     private List<Section> sections;
 
@@ -133,7 +129,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
 
         itemNameColumn = grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
-        grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
+        Grid.Column<Item> stockLevelDate = grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
         stockLevelColumn = grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         costColumn = grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         inventoryValueColumn = grid.addComponentColumn(l -> {
@@ -151,27 +147,9 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(storeId)).findAny();
             return any.map(Section::getDefault_name).orElse(storeId);
         }).setHeader("Link Store").setFlexGrow(1);
-        grid.addComponentColumn(r -> {
-            List<Section> collect = sections.stream().filter(l -> {
-
-                VariantStore variantStore = r.getVariantStore();
-                String storeId = variantStore.getStore_id();
-
-                boolean containsCatregory = true;
-                boolean containsStore = l.getId().equalsIgnoreCase(storeId);
-                if (containsStore) {
-                    if ( l.getCategories() != null && !l.getCategories().isEmpty()) {
-                        // check on item category
-                        containsCatregory = l.getCategories().contains(r.getCategory_id());
-                    }
-                }
-                return containsStore && containsCatregory;
-            }).toList();
-            if(collect.size() > 1){
-                collect = collect.stream().filter(l -> !l.isDefault()).toList();
-            }
-//            sectionMultiSelectComboBox.setValue(collect);
-            Span span = new Span(collect.stream().map(Section::getName).collect(Collectors.joining("\n")));
+        Grid.Column<Item> sectionColumn = grid.addComponentColumn(r -> {
+            String collect1 = getSection(r);
+            Span span = new Span(collect1);
             span.getStyle().set("white-space", "pre-line");
             span.getElement().getThemeList().add("badge warning");
             span.setWidthFull();
@@ -184,7 +162,48 @@ public class ItemsView extends Div implements BeforeEnterObserver {
 
         createGridFilter();
 
+        GridExporter<Item> exporter = GridExporter.createFor(grid);
+        exporter.setCsvExportEnabled(false);
+        exporter.setDocxExportEnabled(false);
+        exporter.setPdfExportEnabled(false);
+        exporter.setTitle("Items");
+        exporter.setExportValue(inventoryValueColumn, l -> l.getVariant().getCost().multiply(BigDecimal.valueOf(l.getStock_level())));
+        exporter.setExportValue(sectionColumn, this::getSection);
+        exporter.setFileName("GridExportItems" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
+        exporter.setCustomHeader(itemNameColumn,"Item name");
+        exporter.setCustomHeader(stockLevelDate,"Stock level date");
+        exporter.setCustomHeader(stockLevelColumn,"Stock level");
+        exporter.setCustomHeader(costColumn,"Cost");
+        exporter.setCustomHeader(inventoryValueColumn,"Inventory Value");
+        exporter.setCustomHeader(priceColumn,"Price");
+        exporter.setCustomHeader(storeColumn,"Link Store");
+        exporter.setCustomHeader(sectionColumn,"Section");
+
         return grid;
+    }
+
+    private String getSection(Item r) {
+        List<Section> collect = sections.stream().filter(l -> {
+
+            VariantStore variantStore = r.getVariantStore();
+            String storeId = variantStore.getStore_id();
+
+            boolean containsCatregory = true;
+            boolean containsStore = l.getId().equalsIgnoreCase(storeId);
+            if (containsStore) {
+                if (l.getCategories() != null && !l.getCategories().isEmpty()) {
+                    // check on item category
+                    containsCatregory = l.getCategories().contains(r.getCategory_id());
+                }
+            }
+            return containsStore && containsCatregory;
+        }).toList();
+        if (collect.size() > 1) {
+            collect = collect.stream().filter(l -> !l.isDefault()).toList();
+        }
+//            sectionMultiSelectComboBox.setValue(collect);
+        String collect1 = collect.stream().map(Section::getName).collect(Collectors.joining("\n"));
+        return collect1;
     }
 
     private void createGridFilter() {
@@ -197,7 +216,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         priceFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
         storeFld = new ComboBox<>(l -> grid.getDataProvider().refreshAll());
         storeFld.setItemLabelGenerator(Section::getDefault_name);
-        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f-> true).filter(Section::isDefault));
+        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).filter(Section::isDefault));
 
         itemNameFld.setPlaceholder("Filter");
         stockLevelFld.setPlaceholder("Filter");
@@ -266,17 +285,17 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             check = item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())).compareTo(inventoryValueFld.getValue()) == 0;
         }
 
-        if(check){
+        if (check) {
             check = filters.check(item);
         }
 
-        if(user.getRoles().contains(Role.SECTION_OWNER)) {
+        if (user.getRoles().contains(Role.SECTION_OWNER)) {
             String categoryId = item.getCategory_id();
             VariantStore variantStore = item.getVariantStore();
             String storeId = variantStore.getStore_id();
 
             Optional<Section> any = sections.stream().filter(f -> f.getId().compareTo(storeId) == 0 && (f.getCategories() == null || f.getCategories().contains(categoryId))).findAny();
-            if(any.isEmpty()){
+            if (any.isEmpty()) {
                 check = false;
             }
         }

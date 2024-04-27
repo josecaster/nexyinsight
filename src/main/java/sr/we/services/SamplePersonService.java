@@ -6,7 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import sr.we.entity.SamplePerson;
-import sr.we.data.SamplePersonRepository;
+import sr.we.repository.SamplePersonRepository;
 
 @Service
 public class SamplePersonService {
