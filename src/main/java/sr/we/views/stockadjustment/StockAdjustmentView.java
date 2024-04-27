@@ -48,7 +48,7 @@ import java.util.Set;
 
 @PageTitle("StockAdjustments")
 @Route(value = "stockadjustment/:stockAdjustmentId?/:action?(edit)", layout = MainLayout.class)
-@RolesAllowed({"ADMIN", "SECTION_OWNER"})
+@RolesAllowed({"ADMIN"})
 public class StockAdjustmentView extends Div implements BeforeEnterObserver {
 
     final String SA_ID = "stockAdjustmentId";

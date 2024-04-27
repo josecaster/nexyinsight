@@ -82,3 +82,11 @@
       --lumo-base-color: rgb(33, 33, 33);
 
     }
+
+
+.myborderstyle bs-column {
+        border: 1px solid;
+        margin: 5px;
+        border-radius: var(--lumo-border-radius-l);
+
+}

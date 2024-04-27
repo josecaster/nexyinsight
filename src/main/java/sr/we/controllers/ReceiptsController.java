@@ -3,22 +3,28 @@ package sr.we.controllers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
+import sr.we.entity.Role;
 import sr.we.entity.eclipsestore.tables.Receipt;
+import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.integration.LoyReceiptsController;
 import sr.we.integration.Parent;
 import sr.we.storage.impl.ReceiptStorage;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 
 @Controller
-public class ReceiptsController extends Parent{
+public class ReceiptsController extends Parent {
 
     @Autowired
     private ReceiptStorage receiptStorage;
+
+    @Autowired
+    private StoresRestController storesRestController;
 
     @Autowired
     private LoyReceiptsController loyReceiptsController;
@@ -36,7 +42,7 @@ public class ReceiptsController extends Parent{
      * @return
      */
     public Stream<Receipt> allReceipts(Long businessId, Integer page, Integer pageSize, Predicate<? super Receipt> predicate) {
-        return (page == null || pageSize == null) ? receiptStorage.allReceipts(businessId).stream().filter(predicate): receiptStorage.allReceipts(businessId).stream().filter(predicate).sorted(Comparator.comparing(Receipt::getReceipt_date).reversed()).skip((long) page * pageSize).limit(pageSize);
+        return (page == null || pageSize == null) ? receiptStorage.allReceipts(businessId).stream().filter(predicate) : receiptStorage.allReceipts(businessId).stream().filter(predicate).sorted(Comparator.comparing(Receipt::getReceipt_date).reversed()).skip((long) page * pageSize).limit(pageSize);
     }
 
     public Receipt addNewReceipt(@RequestBody Receipt Receipt) {
@@ -144,10 +150,45 @@ public class ReceiptsController extends Parent{
     public Receipt updateReceipt(Receipt Receipt) {
         return receiptStorage.saveOrUpdate(Receipt);
     }
-    
+
     public boolean deleteReceipt(String id) {
         return receiptStorage.deleteReceipt(id);
     }
 
 
+    public List<Receipt> receipts(Long businessId) {
+        return receiptStorage.allReceipts(businessId);
+    }
+
+    public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end, Set<String> sections) {
+        return receiptStorage.allReceipts(businessId).stream().filter(r -> (r.getReceipt_date().toLocalDate().isEqual(start) || r.getReceipt_date().toLocalDate().isAfter(start)) //
+                        && (r.getReceipt_date().toLocalDate().isEqual(end) || r.getReceipt_date().toLocalDate().isBefore(end)))
+
+                .filter(receipt -> {
+                    boolean check = true;
+
+                    Optional<String> any = sections.stream().filter(n -> {
+                        boolean containsDevice = true;
+                        boolean containsCatregory = true;
+                        Section l = storesRestController.oneStore(businessId, n);
+                        boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+                        if (containsStore) {
+                            if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+                                // check on pos device
+                                containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+                            }
+
+                            if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                                // check on item category
+                                containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+                            }
+                        }
+                        return containsStore && containsDevice && containsCatregory;
+                    }).findAny();
+                    if (any.isEmpty()) {
+                        check = false;
+                    }
+                    return check;
+                }).toList();
+    }
 }

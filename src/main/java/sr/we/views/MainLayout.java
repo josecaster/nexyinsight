@@ -223,11 +223,11 @@ public class MainLayout extends AppLayout {
                 new MenuItemInfo("Dashboard", LineAwesomeIcon.CHART_AREA_SOLID.create(), DashboardView.class), //
 
                 new MenuItemInfo("Sections", LineAwesomeIcon.LAYER_GROUP_SOLID.create(), SectionsView.class), //
+                new MenuItemInfo("Receipts", LineAwesomeIcon.RECEIPT_SOLID.create(), ReceiptsView.class), //
 
                 new MenuItemInfo("Batches", LineAwesomeIcon.OBJECT_GROUP.create(), BatchesView.class), //
 
                 new MenuItemInfo("Items", LineAwesomeIcon.PRODUCT_HUNT.create(), ItemsView.class), //
-                new MenuItemInfo("Receipts", LineAwesomeIcon.RECEIPT_SOLID.create(), ReceiptsView.class), //
                 new MenuItemInfo("Stock adjustment", LineAwesomeIcon.BALANCE_SCALE_LEFT_SOLID.create(), StockAdjustmentView.class), //
 
                 new MenuItemInfo("Inventory valuation", LineAwesomeIcon.CALCULATOR_SOLID.create(), InventoryValuationView.class), //
