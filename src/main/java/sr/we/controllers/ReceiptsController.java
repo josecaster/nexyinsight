@@ -156,8 +156,33 @@ public class ReceiptsController extends Parent {
     }
 
 
-    public List<Receipt> receipts(Long businessId) {
-        return receiptStorage.allReceipts(businessId);
+    public List<Receipt> receipts(Long businessId, Set<String> sections) {
+        return receiptStorage.allReceipts(businessId).stream().filter(receipt -> {
+            boolean check = true;
+
+            Optional<String> any = sections.stream().filter(n -> {
+                boolean containsDevice = true;
+                boolean containsCatregory = true;
+                Section l = storesRestController.oneStore(businessId, n);
+                boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+                if (containsStore) {
+                    if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+                        // check on pos device
+                        containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+                    }
+
+                    if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                        // check on item category
+                        containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+                    }
+                }
+                return containsStore && containsDevice && containsCatregory;
+            }).findAny();
+            if (any.isEmpty()) {
+                check = false;
+            }
+            return check;
+        }).toList();
     }
 
     public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end, Set<String> sections) {

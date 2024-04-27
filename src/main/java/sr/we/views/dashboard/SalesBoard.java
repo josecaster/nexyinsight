@@ -49,14 +49,15 @@ import java.util.stream.Collectors;
 
 public class SalesBoard implements Serializable {
     private final DashboardView dashboardView;
-    private final  Long businessId;
+    private final Long businessId;
     private final ReceiptsController receiptsController;
     private final UI ui;
-    
+
     private final BsLayout board;
     private HorizontalLayout header;
     private VerticalLayout viewEvents;
     private ApexChartsBuilder chart;
+    private Set<String> sectionIds;
 
     public SalesBoard(DashboardView dashboardView, Long businessId, ReceiptsController receiptsController, UI ui, BsLayout board) {
         this.dashboardView = dashboardView;
@@ -66,14 +67,22 @@ public class SalesBoard implements Serializable {
         this.board = board;
     }
 
-    public void build(LocalDate start, LocalDate end, Set<String> sectionIds) {
+    private static boolean check(Item item) {
+        return true;
+    }
 
+    private static BigDecimal getValue(Map<Pair<Integer, Month>, List<Receipt>> collect, Integer year, Month month, Function<Receipt, BigDecimal> function) {
+        return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).map(function).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public void build(LocalDate start, LocalDate end, Set<String> sectionIds) {
+        this.sectionIds = sectionIds;
 
         board.addRow(new BsRow(new BsColumn(createHighlight("Gross sales", span -> {
             new Thread(() -> {
-                List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end,sectionIds);
+                List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                 ui.access(() -> {
-                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO,BigDecimal::add));
+                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO, BigDecimal::add));
                     span.setText(format);
                 });
             }).start();
@@ -81,9 +90,9 @@ public class SalesBoard implements Serializable {
         })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Refunds", span -> {
                     new Thread(() -> {
-                        List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end,sectionIds);
+                        List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO,BigDecimal::add));
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO, BigDecimal::add));
                             span.setText(format);
                         });
                     }).start();
@@ -91,9 +100,9 @@ public class SalesBoard implements Serializable {
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Discounts", span -> {
                     new Thread(() -> {
-                        List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end,sectionIds);
+                        List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO,BigDecimal::add));
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add));
                             span.setText(format);
                         });
                     }).start();
@@ -101,9 +110,9 @@ public class SalesBoard implements Serializable {
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Net sales", span -> {
                     new Thread(() -> {
-                        List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end,sectionIds);
+                        List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO,BigDecimal::add));
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO, BigDecimal::add));
                             span.setText(format);
                         });
                     }).start();
@@ -111,17 +120,6 @@ public class SalesBoard implements Serializable {
                 })).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createServiceHealth()).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes()).withSize(BsColumn.Size.XS)));
-    }
-
-
-
-
-    private static boolean check(Item item) {
-        return true;
-    }
-
-    private static BigDecimal getValue(Map<Pair<Integer, Month>, List<Receipt>> collect, Integer year, Month month, Function<Receipt, BigDecimal> function) {
-        return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).map(function).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
@@ -190,7 +188,7 @@ public class SalesBoard implements Serializable {
 
         XAxisBuilder xAxis = XAxisBuilder.get();
         XAxis axis = xAxis.withCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").build();
-       chart.withXaxis(axis);
+        chart.withXaxis(axis);
 
         refreshGrid(now);
 
@@ -205,7 +203,7 @@ public class SalesBoard implements Serializable {
 
     private void refreshGrid(LocalDate now) {
         dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId()).stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
             int year1 = now.getYear();
             Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, r -> r.getLine_item().getTotal_money()),//
                     getValue(collect, year1, Month.FEBRUARY, r -> r.getLine_item().getTotal_money()),//
