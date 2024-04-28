@@ -191,7 +191,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
             this.businessId = businessId;
             setWidthFull();
 
-            addClassNames(LumoUtility.Padding.Horizontal.LARGE, LumoUtility.Padding.Vertical.MEDIUM, LumoUtility.BoxSizing.BORDER);
+            addClassNames(LumoUtility.Padding.Top.LARGE,LumoUtility.Padding.Bottom.LARGE);
 
             BsLayout filterBoard = new BsLayout();
 //
