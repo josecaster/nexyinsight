@@ -3,6 +3,7 @@ package sr.we.entity.eclipsestore.tables;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 public class Receipt extends SuperDao implements Cloneable{
     private Long businessId;
@@ -258,5 +259,18 @@ public class Receipt extends SuperDao implements Cloneable{
         } catch (CloneNotSupportedException e) {
             throw new AssertionError();
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Receipt receipt)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(businessId, receipt.businessId) && Objects.equals(receipt_number, receipt.receipt_number) && Objects.equals(note, receipt.note) && Objects.equals(receipt_type, receipt.receipt_type) && Objects.equals(refund_for, receipt.refund_for) && Objects.equals(created_at, receipt.created_at) && Objects.equals(updated_at, receipt.updated_at) && Objects.equals(source, receipt.source) && Objects.equals(receipt_date, receipt.receipt_date) && Objects.equals(cancelled_at, receipt.cancelled_at) && Objects.equals(total_money, receipt.total_money) && Objects.equals(total_tax, receipt.total_tax) && Objects.equals(points_earned, receipt.points_earned) && Objects.equals(points_deducted, receipt.points_deducted) && Objects.equals(points_balance, receipt.points_balance) && Objects.equals(customer_id, receipt.customer_id) && Objects.equals(total_discount, receipt.total_discount) && Objects.equals(employee_id, receipt.employee_id) && Objects.equals(store_id, receipt.store_id) && Objects.equals(pos_device_id, receipt.pos_device_id) && Objects.equals(tip, receipt.tip) && Objects.equals(surcharge, receipt.surcharge) && Objects.equals(line_items, receipt.line_items) && Objects.equals(line_item, receipt.line_item) && Objects.equals(payments, receipt.payments) && Objects.equals(category_id, receipt.category_id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), businessId, receipt_number, note, receipt_type, refund_for, created_at, updated_at, source, receipt_date, cancelled_at, total_money, total_tax, points_earned, points_deducted, points_balance, customer_id, total_discount, employee_id, store_id, pos_device_id, tip, surcharge, line_items, line_item, payments, category_id);
     }
 }

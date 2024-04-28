@@ -46,6 +46,7 @@ import java.time.Month;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class SalesBoard implements Serializable {
     private final DashboardView dashboardView;
@@ -72,7 +73,9 @@ public class SalesBoard implements Serializable {
     }
 
     private static BigDecimal getValue(Map<Pair<Integer, Month>, List<Receipt>> collect, Integer year, Month month, Function<Receipt, BigDecimal> function) {
-        return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).map(function).reduce(BigDecimal.ZERO, BigDecimal::add);
+        Stream<Map.Entry<Pair<Integer, Month>, List<Receipt>>> entryStream = collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0);
+        List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> list = entryStream.toList();
+        return list.stream().map(Map.Entry::getValue).flatMap(List::stream).map(function).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public void build(LocalDate start, LocalDate end, Set<String> sectionIds) {
@@ -82,7 +85,8 @@ public class SalesBoard implements Serializable {
             new Thread(() -> {
                 List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                 ui.access(() -> {
-                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO, BigDecimal::add));
+                    BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales);
                     span.setText(format);
                 });
             }).start();
@@ -92,7 +96,8 @@ public class SalesBoard implements Serializable {
                     new Thread(() -> {
                         List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO, BigDecimal::add));
+                            BigDecimal refunds = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(refunds);
                             span.setText(format);
                         });
                     }).start();
@@ -102,7 +107,8 @@ public class SalesBoard implements Serializable {
                     new Thread(() -> {
                         List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add));
+                            BigDecimal discounts = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(discounts);
                             span.setText(format);
                         });
                     }).start();
@@ -112,7 +118,10 @@ public class SalesBoard implements Serializable {
                     new Thread(() -> {
                         List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.stream().map(r -> r.getLine_item().getTotal_money()).reduce(BigDecimal.ZERO, BigDecimal::add));
+                            BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            BigDecimal refunds = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            BigDecimal discounts = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales.subtract(refunds).subtract(discounts));
                             span.setText(format);
                         });
                     }).start();
@@ -203,36 +212,36 @@ public class SalesBoard implements Serializable {
 
     private void refreshGrid(LocalDate now) {
         dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
             int year1 = now.getYear();
-            Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.FEBRUARY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.MARCH, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.APRIL, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.MAY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.JUNE, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.JULY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.AUGUST, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.SEPTEMBER, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.OCTOBER, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.NOVEMBER, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year1, Month.DECEMBER, r -> r.getLine_item().getTotal_money())
+            Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year1, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
 
             };
 
             int year2 = year1 - 1;
-            Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.FEBRUARY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.MARCH, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.APRIL, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.MAY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.JUNE, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.JULY, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.AUGUST, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.SEPTEMBER, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.OCTOBER, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.NOVEMBER, r -> r.getLine_item().getTotal_money()),//
-                    getValue(collect, year2, Month.DECEMBER, r -> r.getLine_item().getTotal_money())
+            Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
+                    getValue(collect, year2, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
 
             };
 

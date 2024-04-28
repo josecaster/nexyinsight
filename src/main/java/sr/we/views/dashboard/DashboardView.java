@@ -9,6 +9,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.html.*;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -19,7 +20,13 @@ import com.vaadin.flow.router.*;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
+import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
+import org.vaadin.addons.yuri0x7c1.bslayout.BsRow;
+import software.xdev.vaadin.daterange_picker.business.DateRangeModel;
+import software.xdev.vaadin.daterange_picker.business.SimpleDateRange;
+import software.xdev.vaadin.daterange_picker.business.SimpleDateRanges;
+import software.xdev.vaadin.daterange_picker.ui.DateRangePicker;
 import sr.we.controllers.InventoryValuationController;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.ReceiptsController;
@@ -34,6 +41,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -51,11 +59,12 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private final UI ui;
     private final InventoryValuationController inventoryValuationStorage;
     private final ExecutorService executorService;
-    private final Select<DashType> dashTypeSelect;
+    private Select<DashType> dashTypeSelect;
     private final BsLayout board;
     private final Filters filters;
     private final ReceiptsController receiptsController;
     private final StoresRestController storesRestController;
+    private final HorizontalLayout filterLayout;
     private SalesBoard salesBoard;
     private InventoryBoard inventoryBoard;
     private User user;
@@ -66,7 +75,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private HorizontalLayout header;
 
     public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser, InventoryValuationController inventoryValuationStorage, ReceiptsController receiptsController, StoresRestController storesRestController) {
-        addClassName("dashboard-view");
+        addClassNames("dashboard-view","items-view");
         this.ui = UI.getCurrent();
         this.authenticatedUser = authenticatedUser;
         this.inventoryValuationStorage = inventoryValuationStorage;
@@ -79,13 +88,11 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
         board = new BsLayout();
         board.addClassName("myborderstyle");
-        dashTypeSelect = new Select<>();
-        dashTypeSelect.setLabel("Type");
-        dashTypeSelect.setItems(DashType.values());
-        dashTypeSelect.addThemeVariants(SelectVariant.LUMO_SMALL);
-        HorizontalLayout horizontalLayout = new HorizontalLayout(filters = new Filters(getBusinessId(), storesRestController, authenticatedUser, board), dashTypeSelect);
-        dashTypeSelect.getElement().getStyle().set("margin-left", "auto");
-        add(horizontalLayout, board);
+
+        filterLayout = new HorizontalLayout(filters = new Filters(getBusinessId(), storesRestController, authenticatedUser, board));
+
+//        filterLayout.getElement().getStyle().set("display","block");
+        add( filterLayout, board);
 
         dashTypeSelect.addValueChangeListener(l -> {
             board.removeAll();
@@ -93,6 +100,8 @@ public class DashboardView extends Main implements BeforeEnterObserver {
             generateDashboard(inventoryValuationStorage, receiptsController, value);
         });
     }
+
+
 
     private void generateDashboard(InventoryValuationController inventoryValuationStorage, ReceiptsController receiptsController, DashType value) {
         if (value == null) {
@@ -107,8 +116,8 @@ public class DashboardView extends Main implements BeforeEnterObserver {
             if (salesBoard == null) {
                 salesBoard = new SalesBoard(this, getBusinessId(), receiptsController, ui, board);
             }
-            if (filters.startDate.getValue() != null && filters.endDate.getValue() != null && !filters.sectionId.getValue().isEmpty()) {
-                salesBoard.build(filters.startDate.getValue(), filters.endDate.getValue(), filters.sectionId.getValue());
+            if (filters.rangePicker.getValue() != null && filters.rangePicker.getValue().getStart() != null && filters.rangePicker.getValue().getEnd() != null && !filters.sectionId.getValue().isEmpty()) {
+                salesBoard.build(filters.rangePicker.getValue().getStart(), filters.rangePicker.getValue().getEnd(), filters.sectionId.getValue());
             }
             filters.setSalesBoard(salesBoard);
         }
@@ -167,10 +176,12 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         SALES, INVENTORY
     }
 
-    public static class Filters extends HorizontalLayout {
-        private final Select<String> selector = new Select<>();
-        private final DatePicker startDate = new DatePicker("Period");
-        private final DatePicker endDate = new DatePicker();
+    public class Filters extends HorizontalLayout {
+        protected static final List<SimpleDateRange> DATERANGE_VALUES = Arrays.asList(SimpleDateRanges.allValues());
+//        private final Select<String> selector = new Select<>();
+//        private final DatePicker startDate = new DatePicker("Period");
+//        private final DatePicker endDate = new DatePicker();
+        private final DateRangePicker<SimpleDateRange> rangePicker;
         private final MultiSelectComboBox<String> sectionId;
         private final Long businessId;
         private Set<String> linkSections;
@@ -179,15 +190,34 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         public Filters(Long businessId, StoresRestController storesRestController, AuthenticatedUser authenticatedUser, BsLayout board) {
             this.businessId = businessId;
             setWidthFull();
-            addClassName("filter-layout");
+
             addClassNames(LumoUtility.Padding.Horizontal.LARGE, LumoUtility.Padding.Vertical.MEDIUM, LumoUtility.BoxSizing.BORDER);
+
+            BsLayout filterBoard = new BsLayout();
 //
 
             // Action buttons
+            rangePicker = new DateRangePicker<SimpleDateRange>(() -> new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.TODAY), DATERANGE_VALUES);
+            rangePicker.setWidthFull();
 
+            dashTypeSelect = new Select<>();
+            dashTypeSelect.setWidthFull();
+            dashTypeSelect.getElement().getStyle().set("padding","0px");
+            dashTypeSelect.setLabel("Type");
+            dashTypeSelect.setItems(DashType.values());
+            dashTypeSelect.addThemeVariants(SelectVariant.LUMO_SMALL);
 
             sectionId = new MultiSelectComboBox<>("Section");
-            add(createDateRangeFilter(), sectionId);
+            sectionId.setWidthFull();
+            sectionId.getElement().getStyle().set("padding","0px");
+
+            BsRow period = new BsRow(new BsColumn(new Div(new Text("Period"), rangePicker)).withSize(BsColumn.Size.XS), new BsColumn(sectionId).withSize(BsColumn.Size.XS), new BsColumn(dashTypeSelect).withSize(BsColumn.Size.XS));
+            filterBoard.addRow(period);
+//            period.addClassName("filter-layout");
+            add(filterBoard);
+
+
+
             sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
             List<String> sects = storesRestController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
                 Optional<User> userOptional = authenticatedUser.get();
@@ -211,22 +241,30 @@ public class DashboardView extends Main implements BeforeEnterObserver {
             sectionId.setValue(sects);
 
 
-            startDate.addValueChangeListener(l -> {
-                if (startDate.getValue() != null && endDate.getValue() != null && !sectionId.getValue().isEmpty()) {
+            rangePicker.addValueChangeListener(l -> {
+                DateRangeModel<SimpleDateRange> value = l.getValue();
+                if(value.getStart() != null && value.getEnd() != null &&  !sectionId.getValue().isEmpty()){
                     board.removeAll();
-                    salesBoard.build(startDate.getValue(), endDate.getValue(), sectionId.getValue());
+                    salesBoard.build(value.getStart(), value.getEnd(), sectionId.getValue());
                 }
             });
-            endDate.addValueChangeListener(l -> {
-                if (startDate.getValue() != null && endDate.getValue() != null && !sectionId.getValue().isEmpty()) {
-                    board.removeAll();
-                    salesBoard.build(startDate.getValue(), endDate.getValue(), sectionId.getValue());
-                }
-            });
+//            startDate.addValueChangeListener(l -> {
+//                if (startDate.getValue() != null && endDate.getValue() != null && !sectionId.getValue().isEmpty()) {
+//                    board.removeAll();
+//                    salesBoard.build(startDate.getValue(), endDate.getValue(), sectionId.getValue());
+//                }
+//            });
+//            endDate.addValueChangeListener(l -> {
+//                if (startDate.getValue() != null && endDate.getValue() != null && !sectionId.getValue().isEmpty()) {
+//                    board.removeAll();
+//                    salesBoard.build(startDate.getValue(), endDate.getValue(), sectionId.getValue());
+//                }
+//            });
             sectionId.addValueChangeListener(l -> {
-                if (startDate.getValue() != null && endDate.getValue() != null && !sectionId.getValue().isEmpty()) {
+                DateRangeModel<SimpleDateRange> value = rangePicker.getValue();
+                if (value.getStart() != null && value.getEnd() != null && !sectionId.getValue().isEmpty()) {
                     board.removeAll();
-                    salesBoard.build(startDate.getValue(), endDate.getValue(), sectionId.getValue());
+                    salesBoard.build(value.getStart(), value.getEnd(), sectionId.getValue());
                 }
             });
         }
@@ -239,70 +277,70 @@ public class DashboardView extends Main implements BeforeEnterObserver {
             return businessId;
         }
 
-        private Component createDateRangeFilter() {
-            selector.setItems("Today", "Yesterday", "This week", "Last week", "This month", "Last month", "Last 7 days", "Last 30 days");
-            selector.addValueChangeListener(l -> {
-                if (StringUtils.isBlank(l.getValue())) {
-                    selector.setValue("Today");
-                } else {
-                    String value = l.getValue();
-                    switch (value) {
-                        case "Today" -> {
-                            startDate.setValue(LocalDate.now());
-                            endDate.setValue(startDate.getValue());
-                        }
-                        case "Yesterday" -> {
-                            startDate.setValue(LocalDate.now().minusDays(1));
-                            endDate.setValue(startDate.getValue());
-                        }
-                        case "This week" -> {
-                            LocalDate lastWeekSameDay = LocalDate.now();
-                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
-                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
-                        }
-                        case "Last week" -> {
-                            LocalDate lastWeekSameDay = LocalDate.now().minusWeeks(1);
-                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
-                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
-                        }
-                        case "This month" -> {
-                            startDate.setValue(YearMonth.now().atDay(1));
-                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
-                        }
-                        case "Last month" -> {
-                            startDate.setValue(YearMonth.now().atDay(1).minusMonths(1));
-                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
-                        }
-                        case "Last 7 days" -> {
-                            startDate.setValue(LocalDate.now().minusWeeks(1));
-                            endDate.setValue(LocalDate.now());
-                        }
-                        case "Last 30 days" -> {
-                            startDate.setValue(LocalDate.now().minusDays(30));
-                            endDate.setValue(LocalDate.now());
-                        }
-                    }
-                }
-            });
-            selector.setValue("Today");
-            startDate.setPlaceholder("From");
-
-            endDate.setPlaceholder("To");
-
-            // For screen readers
-            startDate.setAriaLabel("From date");
-            endDate.setAriaLabel("To date");
-
-
-            startDate.setWidth("166px");
-            endDate.setWidth("166px");
-
-            FlexLayout dateRangeComponent = new FlexLayout(selector, new Text(" : "), startDate, new Text(" – "), endDate);
-            dateRangeComponent.setAlignItems(FlexComponent.Alignment.BASELINE);
-            dateRangeComponent.getElement().getStyle().set("justify-self", "self-start");
-            dateRangeComponent.addClassName(LumoUtility.Gap.XSMALL);
-
-            return dateRangeComponent;
-        }
+//        private Component createDateRangeFilter() {
+//            selector.setItems("Today", "Yesterday", "This week", "Last week", "This month", "Last month", "Last 7 days", "Last 30 days");
+//            selector.addValueChangeListener(l -> {
+//                if (StringUtils.isBlank(l.getValue())) {
+//                    selector.setValue("Today");
+//                } else {
+//                    String value = l.getValue();
+//                    switch (value) {
+//                        case "Today" -> {
+//                            startDate.setValue(LocalDate.now());
+//                            endDate.setValue(startDate.getValue());
+//                        }
+//                        case "Yesterday" -> {
+//                            startDate.setValue(LocalDate.now().minusDays(1));
+//                            endDate.setValue(startDate.getValue());
+//                        }
+//                        case "This week" -> {
+//                            LocalDate lastWeekSameDay = LocalDate.now();
+//                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
+//                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
+//                        }
+//                        case "Last week" -> {
+//                            LocalDate lastWeekSameDay = LocalDate.now().minusWeeks(1);
+//                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
+//                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
+//                        }
+//                        case "This month" -> {
+//                            startDate.setValue(YearMonth.now().atDay(1));
+//                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
+//                        }
+//                        case "Last month" -> {
+//                            startDate.setValue(YearMonth.now().atDay(1).minusMonths(1));
+//                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
+//                        }
+//                        case "Last 7 days" -> {
+//                            startDate.setValue(LocalDate.now().minusWeeks(1));
+//                            endDate.setValue(LocalDate.now());
+//                        }
+//                        case "Last 30 days" -> {
+//                            startDate.setValue(LocalDate.now().minusDays(30));
+//                            endDate.setValue(LocalDate.now());
+//                        }
+//                    }
+//                }
+//            });
+//            selector.setValue("Today");
+//            startDate.setPlaceholder("From");
+//
+//            endDate.setPlaceholder("To");
+//
+//            // For screen readers
+//            startDate.setAriaLabel("From date");
+//            endDate.setAriaLabel("To date");
+//
+//
+//            startDate.setWidth("166px");
+//            endDate.setWidth("166px");
+//
+//            FlexLayout dateRangeComponent = new FlexLayout(rangePicker, selector, new Text(" : "), startDate, new Text(" – "), endDate);
+//            dateRangeComponent.setAlignItems(FlexComponent.Alignment.BASELINE);
+//            dateRangeComponent.getElement().getStyle().set("justify-self", "self-start");
+//            dateRangeComponent.addClassName(LumoUtility.Gap.XSMALL);
+//
+//            return dateRangeComponent;
+//        }
     }
 }

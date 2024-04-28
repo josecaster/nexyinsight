@@ -5,11 +5,14 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.Uses;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -18,6 +21,8 @@ import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.component.textfield.BigDecimalField;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
@@ -37,10 +42,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @PageTitle("Receipts")
@@ -55,12 +57,34 @@ public class ReceiptsView extends Div {
     private final StoresRestController sectionService;
     private final AuthenticatedUser authenticatedUser;
     private final Filters filters;
+    private final StoresRestController storesRestController;
     private Grid<Receipt> grid;
+    private TextField receiptNumberFld;
+    private BigDecimalField costFld;
+    private BigDecimalField discountFld;
+    private BigDecimalField totalFld;
+    private BigDecimalField grossTotalFld;
+    private MultiSelectComboBox<String> sectionId;
+    private Select<Type> typeFld;
+    private Set<String> linkSections;
+    private TextField itemFld;
+    private Grid.Column<Receipt> receiptNumberColumn;
+    private Grid.Column<Receipt> storeColumn;
+    private Grid.Column<Receipt> itemColumn;
+    private Grid.Column<Receipt> sectionColumn;
+    private Grid.Column<Receipt> costColumn;
+    private Grid.Column<Receipt> typeColumn;
+    private Grid.Column<Receipt> discountColumn;
+    private Grid.Column<Receipt> totalColumn;
+    private Grid.Column<Receipt> grossTotalColumn;
+    private Grid.Column<Receipt> createDateColumn;
+    private ComboBox<Section> storeFld;
 
-    public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser) {
+    public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
         this.receiptService = ReceiptService;
         this.sectionService = sectionService;
         this.authenticatedUser = authenticatedUser;
+        this.storesRestController = storesRestController;
         setSizeFull();
         addClassNames("items-view");
 
@@ -126,16 +150,20 @@ public class ReceiptsView extends Div {
 
     private Component createGrid() {
         grid = new Grid<>(Receipt.class, false);
-        grid.addColumn(Receipt::getReceipt_date).setHeader("Create date").setAutoWidth(true).setResizable(true);
-        grid.addColumn(Receipt::getReceipt_number).setHeader("Receipt #").setAutoWidth(true).setResizable(true);
-        grid.addColumn(Receipt::getReceipt_type).setHeader("Type").setAutoWidth(true);
-        grid.addColumn(l -> {
+        createDateColumn = grid.addColumn(Receipt::getReceipt_date).setHeader("Create date").setAutoWidth(true).setResizable(true);
+        receiptNumberColumn = grid.addColumn(r -> {
+            String[] number = r.getReceipt_number().split("-");
+            return number[0] + "-" + number[1];
+        });
+        receiptNumberColumn.setHeader("Receipt #").setAutoWidth(true).setResizable(true);
+        typeColumn = grid.addColumn(Receipt::getReceipt_type).setHeader("Type").setAutoWidth(true);
+        storeColumn = grid.addColumn(l -> {
             String storeId = l.getStore_id();
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(storeId)).findAny();
             return any.map(Section::getDefault_name).orElse(storeId);
         }).setHeader("Store").setAutoWidth(true);
-        grid.addColumn(r -> r.getLine_item().getItem_name()).setHeader("Item").setAutoWidth(true);
-        Grid.Column<Receipt> sectionColumn = grid.addComponentColumn(r -> {
+        itemColumn = grid.addColumn(r -> r.getLine_item().getItem_name()).setHeader("Item").setAutoWidth(true);
+        sectionColumn = grid.addComponentColumn(r -> {
 
             List<Section> collect = getSections(r);
             Span span = new Span(collect.stream().map(Section::getName).collect(Collectors.joining("\n")));
@@ -144,10 +172,10 @@ public class ReceiptsView extends Div {
             span.setWidthFull();
             return span;
         }).setHeader("Section").setAutoWidth(true);
-        grid.addColumn(r -> r.getLine_item().getCost_total()).setHeader("Cost").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(r -> r.getLine_item().getTotal_discount()).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(r -> r.getLine_item().getTotal_money()).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        costColumn = grid.addColumn(r -> r.getLine_item().getCost_total()).setHeader("Cost").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        discountColumn = grid.addColumn(r -> r.getLine_item().getTotal_discount()).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        totalColumn = grid.addColumn(r -> r.getLine_item().getTotal_money()).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        grossTotalColumn = grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
 
         sections = sectionService.allStores(getBusinessId());
@@ -156,6 +184,8 @@ public class ReceiptsView extends Div {
         grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), filters::check));
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
+
+        createGridFilter();
 
         GridExporter<Receipt> exporter = GridExporter.createFor(grid);
         exporter.setCsvExportEnabled(false);
@@ -166,16 +196,119 @@ public class ReceiptsView extends Div {
             List<Section> collect = getSections(r);
             return collect.stream().map(Section::getName).collect(Collectors.joining("\n"));
         });
+//        headerRow.getCell(receiptNumberColumn).setComponent(receiptNumberFld);
+//        headerRow.getCell(typeColumn).setComponent(typeFld);
+//        headerRow.getCell(itemColumn).setComponent(itemFld);
+//        headerRow.getCell(sectionColumn).setComponent(sectionId);
+//        headerRow.getCell(costColumn).setComponent(costFld);
+//        headerRow.getCell(discountColumn).setComponent(discountFld);
+//        headerRow.getCell(totalColumn).setComponent(totalFld);
+//        headerRow.getCell(grossTotalColumn).setComponent(grossTotalFld);
+        exporter.setCustomHeader(createDateColumn,"Create date");
+        exporter.setCustomHeader(receiptNumberColumn,"Receipt #");
+        exporter.setCustomHeader(storeColumn,"Store");
+        exporter.setCustomHeader(typeColumn,"Type");
+        exporter.setCustomHeader(itemColumn,"Item");
+        exporter.setCustomHeader(sectionColumn,"Section");
+        exporter.setCustomHeader(costColumn,"Cost");
+        exporter.setCustomHeader(discountColumn,"Discount");
+        exporter.setCustomHeader(totalColumn,"Total");
+        exporter.setCustomHeader(grossTotalColumn,"Gross Total");
         exporter.setFileName("GridExportReceipts" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
 
         return grid;
+    }
+
+    public enum Type {
+        ALL,SALE,REFUND
+    }
+
+    private void createGridFilter() {
+        HeaderRow headerRow = grid.appendHeaderRow();
+
+        receiptNumberFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
+        itemFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
+        typeFld = new Select<Type>();
+        costFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
+        discountFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
+        totalFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
+        grossTotalFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
+        storeFld = new ComboBox<>(l -> grid.getDataProvider().refreshAll());
+        storeFld.setItemLabelGenerator(Section::getDefault_name);
+        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).filter(Section::isDefault));
+        sectionId = new MultiSelectComboBox<>();
+        sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
+        List<String> sects = storesRestController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
+            Optional<User> userOptional = authenticatedUser.get();
+            if (userOptional.isEmpty()) {
+                return false;
+            }
+            User user = userOptional.get();
+            if (user.getRoles().contains(Role.ADMIN)) {
+                return true;
+            } else {
+                // check sections uu ids
+                linkSections = user.getLinkSections();
+                if (linkSections.isEmpty()) {
+                    return false;
+                }
+                return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
+            }
+
+        }).map(Section::getUuId).toList();
+        sectionId.setItems(sects);
+        sectionId.setValue(sects);
+        sectionId.addValueChangeListener(l -> grid.getDataProvider().refreshAll());
+
+        storeFld.setPlaceholder("Filter");
+        sectionId.setPlaceholder("Filter");
+        receiptNumberFld.setPlaceholder("Filter");
+        typeFld.setPlaceholder("Filter");
+        costFld.setPlaceholder("Filter");
+        discountFld.setPlaceholder("Filter");
+        totalFld.setPlaceholder("Filter");
+        grossTotalFld.setPlaceholder("Filter");
+        itemFld.setPlaceholder("Filter");
+
+        storeFld.setWidthFull();
+        sectionId.setWidthFull();
+        receiptNumberFld.setWidthFull();
+        typeFld.setWidthFull();
+        costFld.setWidthFull();
+        discountFld.setWidthFull();
+        totalFld.setWidthFull();
+        grossTotalFld.setWidthFull();
+        itemFld.setWidthFull();
+
+        storeFld.setClearButtonVisible(true);
+        sectionId.setClearButtonVisible(true);
+        receiptNumberFld.setClearButtonVisible(true);
+        costFld.setClearButtonVisible(true);
+        discountFld.setClearButtonVisible(true);
+        totalFld.setClearButtonVisible(true);
+        grossTotalFld.setClearButtonVisible(true);
+        itemFld.setClearButtonVisible(true);
+
+        typeFld.setItems(Type.ALL,Type.SALE,Type.REFUND);
+        typeFld.setValue(Type.ALL);
+        typeFld.addValueChangeListener(l -> grid.getDataProvider().refreshAll());
+
+        headerRow.getCell(storeColumn).setComponent(storeFld);
+        headerRow.getCell(receiptNumberColumn).setComponent(receiptNumberFld);
+        headerRow.getCell(typeColumn).setComponent(typeFld);
+        headerRow.getCell(itemColumn).setComponent(itemFld);
+        headerRow.getCell(sectionColumn).setComponent(sectionId);
+        headerRow.getCell(costColumn).setComponent(costFld);
+        headerRow.getCell(discountColumn).setComponent(discountFld);
+        headerRow.getCell(totalColumn).setComponent(totalFld);
+        headerRow.getCell(grossTotalColumn).setComponent(grossTotalFld);
     }
 
     private void refreshGrid() {
         grid.getDataProvider().refreshAll();
     }
 
-    public static class Filters extends Div {
+    public class Filters extends Div {
         private final Select<String> selector = new Select<>();
         private final DatePicker startDate = new DatePicker("Receipt date");
         private final DatePicker endDate = new DatePicker();
@@ -273,20 +406,6 @@ public class ReceiptsView extends Div {
             dateRangeComponent.getElement().getStyle().set("justify-self", "self-start");
             dateRangeComponent.addClassName(LumoUtility.Gap.XSMALL);
 
-//            Optional<Cookie> any = Arrays.stream(VaadinService.getCurrentRequest().getCookies()).filter(cookie -> cookie.getName().equalsIgnoreCase("date-range")).findAny();
-//            if(any.isPresent()){
-//                Cookie cookie = any.get();
-//                String value = cookie.getValue();
-//                String[] split = value.split("//");
-//                if(split.length==2){
-//                    String startDateString = split[0];
-//                    String endDateString = split[1];
-//
-//                    startDate.setValue(LocalDate.parse(startDateString));
-//                    endDate.setValue(LocalDate.parse(endDateString));
-//                }
-//            }
-
 
             return dateRangeComponent;
         }
@@ -300,7 +419,31 @@ public class ReceiptsView extends Div {
                     check = false;
                 }
             }
-            if (user.getRoles().contains(Role.SECTION_OWNER)) {
+            if (StringUtils.isNotBlank(itemFld.getValue())) {
+                check = receipt.getLine_item().getItem_name().toUpperCase().contains(itemFld.getValue().toUpperCase());
+            }
+            if (check && storeFld.getValue() != null) {
+                check = receipt.getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
+            }
+            if (check && receiptNumberFld.getValue() != null) {
+                check = receipt.getReceipt_number().contains(receiptNumberFld.getValue());
+            }
+            if (check && typeFld.getValue() != null && typeFld.getValue().compareTo(Type.ALL) != 0) {
+                check = receipt.getReceipt_type().equalsIgnoreCase(typeFld.getValue().name());
+            }
+            if (check && costFld.getValue() != null) {
+                check = receipt.getLine_item().getCost().compareTo(costFld.getValue()) == 0;
+            }
+            if (check && totalFld.getValue() != null) {
+                check = receipt.getLine_item().getTotal_money().compareTo(totalFld.getValue()) == 0;
+            }
+            if (check && grossTotalFld.getValue() != null) {
+                check = receipt.getLine_item().getGross_total_money().compareTo(grossTotalFld.getValue()) == 0;
+            }
+            if (check && discountFld.getValue() != null) {
+                check = receipt.getLine_item().getTotal_discount().compareTo(discountFld.getValue()) == 0;
+            }
+            if (check && user.getRoles().contains(Role.SECTION_OWNER)) {
 
                 Optional<Section> any = sections.stream().filter(l -> {
                     boolean containsDevice = true;
@@ -318,6 +461,29 @@ public class ReceiptsView extends Div {
                         }
                     }
                     return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
+                }).findAny();
+                if (any.isEmpty()) {
+                    check = false;
+                }
+            }
+            if(check) {
+                Optional<String> any = sectionId.getValue().stream().filter(n -> {
+                    boolean containsDevice = true;
+                    boolean containsCatregory = true;
+                    Section l = storesRestController.oneStore(getBusinessId(), n);
+                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+                    if (containsStore) {
+                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+                            // check on pos device
+                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+                        }
+
+                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+                            // check on item category
+                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+                        }
+                    }
+                    return containsStore && containsDevice && containsCatregory;
                 }).findAny();
                 if (any.isEmpty()) {
                     check = false;

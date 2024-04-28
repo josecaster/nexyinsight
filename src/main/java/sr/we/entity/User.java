@@ -3,10 +3,8 @@ package sr.we.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -63,7 +61,7 @@ public class User extends AbstractEntity{
         return true;
     }
 
-    public boolean isEnabled() {
+    public boolean isEnabledd() {
         return enabled != null && enabled;
     }
 
@@ -130,4 +128,6 @@ public class User extends AbstractEntity{
     public void setAuthorities(Collection<GrantedAuthority> authorities) {
         this.authorities = authorities;
     }
+
+
 }

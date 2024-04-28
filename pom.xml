@@ -46,6 +46,11 @@
     <dependencies>
 
 
+        <dependency>
+            <groupId>software.xdev</groupId>
+            <artifactId>vaadin-date-range-picker</artifactId>
+            <version>4.0.2</version>
+        </dependency>
 
         <dependency>
             <groupId>org.vaadin.addons.flowingcode</groupId>

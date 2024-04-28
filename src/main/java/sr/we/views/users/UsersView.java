@@ -286,7 +286,7 @@ public class UsersView extends Div implements BeforeEnterObserver {
             roles.setValue(user.getRoles());
             email.setValue(StringUtils.isBlank(user.getEmail()) ? "" : user.getEmail());
             linkSections.setValue(user.getLinkSections());
-            enabled.setValue(user.isEnabled());
+            enabled.setValue(user.isEnabledd());
             changePwdBtn.setVisible(true);
         } else {
             username.setReadOnly(false);
