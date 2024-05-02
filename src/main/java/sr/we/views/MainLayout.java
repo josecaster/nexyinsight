@@ -177,182 +177,11 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             div.getElement().getStyle().set("align-items", "center");
             div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
             userName.add(div);
-            userName.getSubMenu().addItem("Account", e -> {
-                Dialog dialog = new Dialog();
-                dialog.setHeaderTitle("Account " + user.getUsername());
-                FormLayout formLayout = new FormLayout();
-
-                TextField nameFld = new TextField("", user.getName(), "");
-                EmailField emailFld = new EmailField();
-//                PasswordField newPswFld = new PasswordField();
-//                PasswordField conPswFld = new PasswordField();
-
-                nameFld.setWidthFull();
-                emailFld.setWidthFull();
-//                newPswFld.setWidthFull();
-//                conPswFld.setWidthFull();
-
-                formLayout.addFormItem(nameFld, "Name");
-                formLayout.addFormItem(emailFld, "Email");
-//                formLayout.addFormItem(newPswFld, "New password");
-//                formLayout.addFormItem(conPswFld, "Confirm password");
-                dialog.setWidth("50%");
-                dialog.getFooter().add(new Button("Update account info", c -> {
-                    Optional<User> user1 = authenticatedUser.get();
-                    user1.ifPresent(value -> user = value);
-                    user.setName(nameFld.getValue());
-                    user.setEmail(emailFld.getValue());
-//                    user.setHashedPassword(passwordEncoder.encode(conPswFld.getValue()));
-                    userService.update(user);
-                    dialog.close();
-                }));
-                dialog.add(formLayout);
-                dialog.open();
-            });
-            userName.getSubMenu().addItem("Change password", e -> {
-                Optional<User> user1 = authenticatedUser.get();
-                user1.ifPresent(value -> user = value);
-                ChangePasswordDialog changePasswordDialog = new ChangePasswordDialog();
-                changePasswordDialog.setChangePasswordMode(ChangePassword.ChangePasswordMode.CHANGE_KNOWN);
-                changePasswordDialog.addOkListener(ok -> {
-                    boolean matches = passwordEncoder.matches(ok.getCurrentPassword(), user.getHashedPassword());
-                    if (matches) {
-                        user.setHashedPassword(passwordEncoder.encode(ok.getDesiredPassword()));
-                        userService.update(user);
-                    } else {
-                        Notification n = Notification.show("Current given password is incorrect. Password not updated");
-                        n.setPosition(Notification.Position.MIDDLE);
-                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                    }
-                });
-                List<ChangePasswordRule> rules = new ArrayList<>();
-                rules.add(ChangePasswordRule.length(Double.valueOf(8).intValue()));
-                rules.add(ChangePasswordRule.hasUppercaseLetters(Double.valueOf(1).intValue()));
-                rules.add(ChangePasswordRule.hasLowercaseLetters(Double.valueOf(1).intValue()));
-                rules.add(ChangePasswordRule.hasDigits(Double.valueOf(1).intValue()));
-                rules.add(ChangePasswordRule.hasSpecials(Double.valueOf(1).intValue()));
-                changePasswordDialog.addPasswordRules(rules.toArray(new ChangePasswordRule[]{}));
-                changePasswordDialog.open();
-            });
-            userName.getSubMenu().addItem("Loyverse Integrations", e -> {
-                Dialog dialog = new Dialog("Loyverse Integrations");
-                dialog.setWidth("400px");
-                Button button = new Button("Save");
-                byTypeAndBusinessId = taskRepository.getByTypeAndBusinessId(Task.Type.MAIN, user.getBusinessId());
-                FormLayout formLayout = new FormLayout();
-
-                personalAccessTokenFld = new TextField();
-                clientIdFld = new TextField();
-                clientSecretFld = new PasswordField();
-                redirectUrlFld = new TextField();
-
-
-                formLayout.addFormItem(personalAccessTokenFld, "Personal Access Token");
-                formLayout.addFormItem(clientIdFld, "Client ID");
-                formLayout.addFormItem(clientSecretFld, "Client secret");
-                formLayout.addFormItem(redirectUrlFld, "Redirect url");
-
-                personalAccessTokenFld.setWidthFull();
-                clientIdFld.setWidthFull();
-                clientSecretFld.setWidthFull();
-                redirectUrlFld.setWidthFull();
-
-
-
-                formLayout.add(button);
-                integration = integrationRepository.getByBusinessId(user.getBusinessId());
-                if(integration != null){
-                    personalAccessTokenFld.setValue(StringUtils.isBlank(integration.getPersonalAccessToken()) ? "" : integration.getPersonalAccessToken());
-                    clientIdFld.setValue(StringUtils.isBlank(integration.getClientId()) ? "" : integration.getClientId());
-                    clientSecretFld.setValue(StringUtils.isBlank(integration.getClientSecret()) ? "" : integration.getClientSecret());
-                    redirectUrlFld.setValue(StringUtils.isBlank(integration.getRedirectUri()) ? "" : integration.getRedirectUri());
-                    if((StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken()) )|| StringUtils.isBlank(integration.getAccessToken())){
-                        String authorize = authController.authorize(user.getBusinessId());
-                        if(StringUtils.isNotBlank(authorize)) {
-                            Anchor anchor = new Anchor(authorize,"Authorize application");
-                            anchor.setTarget(AnchorTarget.BLANK);
-                            formLayout.add(anchor);
-                        }
-                    }
-                }
-
-
-                formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
-                dialog.add(formLayout);
-                dialog.open();
-                button.addClickListener(f -> {
-
-                    if(integration == null){
-                        integration = new Integration();
-                        integration.setBusinessId(user.getBusinessId());
-                        integration.setState(UUID.randomUUID().toString());
-                    }
-
-                    integration.setClientId(clientIdFld.getValue());
-                    integration.setClientSecret(clientSecretFld.getValue());
-                    integration.setPersonalAccessToken(personalAccessTokenFld.getValue());
-                    integration.setRedirectUri(redirectUrlFld.getValue());
-
-                    integration = integrationService.update(integration);
-
-                    if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken())){
-                        String authorize = authController.authorize(user.getBusinessId());
-                        if(StringUtils.isNotBlank(authorize)) {
-                            UI.getCurrent().getPage().open(authorize,"_blank");
-                        }
-                    }
-
-                    Notification n = Notification.show("Data saved");
-                    n.setPosition(Notification.Position.MIDDLE);
-                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-                    n.setDuration(10000);
-                    dialog.close();
-                });
-            });
-            userName.getSubMenu().addItem("Synchronize", e -> {
-                Dialog dialog = new Dialog("Synchronize");
-                Button button = new Button("Synchronize Loyverse now");
-                byTypeAndBusinessId = taskRepository.getByTypeAndBusinessId(Task.Type.MAIN, user.getBusinessId());
-                ToggleButton automaticSync = new ToggleButton("", byTypeAndBusinessId.getEnabled());
-                automaticSync.addValueChangeListener(l -> {
-                    byTypeAndBusinessId.setEnabled(l.getValue());
-                    byTypeAndBusinessId = taskService.update(byTypeAndBusinessId);
-                    dialog.close();
-
-                    if (byTypeAndBusinessId.getEnabled()) {
-                        executor.schedule(jobbyLauncher, new MainTaskTrigger(byTypeAndBusinessId.getBusinessId(), taskRepository, taskService));
-                    } else {
-                        executor.cancelSchedule(1);
-                    }
-
-                    Notification n = Notification.show("Automatic sync activated. Next sync at [" + byTypeAndBusinessId.getMaxTime() + "]");
-                    n.setPosition(Notification.Position.MIDDLE);
-                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-                    n.setDuration(10000);
-                });
-//                new VerticalLayout(automaticSync,button,new Text("Next sync at [" + byTypeAndBusinessId.getMaxTime() + "]"));
-                FormLayout formLayout = new FormLayout();
-                formLayout.addFormItem(automaticSync, "Automatic sync");
-                formLayout.add(button);
-//                formLayout.addFormItem(automaticSync,"Automatic sync");
-                formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
-                dialog.add(formLayout);
-                dialog.open();
-                button.addClickListener(f -> {
-
-                    executor.schedule(jobbyLauncher, Instant.now());
-
-
-                    Notification n = Notification.show("System is synchronizing with Loyverse");
-                    n.setPosition(Notification.Position.MIDDLE);
-                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-                    n.setDuration(10000);
-                    dialog.close();
-                });
-            });
-            userName.getSubMenu().addItem("Sign out", e -> {
-                authenticatedUser.logout();
-            });
+            account(userName);
+            changePassword(userName);
+            loyverseIntegration(userName);
+            synchronize(userName);
+            signOut(userName);
             layout.add(userMenu);
         } else {
             Anchor loginLink = new Anchor("login", "Sign in");
@@ -376,6 +205,202 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
         header.add(layout, nav);
         return header;
+    }
+
+    private void account(MenuItem userName) {
+        userName.getSubMenu().addItem("Account", e -> {
+            Dialog dialog = new Dialog();
+            dialog.setHeaderTitle("Account " + user.getUsername());
+            FormLayout formLayout = new FormLayout();
+
+            TextField nameFld = new TextField("", user.getName(), "");
+            EmailField emailFld = new EmailField();
+//                PasswordField newPswFld = new PasswordField();
+//                PasswordField conPswFld = new PasswordField();
+
+            nameFld.setWidthFull();
+            emailFld.setWidthFull();
+//                newPswFld.setWidthFull();
+//                conPswFld.setWidthFull();
+
+            formLayout.addFormItem(nameFld, "Name");
+            formLayout.addFormItem(emailFld, "Email");
+//                formLayout.addFormItem(newPswFld, "New password");
+//                formLayout.addFormItem(conPswFld, "Confirm password");
+            dialog.setWidth("50%");
+            dialog.getFooter().add(new Button("Update account info", c -> {
+                Optional<User> user1 = authenticatedUser.get();
+                user1.ifPresent(value -> user = value);
+                user.setName(nameFld.getValue());
+                user.setEmail(emailFld.getValue());
+//                    user.setHashedPassword(passwordEncoder.encode(conPswFld.getValue()));
+                userService.update(user);
+                dialog.close();
+            }));
+            dialog.add(formLayout);
+            dialog.open();
+        });
+    }
+
+    private void changePassword(MenuItem userName) {
+        userName.getSubMenu().addItem("Change password", e -> {
+            Optional<User> user1 = authenticatedUser.get();
+            user1.ifPresent(value -> user = value);
+            ChangePasswordDialog changePasswordDialog = new ChangePasswordDialog();
+            changePasswordDialog.setChangePasswordMode(ChangePassword.ChangePasswordMode.CHANGE_KNOWN);
+            changePasswordDialog.addOkListener(ok -> {
+                boolean matches = passwordEncoder.matches(ok.getCurrentPassword(), user.getHashedPassword());
+                if (matches) {
+                    user.setHashedPassword(passwordEncoder.encode(ok.getDesiredPassword()));
+                    userService.update(user);
+                } else {
+                    Notification n = Notification.show("Current given password is incorrect. Password not updated");
+                    n.setPosition(Notification.Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
+            });
+            List<ChangePasswordRule> rules = new ArrayList<>();
+            rules.add(ChangePasswordRule.length(Double.valueOf(8).intValue()));
+            rules.add(ChangePasswordRule.hasUppercaseLetters(Double.valueOf(1).intValue()));
+            rules.add(ChangePasswordRule.hasLowercaseLetters(Double.valueOf(1).intValue()));
+            rules.add(ChangePasswordRule.hasDigits(Double.valueOf(1).intValue()));
+            rules.add(ChangePasswordRule.hasSpecials(Double.valueOf(1).intValue()));
+            changePasswordDialog.addPasswordRules(rules.toArray(new ChangePasswordRule[]{}));
+            changePasswordDialog.open();
+        });
+    }
+
+    private void signOut(MenuItem userName) {
+        userName.getSubMenu().addItem("Sign out", e -> {
+            authenticatedUser.logout();
+        });
+    }
+
+    private void synchronize(MenuItem userName) {
+        userName.getSubMenu().addItem("Synchronize", e -> {
+            Dialog dialog = new Dialog("Synchronize");
+            Button button = new Button("Synchronize Loyverse now");
+            byTypeAndBusinessId = taskRepository.getByTypeAndBusinessId(Task.Type.MAIN, user.getBusinessId());
+            FormLayout formLayout = getFormLayout(dialog);
+            formLayout.add(button);
+//                formLayout.addFormItem(automaticSync,"Automatic sync");
+            formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
+            dialog.add(formLayout);
+            dialog.open();
+            button.addClickListener(f -> {
+
+                executor.schedule(jobbyLauncher, Instant.now());
+
+
+                Notification n = Notification.show("System is synchronizing with Loyverse");
+                n.setPosition(Notification.Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                n.setDuration(10000);
+                dialog.close();
+            });
+        });
+    }
+
+    private FormLayout getFormLayout(Dialog dialog) {
+        ToggleButton automaticSync = new ToggleButton("", byTypeAndBusinessId.getEnabled());
+        automaticSync.addValueChangeListener(l -> {
+            byTypeAndBusinessId.setEnabled(l.getValue());
+            byTypeAndBusinessId = taskService.update(byTypeAndBusinessId);
+            dialog.close();
+
+            if (byTypeAndBusinessId.getEnabled()) {
+                executor.schedule(jobbyLauncher, new MainTaskTrigger(byTypeAndBusinessId.getBusinessId(), taskRepository, taskService));
+            } else {
+                executor.cancelSchedule(1);
+            }
+
+            Notification n = Notification.show("Automatic sync activated. Next sync at [" + byTypeAndBusinessId.getMaxTime() + "]");
+            n.setPosition(Notification.Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+            n.setDuration(10000);
+        });
+//                new VerticalLayout(automaticSync,button,new Text("Next sync at [" + byTypeAndBusinessId.getMaxTime() + "]"));
+        FormLayout formLayout = new FormLayout();
+        formLayout.addFormItem(automaticSync, "Automatic sync");
+        return formLayout;
+    }
+
+    private void loyverseIntegration(MenuItem userName) {
+        userName.getSubMenu().addItem("Loyverse Integrations", e -> {
+            Dialog dialog = new Dialog("Loyverse Integrations");
+            dialog.setWidth("400px");
+            Button button = new Button("Save");
+            byTypeAndBusinessId = taskRepository.getByTypeAndBusinessId(Task.Type.MAIN, user.getBusinessId());
+            FormLayout formLayout = new FormLayout();
+
+            personalAccessTokenFld = new TextField();
+            clientIdFld = new TextField();
+            clientSecretFld = new PasswordField();
+            redirectUrlFld = new TextField();
+
+
+            formLayout.addFormItem(personalAccessTokenFld, "Personal Access Token");
+            formLayout.addFormItem(clientIdFld, "Client ID");
+            formLayout.addFormItem(clientSecretFld, "Client secret");
+            formLayout.addFormItem(redirectUrlFld, "Redirect url");
+
+            personalAccessTokenFld.setWidthFull();
+            clientIdFld.setWidthFull();
+            clientSecretFld.setWidthFull();
+            redirectUrlFld.setWidthFull();
+
+
+
+            formLayout.add(button);
+            integration = integrationRepository.getByBusinessId(user.getBusinessId());
+            if(integration != null){
+                personalAccessTokenFld.setValue(StringUtils.isBlank(integration.getPersonalAccessToken()) ? "" : integration.getPersonalAccessToken());
+                clientIdFld.setValue(StringUtils.isBlank(integration.getClientId()) ? "" : integration.getClientId());
+                clientSecretFld.setValue(StringUtils.isBlank(integration.getClientSecret()) ? "" : integration.getClientSecret());
+                redirectUrlFld.setValue(StringUtils.isBlank(integration.getRedirectUri()) ? "" : integration.getRedirectUri());
+                if((StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken()) )|| StringUtils.isBlank(integration.getAccessToken())){
+                    String authorize = authController.authorize(user.getBusinessId());
+                    if(StringUtils.isNotBlank(authorize)) {
+                        Anchor anchor = new Anchor(authorize,"Authorize application");
+                        anchor.setTarget(AnchorTarget.BLANK);
+                        formLayout.add(anchor);
+                    }
+                }
+            }
+
+
+            formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
+            dialog.add(formLayout);
+            dialog.open();
+            button.addClickListener(f -> {
+
+                if(integration == null){
+                    integration = new Integration();
+                    integration.setBusinessId(user.getBusinessId());
+                    integration.setState(UUID.randomUUID().toString());
+                }
+
+                integration.setClientId(clientIdFld.getValue());
+                integration.setClientSecret(clientSecretFld.getValue());
+                integration.setPersonalAccessToken(personalAccessTokenFld.getValue());
+                integration.setRedirectUri(redirectUrlFld.getValue());
+
+                integration = integrationService.update(integration);
+
+                if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken())){
+                    String authorize = authController.authorize(user.getBusinessId());
+                    if(StringUtils.isNotBlank(authorize)) {
+                        UI.getCurrent().getPage().open(authorize,"_blank");
+                    }
+                }
+
+                Notification n = Notification.show("Data saved");
+                n.setPosition(Notification.Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                n.setDuration(10000);
+                dialog.close();
+            });
+        });
     }
 
     private MenuItemInfo[] createMenuItems() {

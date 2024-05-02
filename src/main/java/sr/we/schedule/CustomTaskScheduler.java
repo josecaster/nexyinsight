@@ -48,10 +48,10 @@ public class CustomTaskScheduler extends ThreadPoolTaskScheduler {
     public void cancelSchedule(int i) {
         ScheduledFuture<?> scheduledFuture = scheduledTasks.get(i);
         if(scheduledFuture != null){
-            while(!scheduledFuture.isCancelled()){
-                scheduledFuture.cancel(false);
-                System.out.println("Waiting on task to cancel");
-            }
+            scheduledFuture.cancel(false);
+//            while(!scheduledFuture.isCancelled()){
+//                System.out.println("Waiting on task to cancel");
+//            }
         }
     }
 }
