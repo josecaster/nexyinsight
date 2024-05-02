@@ -266,16 +266,16 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                     clientIdFld.setValue(StringUtils.isBlank(integration.getClientId()) ? "" : integration.getClientId());
                     clientSecretFld.setValue(StringUtils.isBlank(integration.getClientSecret()) ? "" : integration.getClientSecret());
                     redirectUrlFld.setValue(StringUtils.isBlank(integration.getRedirectUri()) ? "" : integration.getRedirectUri());
-                }
-
-                if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken()) && StringUtils.isBlank(integration.getAccessToken())){
-                    String authorize = authController.authorize(user.getBusinessId());
-                    if(StringUtils.isNotBlank(authorize)) {
-                        Anchor anchor = new Anchor(authorize,"Authorize application");
-                        anchor.setTarget(AnchorTarget.BLANK);
-                        formLayout.add(anchor);
+                    if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken()) && StringUtils.isBlank(integration.getAccessToken())){
+                        String authorize = authController.authorize(user.getBusinessId());
+                        if(StringUtils.isNotBlank(authorize)) {
+                            Anchor anchor = new Anchor(authorize,"Authorize application");
+                            anchor.setTarget(AnchorTarget.BLANK);
+                            formLayout.add(anchor);
+                        }
                     }
                 }
+
 
                 formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
                 dialog.add(formLayout);
