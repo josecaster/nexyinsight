@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
 import sr.we.entity.eclipsestore.tables.InventoryLevels;
+import sr.we.repository.IntegrationRepository;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -15,6 +16,10 @@ import java.time.format.DateTimeFormatter;
 
 @Controller
 public class LoyInventoryController extends Parent {
+    public LoyInventoryController(IntegrationRepository integrationRepository) {
+        super(integrationRepository);
+    }
+
     public InventoryLevels getList(String loyverseToken, String store_ids, //
                                    String variant_ids,//
                                    LocalDateTime updated_at_min, LocalDateTime updated_at_max,//
@@ -52,6 +57,8 @@ public class LoyInventoryController extends Parent {
         }
         url = stringBuilder.toString();
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);
@@ -64,6 +71,10 @@ public class LoyInventoryController extends Parent {
         String url = "https://api.loyverse.com/v1.0/inventory";
         String json = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().toJson(inventoryLevels);
         RestTemplate restTemplate = new RestTemplate();
+
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
+
         HttpEntity<String> httpEntity = getAuthHttpEntity(json, loyverseToken);
         ResponseEntity<InventoryLevels> exchange = restTemplate.exchange(url, HttpMethod.POST, httpEntity, InventoryLevels.class);
     }

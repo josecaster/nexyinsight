@@ -1,5 +1,6 @@
 package sr.we.integration;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
 import sr.we.entity.eclipsestore.tables.CollectReceipts;
 import sr.we.entity.eclipsestore.tables.Receipt;
+import sr.we.repository.IntegrationRepository;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -14,6 +16,10 @@ import java.time.format.DateTimeFormatter;
 
 @Controller
 public class LoyReceiptsController extends Parent {
+
+    public LoyReceiptsController(IntegrationRepository integrationRepository) {
+        super(integrationRepository);
+    }
 
     public CollectReceipts getList(String loyverseToken, Long businessId, //
                                    LocalDateTime created_at_min, LocalDateTime created_at_max, //
@@ -51,6 +57,8 @@ public class LoyReceiptsController extends Parent {
         }
         url = stringBuilder.toString();
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);
@@ -60,6 +68,9 @@ public class LoyReceiptsController extends Parent {
 
     public Receipt get(String loyverseToken, Long businessId, String id) throws IOException {
         String url = "https://api.loyverse.com/v1.0/receipts/" + id;
+
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);

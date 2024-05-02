@@ -13,7 +13,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 @Controller
-public class StoresRestController extends Parent {
+public class StoresController{
 
     @Autowired
     IStoreStorage storeStorage;

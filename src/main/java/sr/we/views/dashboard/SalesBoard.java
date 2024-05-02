@@ -82,40 +82,40 @@ public class SalesBoard implements Serializable {
         this.sectionIds = sectionIds;
 
         board.addRow(new BsRow(new BsColumn(createHighlight("Gross sales", span -> {
-            new Thread(() -> {
+            //new Thread(() -> {
                 List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                 ui.access(() -> {
                     BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
                     String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales);
                     span.setText(format);
                 });
-            }).start();
+            //}).start();
             return null;
         })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Refunds", span -> {
-                    new Thread(() -> {
+                    //new Thread(() -> {
                         List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
                             BigDecimal refunds = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
                             String format = new DecimalFormat("###,###,###,###,###,##0.00").format(refunds);
                             span.setText(format);
                         });
-                    }).start();
+                    //}).start();
                     return null;
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Discounts", span -> {
-                    new Thread(() -> {
+                    //new Thread(() -> {
                         List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
                             BigDecimal discounts = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add);
                             String format = new DecimalFormat("###,###,###,###,###,##0.00").format(discounts);
                             span.setText(format);
                         });
-                    }).start();
+                    //}).start();
                     return null;
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Net sales", span -> {
-                    new Thread(() -> {
+                    //new Thread(() -> {
                         List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
                         ui.access(() -> {
                             BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -124,7 +124,7 @@ public class SalesBoard implements Serializable {
                             String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales.subtract(refunds).subtract(discounts));
                             span.setText(format);
                         });
-                    }).start();
+                    //}).start();
                     return null;
                 })).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
@@ -199,7 +199,7 @@ public class SalesBoard implements Serializable {
         XAxis axis = xAxis.withCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").build();
         chart.withXaxis(axis);
 
-        refreshGrid(now);
+
 
         // Add it all together
         viewEvents = new VerticalLayout(header, chart.build());
@@ -207,65 +207,69 @@ public class SalesBoard implements Serializable {
         viewEvents.setPadding(false);
         viewEvents.setSpacing(false);
         viewEvents.getElement().getThemeList().add("spacing-l");
+
+        refreshGrid(now);
+
         return viewEvents;
     }
 
     private void refreshGrid(LocalDate now) {
-        dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
-            int year1 = now.getYear();
-            Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year1, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
+//        dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {
+//
+//        }));
+        Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+        int year1 = now.getYear();
+        Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year1, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
 
-            };
+        };
 
-            int year2 = year1 - 1;
-            Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
-                    getValue(collect, year2, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
+        int year2 = year1 - 1;
+        Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
+                getValue(collect, year2, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
 
-            };
+        };
 
-            Series<Number>[] listSeries = new Series[2];
+        Series<Number>[] listSeries = new Series[2];
 
-            Series<Number> flowIn = new Series<Number>();
-            flowIn.setName("Sales value");
-            flowIn.setData(data);
-            flowIn.setType(SeriesType.LINE);
-            listSeries[0] = flowIn;
+        Series<Number> flowIn = new Series<Number>();
+        flowIn.setName("Sales value");
+        flowIn.setData(data);
+        flowIn.setType(SeriesType.LINE);
+        listSeries[0] = flowIn;
 
 
-            Series<Number> flowOut = new Series<Number>();
-            flowOut.setName("Sales value last year");
-            flowOut.setData(data1);
-            flowOut.setType(SeriesType.COLUMN);
-            listSeries[1] = flowOut;
+        Series<Number> flowOut = new Series<Number>();
+        flowOut.setName("Sales value last year");
+        flowOut.setData(data1);
+        flowOut.setType(SeriesType.COLUMN);
+        listSeries[1] = flowOut;
 
-            dashboardView.setSubmit2(ui.access(() -> {
-                chart.withSeries(listSeries);
-                viewEvents.removeAll();
-                viewEvents.add(header, chart.build());
-            }));
-        }));
+        chart.withSeries(listSeries);
+        viewEvents.removeAll();
+        viewEvents.add(header, chart.build());
+//        dashboardView.setSubmit2(ui.access(() -> {
+//        }));
     }
 
     private Component createServiceHealth() {

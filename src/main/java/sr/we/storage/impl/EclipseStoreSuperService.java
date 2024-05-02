@@ -5,6 +5,7 @@ import org.eclipse.serializer.collections.lazy.LazyCollection;
 import org.eclipse.serializer.collections.lazy.LazyHashMap;
 import org.eclipse.serializer.reference.Lazy;
 import org.eclipse.store.storage.embedded.types.EmbeddedStorageManager;
+import org.eclipse.store.storage.types.StorageConnection;
 import sr.we.entity.eclipsestore.Database;
 import sr.we.entity.eclipsestore.tables.Grid;
 import sr.we.entity.eclipsestore.tables.SuperDao;
@@ -23,6 +24,9 @@ public abstract class EclipseStoreSuperService<T extends SuperDao> {
         this.storageManager = storageManager;
         this.typeParameterClass = typeParameterClass;
         this.storageManager.storeRoot();
+        StorageConnection connection = this.storageManager.createConnection();
+        connection.issueFullCacheCheck();
+        connection.issueFullFileCheck();
     }
 
 

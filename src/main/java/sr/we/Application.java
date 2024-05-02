@@ -5,6 +5,7 @@ import com.vaadin.flow.theme.Theme;
 
 import javax.sql.DataSource;
 
+import com.vaadin.flow.theme.lumo.Lumo;
 import org.eclipse.store.integrations.spring.boot.types.EclipseStoreSpringBoot;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -26,6 +27,10 @@ import sr.we.repository.SamplePersonRepository;
  */
 @SpringBootApplication
 @Theme(value = "nexy-insight")
+//@Theme(
+//        themeClass = Lumo.class,
+//        variant = "dark"
+//)
 @EntityScan(basePackages = {"sr.we.entity"})
 @Import(EclipseStoreSpringBoot.class)
 public class Application implements AppShellConfigurator {

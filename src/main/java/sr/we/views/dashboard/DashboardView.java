@@ -2,16 +2,11 @@ package sr.we.views.dashboard;
 
 
 import com.github.appreciated.apexcharts.ApexChartsBuilder;
-import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
-import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.html.*;
-import com.vaadin.flow.component.icon.Icon;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
-import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
@@ -19,7 +14,6 @@ import com.vaadin.flow.component.select.SelectVariant;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
-import org.apache.commons.lang3.StringUtils;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsRow;
@@ -30,17 +24,14 @@ import software.xdev.vaadin.daterange_picker.ui.DateRangePicker;
 import sr.we.controllers.InventoryValuationController;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.ReceiptsController;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.YearMonth;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +44,7 @@ import java.util.concurrent.Future;
 @Route(value = "dashboard", layout = MainLayout.class)
 @RouteAlias(value = "", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
-public class DashboardView extends Main implements BeforeEnterObserver {
+public class DashboardView extends Main implements BeforeEnterObserver  {
 
     private final AuthenticatedUser authenticatedUser;
     private final UI ui;
@@ -63,7 +54,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private final BsLayout board;
     private final Filters filters;
     private final ReceiptsController receiptsController;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private final HorizontalLayout filterLayout;
     private SalesBoard salesBoard;
     private InventoryBoard inventoryBoard;
@@ -74,13 +65,13 @@ public class DashboardView extends Main implements BeforeEnterObserver {
     private VerticalLayout viewEvents;
     private HorizontalLayout header;
 
-    public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser, InventoryValuationController inventoryValuationStorage, ReceiptsController receiptsController, StoresRestController storesRestController) {
+    public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser, InventoryValuationController inventoryValuationStorage, ReceiptsController receiptsController, StoresController storesController) {
         addClassNames("dashboard-view","items-view");
         this.ui = UI.getCurrent();
         this.authenticatedUser = authenticatedUser;
         this.inventoryValuationStorage = inventoryValuationStorage;
         this.receiptsController = receiptsController;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
         executorService = Executors.newFixedThreadPool(5);
 
         Optional<User> maybeUser = authenticatedUser.get();
@@ -89,7 +80,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         board = new BsLayout();
         board.addClassName("myborderstyle");
 
-        filterLayout = new HorizontalLayout(filters = new Filters(getBusinessId(), storesRestController, authenticatedUser, board));
+        filterLayout = new HorizontalLayout(filters = new Filters(getBusinessId(), storesController, authenticatedUser, board));
 
 //        filterLayout.getElement().getStyle().set("display","block");
         add( filterLayout, board);
@@ -187,7 +178,7 @@ public class DashboardView extends Main implements BeforeEnterObserver {
         private Set<String> linkSections;
         private SalesBoard salesBoard;
 
-        public Filters(Long businessId, StoresRestController storesRestController, AuthenticatedUser authenticatedUser, BsLayout board) {
+        public Filters(Long businessId, StoresController storesController, AuthenticatedUser authenticatedUser, BsLayout board) {
             this.businessId = businessId;
             setWidthFull();
 
@@ -218,8 +209,8 @@ public class DashboardView extends Main implements BeforeEnterObserver {
 
 
 
-            sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
-            List<String> sects = storesRestController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
+            sectionId.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+            List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
                 Optional<User> userOptional = authenticatedUser.get();
                 if (userOptional.isEmpty()) {
                     return false;

@@ -2,6 +2,7 @@ package sr.we.views;
 
 import com.vaadin.componentfactory.ToggleButton;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.avatar.Avatar;
@@ -14,22 +15,40 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
+import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.dom.ThemeList;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.auth.AccessAnnotationChecker;
 import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.servlet.http.Cookie;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
+import org.springframework.scheduling.TriggerContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.addons.joelpop.changepassword.ChangePassword;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordDialog;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordRule;
 import org.vaadin.lineawesome.LineAwesomeIcon;
+import sr.we.entity.Integration;
+import sr.we.entity.Task;
 import sr.we.entity.User;
+import sr.we.integration.AuthController;
+import sr.we.repository.IntegrationRepository;
+import sr.we.repository.TaskRepository;
+import sr.we.schedule.CustomTaskScheduler;
+import sr.we.schedule.JobbyLauncher;
+import sr.we.schedule.MainTaskTrigger;
 import sr.we.security.AuthenticatedUser;
+import sr.we.services.IntegrationService;
+import sr.we.services.TaskService;
 import sr.we.services.UserService;
 import sr.we.views.batches.BatchesView;
 import sr.we.views.dashboard.DashboardView;
@@ -41,27 +60,54 @@ import sr.we.views.stockadjustment.StockAdjustmentView;
 import sr.we.views.users.UsersView;
 
 import java.io.ByteArrayInputStream;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The main view is a top-level placeholder for other views.
  */
-public class MainLayout extends AppLayout {
+public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private final AuthenticatedUser authenticatedUser;
     private final AccessAnnotationChecker accessChecker;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final CustomTaskScheduler executor;
+    private final TaskRepository taskRepository;
+    private final TaskService taskService;
+    private final JobbyLauncher jobbyLauncher;
+    private final IntegrationRepository integrationRepository;
+    private final IntegrationService integrationService;
     private User user;
     private ToggleButton toggleButton;
+    private Task byTypeAndBusinessId;
+    private PasswordField clientSecretFld;
+    private TextField clientIdFld;
+    private TextField personalAccessTokenFld;
+    private TextField redirectUrlFld;
+    private Integration integration;
+    private final AuthController authController;
 
-    public MainLayout(AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder) {
+    public MainLayout(AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
+        this.integrationRepository = integrationRepository;
+        this.integrationService = integrationService;
         this.authenticatedUser = authenticatedUser;
         this.accessChecker = accessChecker;
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.executor = executor;
+        this.taskRepository = taskRepository;
+        this.taskService = taskService;
+        this.jobbyLauncher = jobbyLauncher;
+        this.authController = authController;
 
         addToNavbar(createHeaderContent());
         setDrawerOpened(false);
@@ -107,7 +153,6 @@ public class MainLayout extends AppLayout {
         });
 
 
-
         layout.add(toggleButton);
 
         Optional<User> maybeUser = authenticatedUser.get();
@@ -132,9 +177,6 @@ public class MainLayout extends AppLayout {
             div.getElement().getStyle().set("align-items", "center");
             div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
             userName.add(div);
-            userName.getSubMenu().addItem("Sign out", e -> {
-                authenticatedUser.logout();
-            });
             userName.getSubMenu().addItem("Account", e -> {
                 Dialog dialog = new Dialog();
                 dialog.setHeaderTitle("Account " + user.getUsername());
@@ -192,7 +234,125 @@ public class MainLayout extends AppLayout {
                 changePasswordDialog.addPasswordRules(rules.toArray(new ChangePasswordRule[]{}));
                 changePasswordDialog.open();
             });
+            userName.getSubMenu().addItem("Loyverse Integrations", e -> {
+                Dialog dialog = new Dialog("Loyverse Integrations");
+                dialog.setWidth("400px");
+                Button button = new Button("Save");
+                byTypeAndBusinessId = taskRepository.getByTypeAndBusinessId(Task.Type.MAIN, user.getBusinessId());
+                FormLayout formLayout = new FormLayout();
 
+                personalAccessTokenFld = new TextField();
+                clientIdFld = new TextField();
+                clientSecretFld = new PasswordField();
+                redirectUrlFld = new TextField();
+
+
+                formLayout.addFormItem(personalAccessTokenFld, "Personal Access Token");
+                formLayout.addFormItem(clientIdFld, "Client ID");
+                formLayout.addFormItem(clientSecretFld, "Client secret");
+                formLayout.addFormItem(redirectUrlFld, "Redirect url");
+
+                personalAccessTokenFld.setWidthFull();
+                clientIdFld.setWidthFull();
+                clientSecretFld.setWidthFull();
+                redirectUrlFld.setWidthFull();
+
+
+
+                formLayout.add(button);
+                integration = integrationRepository.getByBusinessId(user.getBusinessId());
+                if(integration != null){
+                    personalAccessTokenFld.setValue(StringUtils.isBlank(integration.getPersonalAccessToken()) ? "" : integration.getPersonalAccessToken());
+                    clientIdFld.setValue(StringUtils.isBlank(integration.getClientId()) ? "" : integration.getClientId());
+                    clientSecretFld.setValue(StringUtils.isBlank(integration.getClientSecret()) ? "" : integration.getClientSecret());
+                    redirectUrlFld.setValue(StringUtils.isBlank(integration.getRedirectUri()) ? "" : integration.getRedirectUri());
+                }
+
+                if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken()) && StringUtils.isBlank(integration.getAccessToken())){
+                    String authorize = authController.authorize(user.getBusinessId());
+                    if(StringUtils.isNotBlank(authorize)) {
+                        Anchor anchor = new Anchor(authorize,"Authorize application");
+                        anchor.setTarget(AnchorTarget.BLANK);
+                        formLayout.add(anchor);
+                    }
+                }
+
+                formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
+                dialog.add(formLayout);
+                dialog.open();
+                button.addClickListener(f -> {
+
+                    if(integration == null){
+                        integration = new Integration();
+                        integration.setBusinessId(user.getBusinessId());
+                        integration.setState(UUID.randomUUID().toString());
+                    }
+
+                    integration.setClientId(clientIdFld.getValue());
+                    integration.setClientSecret(clientSecretFld.getValue());
+                    integration.setPersonalAccessToken(personalAccessTokenFld.getValue());
+                    integration.setRedirectUri(redirectUrlFld.getValue());
+
+                    integration = integrationService.update(integration);
+
+                    if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken())){
+                        String authorize = authController.authorize(user.getBusinessId());
+                        if(StringUtils.isNotBlank(authorize)) {
+                            UI.getCurrent().getPage().open(authorize,"_blank");
+                        }
+                    }
+
+                    Notification n = Notification.show("Data saved");
+                    n.setPosition(Notification.Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                    n.setDuration(10000);
+                    dialog.close();
+                });
+            });
+            userName.getSubMenu().addItem("Synchronize", e -> {
+                Dialog dialog = new Dialog("Synchronize");
+                Button button = new Button("Synchronize Loyverse now");
+                byTypeAndBusinessId = taskRepository.getByTypeAndBusinessId(Task.Type.MAIN, user.getBusinessId());
+                ToggleButton automaticSync = new ToggleButton("", byTypeAndBusinessId.getEnabled());
+                automaticSync.addValueChangeListener(l -> {
+                    byTypeAndBusinessId.setEnabled(l.getValue());
+                    byTypeAndBusinessId = taskService.update(byTypeAndBusinessId);
+                    dialog.close();
+
+                    if (byTypeAndBusinessId.getEnabled()) {
+                        executor.schedule(jobbyLauncher, new MainTaskTrigger(byTypeAndBusinessId.getBusinessId(), taskRepository, taskService));
+                    } else {
+                        executor.cancelSchedule(1);
+                    }
+
+                    Notification n = Notification.show("Automatic sync activated. Next sync at [" + byTypeAndBusinessId.getMaxTime() + "]");
+                    n.setPosition(Notification.Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                    n.setDuration(10000);
+                });
+//                new VerticalLayout(automaticSync,button,new Text("Next sync at [" + byTypeAndBusinessId.getMaxTime() + "]"));
+                FormLayout formLayout = new FormLayout();
+                formLayout.addFormItem(automaticSync, "Automatic sync");
+                formLayout.add(button);
+//                formLayout.addFormItem(automaticSync,"Automatic sync");
+                formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
+                dialog.add(formLayout);
+                dialog.open();
+                button.addClickListener(f -> {
+
+                    executor.schedule(jobbyLauncher, Instant.now());
+
+
+                    Notification n = Notification.show("System is synchronizing with Loyverse");
+                    n.setPosition(Notification.Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                    n.setDuration(10000);
+                    dialog.close();
+                });
+            });
+            userName.getSubMenu().addItem("Sign out", e -> {
+                authenticatedUser.logout();
+            });
             layout.add(userMenu);
         } else {
             Anchor loginLink = new Anchor("login", "Sign in");
@@ -235,6 +395,30 @@ public class MainLayout extends AppLayout {
                 new MenuItemInfo("Users", LineAwesomeIcon.USERS_SOLID.create(), UsersView.class), //
 
         };
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
+        Optional<User> maybeUser = authenticatedUser.get();
+        if (maybeUser.isPresent()) {
+            user = maybeUser.get();
+            Integration byBusinessId = integrationRepository.getByBusinessId(user.getBusinessId());
+
+            if(byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getState())) {
+                boolean containsCode = beforeEnterEvent.getLocation().getQueryParameters().getParameters().containsKey("code");
+                boolean containsState = beforeEnterEvent.getLocation().getQueryParameters().getParameters().containsKey("state");
+
+                List<String> state = beforeEnterEvent.getLocation().getQueryParameters().getParameters().get("state");
+                if (containsCode && containsState && state.contains(byBusinessId.getState())){
+                    List<String> code = beforeEnterEvent.getLocation().getQueryParameters().getParameters().get("code");
+                    byBusinessId.setCode(code.get(0));
+                    integrationService.update(byBusinessId);
+                    authController.authorize(byBusinessId.getBusinessId(),false);
+//                    beforeEnterEvent.getRedirectQueryParameters().excluding("code","stats");
+                }
+            }
+
+        }
     }
 
     /**

@@ -18,7 +18,6 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
@@ -29,11 +28,9 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import jakarta.annotation.security.RolesAllowed;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVRecord;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
 import sr.we.entity.Role;
@@ -45,11 +42,7 @@ import sr.we.services.BatchService;
 import sr.we.views.MainLayout;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -66,7 +59,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private final Button save = new Button("Save");
     private final BeanValidationBinder<Batch> binder;
     private final BatchItemsService batchItemsService;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private final BatchService batchService;
     private final AuthenticatedUser authenticatedUser;
     TextField description;
@@ -79,11 +72,11 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private Batch batch;
     private Set<String> linkSections;
 
-    public BatchesView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
+    public BatchesView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
 
         User user = authenticatedUser.get().get();
         linkSections = user.getLinkSections();
@@ -164,7 +157,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Batch items");
         dialog.setWidth("80%");
-        UploadItemsView uploadItemsView = new UploadItemsView(batchItemsService, batchService, authenticatedUser, storesRestController, batch);
+        UploadItemsView uploadItemsView = new UploadItemsView(batchItemsService, batchService, authenticatedUser, storesController, batch);
         dialog.add(uploadItemsView);
         dialog.setCancelable(true);
         dialog.open();
@@ -207,8 +200,8 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         });
         status.setItems(Batch.Status.values());
         sectionId = new ComboBox<>("Section");
-        sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
-        sectionId.setItems(query -> storesRestController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
+        sectionId.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
             Optional<User> userOptional = authenticatedUser.get();
             if (userOptional.isEmpty()) {
                 return false;

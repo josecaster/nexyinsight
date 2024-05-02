@@ -24,7 +24,7 @@ import com.vaadin.flow.data.provider.Query;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
 import sr.we.security.AuthenticatedUser;
@@ -46,7 +46,7 @@ public class UploadItemsView extends VerticalLayout {
     private final Button save = new Button("Save");
     private final BeanValidationBinder<BatchItems> binder;
     private final BatchItemsService batchItemsService;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private final BatchService batchService;
     private final AuthenticatedUser authenticatedUser;
     private final Long batchId;
@@ -59,11 +59,11 @@ public class UploadItemsView extends VerticalLayout {
     private BigDecimalField price;
     private BatchItems batchItems;
 
-    public UploadItemsView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController, Batch batch) {
+    public UploadItemsView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController, Batch batch) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
         this.batch = batch;
         this.batchId = this.batch.getId();
 

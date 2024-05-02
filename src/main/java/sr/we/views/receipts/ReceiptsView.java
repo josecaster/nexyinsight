@@ -29,7 +29,7 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import sr.we.controllers.ReceiptsController;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Receipt;
@@ -54,10 +54,10 @@ public class ReceiptsView extends Div {
     private static List<Section> sections;
     private static User user;
     private final ReceiptsController receiptService;
-    private final StoresRestController sectionService;
+    private final StoresController sectionService;
     private final AuthenticatedUser authenticatedUser;
     private final Filters filters;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private Grid<Receipt> grid;
     private TextField receiptNumberFld;
     private BigDecimalField costFld;
@@ -80,11 +80,11 @@ public class ReceiptsView extends Div {
     private Grid.Column<Receipt> createDateColumn;
     private ComboBox<Section> storeFld;
 
-    public ReceiptsView(StoresRestController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
+    public ReceiptsView(StoresController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.receiptService = ReceiptService;
         this.sectionService = sectionService;
         this.authenticatedUser = authenticatedUser;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
         setSizeFull();
         addClassNames("items-view");
 
@@ -237,8 +237,8 @@ public class ReceiptsView extends Div {
         storeFld.setItemLabelGenerator(Section::getDefault_name);
         storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).filter(Section::isDefault));
         sectionId = new MultiSelectComboBox<>();
-        sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
-        List<String> sects = storesRestController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
+        sectionId.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
             Optional<User> userOptional = authenticatedUser.get();
             if (userOptional.isEmpty()) {
                 return false;
@@ -470,7 +470,7 @@ public class ReceiptsView extends Div {
                 Optional<String> any = sectionId.getValue().stream().filter(n -> {
                     boolean containsDevice = true;
                     boolean containsCatregory = true;
-                    Section l = storesRestController.oneStore(getBusinessId(), n);
+                    Section l = storesController.oneStore(getBusinessId(), n);
                     boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
                     if (containsStore) {
                         if (l.getDevices() != null && !l.getDevices().isEmpty()) {

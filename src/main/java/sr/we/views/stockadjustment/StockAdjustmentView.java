@@ -30,7 +30,7 @@ import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Role;
 import sr.we.entity.StockAdjustment;
 import sr.we.entity.StockAdjustmentItems;
@@ -59,7 +59,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private final Button adjustBtn = new Button("Adjust");
     private final BeanValidationBinder<StockAdjustment> binder;
     private final StockAdjustmentItemsService batchItemsService;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private final StockAdjustmentService batchService;
     private final AuthenticatedUser authenticatedUser;
     TextArea note;
@@ -71,11 +71,11 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private Set<String> linkSections;
     private VerticalLayout itemsLayout;
 
-    public StockAdjustmentView(StockAdjustmentItemsService batchItemsService, StockAdjustmentService batchService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
+    public StockAdjustmentView(StockAdjustmentItemsService batchItemsService, StockAdjustmentService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
 
         User user = authenticatedUser.get().get();
         linkSections = user.getLinkSections();
@@ -180,8 +180,8 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         batchIdFld = new Span("!!!NEW!!!");
         batchIdFld.getElement().getThemeList().add("badge warning");
         sectionId = new ComboBox<>("Section");
-        sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
-        sectionId.setItems(query -> storesRestController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
+        sectionId.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
             Optional<User> userOptional = authenticatedUser.get();
             if (userOptional.isEmpty()) {
                 return false;

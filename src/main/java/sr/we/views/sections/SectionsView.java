@@ -24,15 +24,14 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
-import sr.we.controllers.CategoryRestController;
-import sr.we.controllers.DevicesRestController;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.CategoryController;
+import sr.we.controllers.DevicesController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.eclipsestore.tables.Category;
 import sr.we.entity.eclipsestore.tables.Device;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.MainLayout;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,9 +40,9 @@ import java.util.Optional;
 @RolesAllowed("ADMIN")
 public class SectionsView extends Div implements BeforeEnterObserver {
 
-    private final StoresRestController sectionService;
-    private final CategoryRestController categoryRestController;
-    private final DevicesRestController devicesRestController;
+    private final StoresController sectionService;
+    private final CategoryController categoryController;
+    private final DevicesController devicesController;
     private Button newButton;
     private Grid<Section> grid;
     private Binder<Section> binder;
@@ -54,10 +53,10 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     private MultiSelectComboBox<String> categoryComboBox;
     private MultiSelectComboBox<String> deviceComboBox;
 
-    public SectionsView(StoresRestController sectionService, CategoryRestController categoryRestController, DevicesRestController devicesRestController) {
+    public SectionsView(StoresController sectionService, CategoryController categoryController, DevicesController devicesController) {
         this.sectionService = sectionService;
-        this.categoryRestController = categoryRestController;
-        this.devicesRestController = devicesRestController;
+        this.categoryController = categoryController;
+        this.devicesController = devicesController;
 
         addClassName("sections-view");
         setSizeFull();
@@ -299,10 +298,10 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private List<Category> getCategories() {
-        return categoryRestController.allStores(getBusinessId());
+        return categoryController.allStores(getBusinessId());
     }
 
     private List<Device> getDevices() {
-        return devicesRestController.allStores(getBusinessId());
+        return devicesController.allStores(getBusinessId());
     }
 }

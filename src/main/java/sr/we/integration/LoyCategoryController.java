@@ -6,7 +6,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
+import sr.we.entity.Integration;
 import sr.we.entity.eclipsestore.tables.CollectCategories;
+import sr.we.repository.IntegrationRepository;
 
 import java.io.IOException;
 
@@ -14,12 +16,17 @@ import java.io.IOException;
 public class LoyCategoryController extends Parent {
 
 
+    public LoyCategoryController(IntegrationRepository integrationRepository) {
+        super(integrationRepository);
+    }
+
     public CollectCategories getList(String loyverseToken, String store_id) throws IOException {
 
         return getSwicthList(store_id, loyverseToken);
 
 
     }
+
 
 
     public CollectCategories getSwicthList(String store_ids, String loyverseToken) {
@@ -33,6 +40,8 @@ public class LoyCategoryController extends Parent {
 
         url = stringBuilder.toString();
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);

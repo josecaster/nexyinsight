@@ -9,7 +9,7 @@ import sr.we.storage.IDeviceStorage;
 import java.util.List;
 
 @Controller
-public class DevicesRestController extends Parent {
+public class DevicesController {
     @Autowired
     private IDeviceStorage deviceStorage;
 

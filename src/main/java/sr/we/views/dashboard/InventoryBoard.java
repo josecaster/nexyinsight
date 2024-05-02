@@ -73,43 +73,43 @@ public class InventoryBoard implements Serializable {
 
 
         board.addRow(new BsRow(new BsColumn(createHighlight("Total inventory value", span -> {
-            new Thread(() -> {
+            //new Thread(() -> {
                 Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                 ui.access(() -> {
                     String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getInventoryValue() : BigDecimal.ZERO);
                     span.setText(format);
                 });
-            }).start();
+            //}).start();
             return null;
         })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Total retail value", span -> {
-                    new Thread(() -> {
+                    //new Thread(() -> {
                         Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                         ui.access(() -> {
                             String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getRetailValue() : BigDecimal.ZERO);
                             span.setText(format);
                         });
-                    }).start();
+                    //}).start();
                     return null;
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Potential profit", span -> {
-                    new Thread(() -> {
+                    //new Thread(() -> {
                         Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                         ui.access(() -> {
                             String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getPotentialProfit() : BigDecimal.ZERO);
                             span.setText(format);
                         });
-                    }).start();
+                    //}).start();
                     return null;
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Margin", span -> {
-                    new Thread(() -> {
+                    //new Thread(() -> {
                         Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
                         ui.access(() -> {
                             String format = new DecimalFormat(" #,##0.00 '%'").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getMargin() : BigDecimal.ZERO);
                             span.setText(format);
                         });
-                    }).start();
+                    //}).start();
                     return null;
                 })).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
@@ -195,7 +195,6 @@ public class InventoryBoard implements Serializable {
         XAxis axis = xAxis.withCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").build();
        chart.withXaxis(axis);
 
-        refreshGrid(now);
 
         // Add it all together
         viewEvents = new VerticalLayout(header, chart.build());
@@ -203,65 +202,70 @@ public class InventoryBoard implements Serializable {
         viewEvents.setPadding(false);
         viewEvents.setSpacing(false);
         viewEvents.getElement().getThemeList().add("spacing-l");
+
+        refreshGrid(now);
+
         return viewEvents;
     }
 
     private void refreshGrid(LocalDate now) {
-        dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {
-            Map<Pair<Integer, Month>, List<InventoryValuation>> collect = inventoryValuationStorage.allInventoryValuations(getBusinessId()).stream().collect(Collectors.groupingBy(g -> Pair.of(g.getLocalDate().getYear(), g.getLocalDate().getMonth())));
-            int year1 = now.getYear();
-            Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.MARCH, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.APRIL, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.MAY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.JUNE, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.JULY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.AUGUST, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.SEPTEMBER, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.OCTOBER, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.NOVEMBER, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year1, Month.DECEMBER, InventoryValuation::getInventoryValue)
+//        dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {}));
 
-            };
+        Map<Pair<Integer, Month>, List<InventoryValuation>> collect = inventoryValuationStorage.allInventoryValuations(getBusinessId()).stream().collect(Collectors.groupingBy(g -> Pair.of(g.getLocalDate().getYear(), g.getLocalDate().getMonth())));
+        int year1 = now.getYear();
+        Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.MARCH, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.APRIL, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.MAY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.JUNE, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.JULY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.AUGUST, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.SEPTEMBER, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.OCTOBER, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.NOVEMBER, InventoryValuation::getInventoryValue),//
+                getValue(collect, year1, Month.DECEMBER, InventoryValuation::getInventoryValue)
 
-            int year2 = year1 - 1;
-            Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.MARCH, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.APRIL, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.MAY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.JUNE, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.JULY, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.AUGUST, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.SEPTEMBER, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.OCTOBER, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.NOVEMBER, InventoryValuation::getInventoryValue),//
-                    getValue(collect, year2, Month.DECEMBER, InventoryValuation::getInventoryValue)
+        };
 
-            };
+        int year2 = year1 - 1;
+        Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.FEBRUARY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.MARCH, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.APRIL, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.MAY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.JUNE, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.JULY, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.AUGUST, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.SEPTEMBER, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.OCTOBER, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.NOVEMBER, InventoryValuation::getInventoryValue),//
+                getValue(collect, year2, Month.DECEMBER, InventoryValuation::getInventoryValue)
 
-            Series<Number>[] listSeries = new Series[2];
+        };
 
-            Series<Number> flowIn = new Series<Number>();
-            flowIn.setName("Inventory value");
-            flowIn.setData(data);
-            flowIn.setType(SeriesType.LINE);
-            listSeries[0] = flowIn;
+        Series<Number>[] listSeries = new Series[2];
+
+        Series<Number> flowIn = new Series<Number>();
+        flowIn.setName("Inventory value");
+        flowIn.setData(data);
+        flowIn.setType(SeriesType.LINE);
+        listSeries[0] = flowIn;
 
 
-            Series<Number> flowOut = new Series<Number>();
-            flowOut.setName("Inventory value last year");
-            flowOut.setData(data1);
-            flowOut.setType(SeriesType.COLUMN);
-            listSeries[1] = flowOut;
+        Series<Number> flowOut = new Series<Number>();
+        flowOut.setName("Inventory value last year");
+        flowOut.setData(data1);
+        flowOut.setType(SeriesType.COLUMN);
+        listSeries[1] = flowOut;
 
-            dashboardView.setSubmit2(ui.access(() -> {
-                chart.withSeries(listSeries);
-                viewEvents.removeAll();
-                viewEvents.add(header, chart.build());
-            }));
-        }));
+//        dashboardView.setSubmit2(ui.access(() -> {
+//
+//        }));
+        chart.withSeries(listSeries);
+        viewEvents.removeAll();
+        viewEvents.add(header, chart.build());
+
     }
 
     private Component createServiceHealth() {

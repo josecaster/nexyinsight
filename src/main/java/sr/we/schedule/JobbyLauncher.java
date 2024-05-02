@@ -1,22 +1,30 @@
 package sr.we.schedule;
 
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
+import org.springframework.scheduling.TriggerContext;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import sr.we.entity.Task;
 import sr.we.repository.SyncTimeRepository;
 import sr.we.entity.SyncTime;
 import sr.we.entity.eclipsestore.tables.*;
 import sr.we.integration.*;
+import sr.we.repository.TaskRepository;
+import sr.we.services.TaskService;
 import sr.we.storage.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,9 +34,12 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class JobbyLauncher {
+public class JobbyLauncher implements Runnable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JobbyLauncher.class);
+    private final TaskScheduler taskScheduler;
+    private final TaskRepository taskRepository;
+    private final TaskService taskService;
     @Autowired
     IStoreStorage storeStorage;
     @Autowired
@@ -63,6 +74,25 @@ public class JobbyLauncher {
     private Long businessId;
     private boolean itemsBusy = false;
 
+    public JobbyLauncher(TaskScheduler taskScheduler, TaskRepository taskRepository, TaskService taskService) {
+        this.taskScheduler = taskScheduler;
+        this.taskRepository = taskRepository;
+        this.taskService = taskService;
+
+    }
+
+    @PostConstruct
+    public void init() {
+        taskScheduler.schedule(this, new MainTaskTrigger(businessId, taskRepository, taskService));
+    }
+
+    @Override
+    public void run() {
+        runItems();
+        updateStockLevels();
+        runReceipts();
+    }
+
     private String getLoyverseToken() {
         return loyverseToken;
     }
@@ -71,7 +101,7 @@ public class JobbyLauncher {
         return businessId;
     }
 
-    @Scheduled(fixedDelay = 300000)
+    //    @Scheduled(fixedDelay = 300000)
     public void runItems() {
         LOGGER.info("SCHEDULED run of items STARTED");
         if (!itemsBusy) {
@@ -96,8 +126,8 @@ public class JobbyLauncher {
 //            String itemIds = items.stream().map(l -> {
 //                return l.getId().split("\\|")[0];
 //            }).collect(Collectors.joining(","));
-            LOGGER.info("Sync size ["+items.size()+"]");
-            for(Item iitem : items){
+            LOGGER.info("Sync size [" + items.size() + "]");
+            for (Item iitem : items) {
                 ListLoyItems listLoyItems = loyItemsController.getListLoyItems(iitem.getId().split("\\|")[0], null, null, null, null, null, null, loyverseToken);
                 if (listLoyItems.getItems() != null && !listLoyItems.getItems().isEmpty()) {
                     for (Item item : listLoyItems.getItems()) {
@@ -123,14 +153,14 @@ public class JobbyLauncher {
         }
     }
 
-    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
+    //    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
     private void updateStockLevels() {
         LOGGER.info("SCHEDULED run of stock levels STARTED");
         List<StockLevel> levels = getStockLevels(); // get stock levels
         iterateItems(itemStorage.allItems(getBusinessId()), levels);// rectify the amounts
     }
 
-    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
+    //    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
     public void runReceipts() {
         LOGGER.info("SCHEDULED run of receipts STARTED");
         if (!itemsBusy) {
@@ -249,7 +279,7 @@ public class JobbyLauncher {
         run = true;
         List<Item> items = new ArrayList<>();
         while (run) {
-            ListLoyItems listLoyItems = loyItemsController.getListLoyItems(null, null, null, (maxTime == null ? null : maxTime.minusDays(1)), null, 250, cursor, getLoyverseToken());
+            ListLoyItems listLoyItems = loyItemsController.getListLoyItems(null, null, null, null, null, 250, cursor, getLoyverseToken());
 
             if (listLoyItems != null && listLoyItems.getItems() != null) {
                 items.addAll(listLoyItems.getItems());
@@ -341,7 +371,7 @@ public class JobbyLauncher {
 
 
         while (run) {
-            CollectReceipts listLoyItems = loyReceiptsController.getListLoyStores(null, null, maxTime, null, 250, cursor, getLoyverseToken());
+            CollectReceipts listLoyItems = loyReceiptsController.getListLoyStores(null, null, null, null, 250, cursor, getLoyverseToken());
             cursor = listLoyItems == null ? null : listLoyItems.getCursor();
             run = StringUtils.isNotBlank(cursor);
 

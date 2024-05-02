@@ -6,13 +6,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Item;
-import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.integration.LoyItemsController;
 import sr.we.integration.Parent;
 import sr.we.storage.IItemStorage;
 
-import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -21,7 +19,7 @@ import java.util.stream.Stream;
 
 
 @Controller
-public class ItemsController extends Parent {
+public class ItemsController {
 
     @Autowired
     private IItemStorage itemStorage;
@@ -30,7 +28,7 @@ public class ItemsController extends Parent {
     private LoyItemsController loyItemsController;
 
     @Autowired
-    private StoresRestController storesRestController;
+    private StoresController storesController;
 
     private static Predicate<Item> getItemPredicate(List<Section> sectionIds) {
         return f -> {
@@ -64,7 +62,7 @@ public class ItemsController extends Parent {
     public Stream<Item> allItems(Long businessId, Integer page, Integer pageSize, User user, Predicate<? super Item> predicate) {
 
         Set<String> sectionIds;
-        List<Section> sections = storesRestController.allStores(businessId);
+        List<Section> sections = storesController.allStores(businessId);
         if (user != null && !user.getRoles().contains(Role.ADMIN)) {
             sectionIds = user.getLinkSections();
             if (sectionIds != null) {

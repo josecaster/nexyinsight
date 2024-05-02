@@ -3,14 +3,12 @@ package sr.we.controllers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
-import sr.we.entity.Role;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.integration.LoyReceiptsController;
 import sr.we.integration.Parent;
 import sr.we.storage.impl.ReceiptStorage;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Predicate;
@@ -18,13 +16,13 @@ import java.util.stream.Stream;
 
 
 @Controller
-public class ReceiptsController extends Parent {
+public class ReceiptsController{
 
     @Autowired
     private ReceiptStorage receiptStorage;
 
     @Autowired
-    private StoresRestController storesRestController;
+    private StoresController storesController;
 
     @Autowired
     private LoyReceiptsController loyReceiptsController;
@@ -163,7 +161,7 @@ public class ReceiptsController extends Parent {
             Optional<String> any = sections.stream().filter(n -> {
                 boolean containsDevice = true;
                 boolean containsCatregory = true;
-                Section l = storesRestController.oneStore(businessId, n);
+                Section l = storesController.oneStore(businessId, n);
                 boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
                 if (containsStore) {
                     if (l.getDevices() != null && !l.getDevices().isEmpty()) {
@@ -195,7 +193,7 @@ public class ReceiptsController extends Parent {
                     Optional<String> any = sections.stream().filter(n -> {
                         boolean containsDevice = true;
                         boolean containsCatregory = true;
-                        Section l = storesRestController.oneStore(businessId, n);
+                        Section l = storesController.oneStore(businessId, n);
                         boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
                         if (containsStore) {
                             if (l.getDevices() != null && !l.getDevices().isEmpty()) {

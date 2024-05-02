@@ -9,6 +9,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.ListLoyItems;
+import sr.we.repository.IntegrationRepository;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -17,6 +18,10 @@ import java.time.format.DateTimeFormatter;
 @Controller
 public class LoyItemsController extends Parent {
 
+
+    public LoyItemsController(IntegrationRepository integrationRepository) {
+        super(integrationRepository);
+    }
 
     public ListLoyItems getList(String loyverseToken, String items_ids, //
                                 LocalDateTime created_at_min, LocalDateTime created_at_max, //
@@ -58,6 +63,8 @@ public class LoyItemsController extends Parent {
         }
         url = stringBuilder.toString();
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);
@@ -69,6 +76,8 @@ public class LoyItemsController extends Parent {
     public Item get(String loyverseToken, String id) throws IOException {
         String url = "https://api.loyverse.com/v1.0/items/" + id;
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);
@@ -78,6 +87,9 @@ public class LoyItemsController extends Parent {
 
     public Item add(String loyverseToken, Item item) throws IOException {
         String url = "https://api.loyverse.com/v1.0/items";
+
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         String json = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().toJson(item);

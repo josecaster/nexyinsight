@@ -13,7 +13,7 @@ import java.util.stream.Stream;
 
 
 @Controller
-public class InventoryValuationController extends Parent {
+public class InventoryValuationController {
 
     private final IInventoryValuationStorage inventoryValuationStorage;
 

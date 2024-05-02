@@ -32,7 +32,7 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import sr.we.controllers.ItemsController;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Item;
@@ -61,9 +61,9 @@ public class ItemsView extends Div implements BeforeEnterObserver {
 
     private final ItemsController ItemService;
     private final Filters filters;
-    private final StoresRestController sectionService;
+    private final StoresController sectionService;
     private final AuthenticatedUser authenticatedUser;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private Grid<Item> grid;
     private Grid.Column<Item> storeColumn;
     private Grid.Column<Item> priceColumn;
@@ -84,11 +84,11 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     private MultiSelectComboBox<String> sectionId;
     private Grid.Column<Item> stockLevelDate;
 
-    public ItemsView(ItemsController ItemService, StoresRestController sectionService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController) {
+    public ItemsView(ItemsController ItemService, StoresController sectionService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.ItemService = ItemService;
         this.sectionService = sectionService;
         this.authenticatedUser = authenticatedUser;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
         setSizeFull();
         addClassNames("items-view");
 
@@ -223,8 +223,8 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         storeFld.setItemLabelGenerator(Section::getDefault_name);
         storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).filter(Section::isDefault));
         sectionId = new MultiSelectComboBox<>();
-        sectionId.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
-        List<String> sects = storesRestController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
+        sectionId.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
             Optional<User> userOptional = authenticatedUser.get();
             if (userOptional.isEmpty()) {
                 return false;
@@ -336,7 +336,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         if(check) {
             Optional<String> any = sectionId.getValue().stream().filter(n -> {
                 boolean containsCatregory = true;
-                Section l = storesRestController.oneStore(getBusinessId(), n);
+                Section l = storesController.oneStore(getBusinessId(), n);
                 boolean containsStore = l.getId().equalsIgnoreCase(item.getVariantStore().getStore_id());
                 if (containsStore) {
 

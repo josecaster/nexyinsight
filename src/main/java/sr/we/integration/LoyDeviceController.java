@@ -7,11 +7,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
 import sr.we.entity.eclipsestore.tables.CollectDevices;
+import sr.we.repository.IntegrationRepository;
 
 import java.io.IOException;
 
 @Controller
 public class LoyDeviceController extends Parent {
+
+    public LoyDeviceController(IntegrationRepository integrationRepository) {
+        super(integrationRepository);
+    }
 
     public CollectDevices getList(String loyverseToken, String store_id) throws IOException {
         return getList(store_id, loyverseToken);
@@ -29,6 +34,8 @@ public class LoyDeviceController extends Parent {
 
         url = stringBuilder.toString();
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);

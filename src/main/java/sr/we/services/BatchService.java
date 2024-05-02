@@ -5,7 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.repository.BatchItemsRepository;
 import sr.we.repository.BatchRepository;
 import sr.we.entity.Batch;
@@ -24,7 +24,7 @@ public class BatchService {
     private final BatchRepository repository;
     private final BatchItemsRepository batchItemsRepository;
     private final LoyItemsController loyItemsController;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private final LoyInventoryController inventoryController;
 
     @Value("${sr.we.loyverse.token}")
@@ -34,11 +34,11 @@ public class BatchService {
     @Value("${sr.we.business.id}")
     private Long businessId;
 
-    public BatchService(BatchRepository repository, BatchItemsRepository batchItemsRepository, LoyItemsController loyItemsController, StoresRestController storesRestController, LoyInventoryController inventoryController) {
+    public BatchService(BatchRepository repository, BatchItemsRepository batchItemsRepository, LoyItemsController loyItemsController, StoresController storesController, LoyInventoryController inventoryController) {
         this.repository = repository;
         this.batchItemsRepository = batchItemsRepository;
         this.loyItemsController = loyItemsController;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
         this.inventoryController = inventoryController;
     }
 
@@ -50,7 +50,7 @@ public class BatchService {
 
         if(entity.getId() != null) {
 
-            Section section = storesRestController.oneStore(businessId, entity.getSectionId());
+            Section section = storesController.oneStore(businessId, entity.getSectionId());
 
             Optional<Batch> batch = get(entity.getId());
             if (batch.isPresent() && batch.get().getStatus().compareTo(Batch.Status.APPROVED) != 0 && entity.getStatus().compareTo(Batch.Status.APPROVED) == 0) {

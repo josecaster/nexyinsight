@@ -9,11 +9,11 @@ import sr.we.storage.impl.CategoryStorage;
 import java.util.List;
 
 @Controller
-public class CategoryRestController extends Parent {
+public class CategoryController {
     EmbeddedStorageManager storageManager;
     CategoryStorage categoryStorage;
 
-    public CategoryRestController(EmbeddedStorageManager storageManager, CategoryStorage categoryStorage) {
+    public CategoryController(EmbeddedStorageManager storageManager, CategoryStorage categoryStorage) {
         this.storageManager = storageManager;
         this.categoryStorage = categoryStorage;
     }

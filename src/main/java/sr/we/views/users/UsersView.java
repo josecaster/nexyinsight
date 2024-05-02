@@ -35,7 +35,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.addons.joelpop.changepassword.ChangePassword;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordDialog;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordRule;
-import sr.we.controllers.StoresRestController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Section;
@@ -61,7 +61,7 @@ public class UsersView extends Div implements BeforeEnterObserver {
     private final BeanValidationBinder<User> binder;
     private final UserService userService;
     private final AuthenticatedUser authenticatedUser;
-    private final StoresRestController storesRestController;
+    private final StoresController storesController;
     private final PasswordEncoder passwordEncoder;
     private TextField username;
     private TextField name;
@@ -75,11 +75,11 @@ public class UsersView extends Div implements BeforeEnterObserver {
     private User user;
     private Button changePwdBtn;
 
-    public UsersView(UserService userService, AuthenticatedUser authenticatedUser, StoresRestController storesRestController, PasswordEncoder passwordEncoder) {
+    public UsersView(UserService userService, AuthenticatedUser authenticatedUser, StoresController storesController, PasswordEncoder passwordEncoder) {
 
         this.userService = userService;
         this.authenticatedUser = authenticatedUser;
-        this.storesRestController = storesRestController;
+        this.storesController = storesController;
         this.passwordEncoder = passwordEncoder;
 
         addClassNames("batches-view");
@@ -212,8 +212,8 @@ public class UsersView extends Div implements BeforeEnterObserver {
         email.setClearButtonVisible(true);
         linkSections.setClearButtonVisible(true);
 
-        linkSections.setItemLabelGenerator(label -> storesRestController.oneStore(getBusinessId(), label).getName());
-        linkSections.setItems(query -> storesRestController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).map(Section::getUuId));
+        linkSections.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        linkSections.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).map(Section::getUuId));
 
         changePwdBtn = new Button("change password");
         changePwdBtn.setVisible(false);

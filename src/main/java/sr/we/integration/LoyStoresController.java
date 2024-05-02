@@ -8,12 +8,17 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
 import sr.we.entity.eclipsestore.tables.ListLoyStores;
 import sr.we.entity.eclipsestore.tables.LoyStore;
+import sr.we.repository.IntegrationRepository;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 
 @Controller
 public class LoyStoresController extends Parent {
+
+    public LoyStoresController(IntegrationRepository integrationRepository) {
+        super(integrationRepository);
+    }
 
     public ListLoyStores getList(String loyverseToken, String store_ids, //
                                  LocalDateTime created_at_min, LocalDateTime created_at_max, //
@@ -43,6 +48,8 @@ public class LoyStoresController extends Parent {
         }
         url = stringBuilder.toString();
 
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);
@@ -52,6 +59,9 @@ public class LoyStoresController extends Parent {
 
     public LoyStore get(String loyverseToken, String id) throws IOException {
         String url = "https://api.loyverse.com/v1.0/stores/" + id;
+
+        String token = getToken(0L);
+        loyverseToken = StringUtils.isNotBlank(token) ? token: loyverseToken;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> httpEntity = getAuthHttpEntity(null, loyverseToken);
