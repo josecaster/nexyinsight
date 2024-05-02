@@ -37,7 +37,7 @@ public class RefreshTokenTaskTrigger implements Trigger {
             } else {
                 Duration between = Duration.between(LocalDateTime.now(), byTypeAndBusinessId.getExpireDate());
                 long days = between.toDays();
-                return Instant.from(LocalDateTime.ofInstant(Objects.requireNonNull(now), ZoneOffset.UTC).plusDays(days/2));
+                return LocalDateTime.now().plusDays(days/2).atZone(ZoneOffset.UTC).toInstant();
             }
         }
         return null;// this will stop the thread

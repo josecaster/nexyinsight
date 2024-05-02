@@ -24,9 +24,6 @@ public abstract class EclipseStoreSuperService<T extends SuperDao> {
         this.storageManager = storageManager;
         this.typeParameterClass = typeParameterClass;
         this.storageManager.storeRoot();
-        StorageConnection connection = this.storageManager.createConnection();
-        connection.issueFullCacheCheck();
-        connection.issueFullFileCheck();
     }
 
 
