@@ -273,4 +273,36 @@ public class Receipt extends SuperDao implements Cloneable{
     public int hashCode() {
         return Objects.hash(super.hashCode(), businessId, receipt_number, note, receipt_type, refund_for, created_at, updated_at, source, receipt_date, cancelled_at, total_money, total_tax, points_earned, points_deducted, points_balance, customer_id, total_discount, employee_id, store_id, pos_device_id, tip, surcharge, line_items, line_item, payments, category_id);
     }
+
+    @Override
+    public String toString() {
+        return "Receipt{" +
+                "businessId=" + businessId +
+                ", receipt_number='" + receipt_number + '\'' +
+                ", note='" + note + '\'' +
+                ", receipt_type='" + receipt_type + '\'' +
+                ", refund_for='" + refund_for + '\'' +
+                ", created_at=" + created_at +
+                ", updated_at=" + updated_at +
+                ", source='" + source + '\'' +
+                ", receipt_date=" + receipt_date +
+                ", cancelled_at=" + cancelled_at +
+                ", total_money=" + total_money +
+                ", total_tax=" + total_tax +
+                ", points_earned=" + points_earned +
+                ", points_deducted=" + points_deducted +
+                ", points_balance=" + points_balance +
+                ", customer_id=" + customer_id +
+                ", total_discount=" + total_discount +
+                ", employee_id='" + employee_id + '\'' +
+                ", store_id='" + store_id + '\'' +
+                ", pos_device_id='" + pos_device_id + '\'' +
+                ", tip=" + tip +
+                ", surcharge=" + surcharge +
+                ", line_items=" + line_items +
+                ", line_item=" + line_item +
+                ", payments=" + payments +
+                ", category_id='" + category_id + '\'' +
+                '}';
+    }
 }

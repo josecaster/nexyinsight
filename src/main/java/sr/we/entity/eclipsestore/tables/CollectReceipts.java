@@ -32,4 +32,13 @@ public class CollectReceipts {
     public void setCursor(String cursor) {
         this.cursor = cursor;
     }
+
+    @Override
+    public String toString() {
+        return "CollectReceipts{" +
+                "receipts=" + receipts +
+                ", cursor='" + cursor + '\'' +
+                ", errors=" + errors +
+                '}';
+    }
 }
