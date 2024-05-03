@@ -381,6 +381,12 @@ public class JobbyLauncher implements Runnable {
         }
 
 
+        doForReceipt(receipts);
+
+        getReceiptsMaxTime(true);
+    }
+
+    public void doForReceipt(List<Receipt> receipts) {
         if (!receipts.isEmpty()) {
             for (Receipt receipt : receipts) {
                 String receiptNumber = receipt.getReceipt_number();
@@ -402,8 +408,6 @@ public class JobbyLauncher implements Runnable {
                 }
             }
         }
-
-        getReceiptsMaxTime(true);
     }
 
     private LocalDateTime getReceiptsMaxTime(boolean update) {
