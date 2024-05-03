@@ -2,6 +2,8 @@ package sr.we.integration;
 
 import com.google.gson.GsonBuilder;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -13,12 +15,17 @@ import sr.we.entity.eclipsestore.tables.ListLoyStores;
 import sr.we.entity.eclipsestore.tables.ListWebhooks;
 import sr.we.entity.eclipsestore.tables.LoyStore;
 import sr.we.repository.IntegrationRepository;
+import sr.we.schedule.JobbyLauncher;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 
 @Controller
 public class LoyWebhookController extends Parent {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoyWebhookController.class);
+
+
 
     public LoyWebhookController(IntegrationRepository integrationRepository) {
         super(integrationRepository);
@@ -54,6 +61,7 @@ public class LoyWebhookController extends Parent {
         RestTemplate restTemplate = new RestTemplate();
         String json = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().toJson(webhook);
         HttpEntity<String> httpEntity = getAuthHttpEntity(json, token);
+        LOGGER.debug(json);
         ResponseEntity<Webhook> exchange = restTemplate.exchange(url, HttpMethod.POST, httpEntity, Webhook.class);
         return exchange.getBody();
     }
