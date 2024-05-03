@@ -26,7 +26,7 @@ public class ApiRestController {
 
 
     @PostMapping("receipts")
-    public ResponseEntity<String> receipts(@RequestHeader(name = "X-Loyvere-Signature") String authorization, @RequestBody String payload) {
+    public ResponseEntity<String> receipts(@RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload) {
         LOGGER.debug("PAYLOAD["+payload+"]");
         LOGGER.debug("AUTH["+authorization+"]");
 
