@@ -17,7 +17,6 @@ public class Webhook {
     private Type typee;
     @Enumerated(EnumType.STRING)
     private Status status;
-    @Transient
     private String type;
     private LocalDateTime created_at, updated_at;
 
