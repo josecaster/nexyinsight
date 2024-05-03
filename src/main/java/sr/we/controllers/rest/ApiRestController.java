@@ -86,7 +86,8 @@ public class ApiRestController {
     }
 
     @PostMapping("receipts")
-    public ResponseEntity<String> receipts(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload, @RequestBody ApiReceipts body) {
+    public ResponseEntity<String> receipts(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody ApiReceipts body) {
+        String payload = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().toJson(ApiReceipts.class);
         ResponseEntity<String> authorize = authorize(headers, authorization, payload);
         if (authorize != null) return authorize;
 
