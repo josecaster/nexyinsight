@@ -18,7 +18,7 @@ public class Webhook {
     @Enumerated(EnumType.STRING)
     private Status status;
     @Transient
-    private transient String type;
+    private String type;
     private LocalDateTime created_at, updated_at;
 
     public Long getBusinessId() {
