@@ -86,16 +86,13 @@ public class ApiRestController {
     }
 
     @PostMapping("receipts")
-    public ResponseEntity<String> receipts(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload) {
+    public ResponseEntity<String> receipts(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload, @RequestBody ApiReceipts body) {
         ResponseEntity<String> authorize = authorize(headers, authorization, payload);
         if (authorize != null) return authorize;
 
 
-        ApiReceipts collectReceipts = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().fromJson(payload, ApiReceipts.class);
-
-
-        if(collectReceipts != null && collectReceipts.getReceipts() != null){
-            jobbyLauncher.doForReceipt(collectReceipts.getReceipts());
+        if(body != null && body.getReceipts() != null){
+            jobbyLauncher.doForReceipt(body.getReceipts());
         }
 
         return ResponseEntity.status(HttpStatus.OK).body("Hooked");
