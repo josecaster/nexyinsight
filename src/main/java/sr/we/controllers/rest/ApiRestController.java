@@ -15,6 +15,7 @@ import sr.we.repository.IntegrationRepository;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import java.util.List;
 
 @RestController
 @RequestMapping("webhook")
@@ -31,6 +32,14 @@ public class ApiRestController {
         LOGGER.debug("HEADERS["+headers+"]");
         LOGGER.debug("PAYLOAD["+payload+"]");
         LOGGER.debug("AUTH["+authorization+"]");
+
+        if(StringUtils.isBlank(authorization)){
+            List<String> authorization1 = headers.get("x-loyverse-signature");
+            if(authorization1 == null || authorization1.isEmpty()){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No x-loyverse-signature");
+            }
+            authorization = authorization1.get(0);
+        }
 
         if(StringUtils.isNotBlank(authorization)) {
             Integration byBusinessId = integrationRepository.getByBusinessId(0L);
