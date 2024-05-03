@@ -15,7 +15,10 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.tabs.Tab;
+import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -40,9 +43,11 @@ import org.vaadin.lineawesome.LineAwesomeIcon;
 import sr.we.entity.Integration;
 import sr.we.entity.Task;
 import sr.we.entity.User;
+import sr.we.entity.Webhook;
 import sr.we.integration.AuthController;
 import sr.we.repository.IntegrationRepository;
 import sr.we.repository.TaskRepository;
+import sr.we.repository.WebhookRepository;
 import sr.we.schedule.CustomTaskScheduler;
 import sr.we.schedule.JobbyLauncher;
 import sr.we.schedule.MainTaskTrigger;
@@ -50,6 +55,7 @@ import sr.we.security.AuthenticatedUser;
 import sr.we.services.IntegrationService;
 import sr.we.services.TaskService;
 import sr.we.services.UserService;
+import sr.we.services.WebhookService;
 import sr.we.views.batches.BatchesView;
 import sr.we.views.dashboard.DashboardView;
 import sr.we.views.inventoryvaluation.InventoryValuationView;
@@ -60,6 +66,7 @@ import sr.we.views.stockadjustment.StockAdjustmentView;
 import sr.we.views.users.UsersView;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalUnit;
@@ -86,6 +93,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private final JobbyLauncher jobbyLauncher;
     private final IntegrationRepository integrationRepository;
     private final IntegrationService integrationService;
+    private final AuthController authController;
+    private final WebhookRepository webhookRepository;
+    private final WebhookService webhookService;
     private User user;
     private ToggleButton toggleButton;
     private Task byTypeAndBusinessId;
@@ -94,9 +104,10 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private TextField personalAccessTokenFld;
     private TextField redirectUrlFld;
     private Integration integration;
-    private final AuthController authController;
 
-    public MainLayout(AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
+    public MainLayout(WebhookRepository webhookRepository, WebhookService webhookService, AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
+        this.webhookRepository = webhookRepository;
+        this.webhookService = webhookService;
         this.integrationRepository = integrationRepository;
         this.integrationService = integrationService;
         this.authenticatedUser = authenticatedUser;
@@ -111,6 +122,10 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
         addToNavbar(createHeaderContent());
         setDrawerOpened(false);
+    }
+
+    private static boolean isInitialValue(Webhook iuw) {
+        return iuw != null && iuw.getStatus() != null && iuw.getStatus().compareTo(Webhook.Status.ENABLED) == 0;
     }
 
     private Component createHeaderContent() {
@@ -350,18 +365,17 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             redirectUrlFld.setWidthFull();
 
 
-
             formLayout.add(button);
             integration = integrationRepository.getByBusinessId(user.getBusinessId());
-            if(integration != null){
+            if (integration != null) {
                 personalAccessTokenFld.setValue(StringUtils.isBlank(integration.getPersonalAccessToken()) ? "" : integration.getPersonalAccessToken());
                 clientIdFld.setValue(StringUtils.isBlank(integration.getClientId()) ? "" : integration.getClientId());
                 clientSecretFld.setValue(StringUtils.isBlank(integration.getClientSecret()) ? "" : integration.getClientSecret());
                 redirectUrlFld.setValue(StringUtils.isBlank(integration.getRedirectUri()) ? "" : integration.getRedirectUri());
-                if((StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken()) )|| StringUtils.isBlank(integration.getAccessToken())){
+                if ((StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken())) || StringUtils.isBlank(integration.getAccessToken())) {
                     String authorize = authController.authorize(user.getBusinessId());
-                    if(StringUtils.isNotBlank(authorize)) {
-                        Anchor anchor = new Anchor(authorize,"Authorize application");
+                    if (StringUtils.isNotBlank(authorize)) {
+                        Anchor anchor = new Anchor(authorize, "Authorize application");
                         anchor.setTarget(AnchorTarget.BLANK);
                         formLayout.add(anchor);
                     }
@@ -371,10 +385,25 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
             formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0px", 1, FormLayout.ResponsiveStep.LabelsPosition.ASIDE));
             dialog.add(formLayout);
+
+
+            if (integration != null && StringUtils.isNotBlank(integration.getAccessToken())) {
+
+                ListItem listItem = new ListItem("Webhooks");
+                listItem.add(new HorizontalLayout(new Text("Inventory updated"), getToggleButton(Webhook.Type.ILU)));
+                listItem.add(new HorizontalLayout(new Text("Item created, updated or deleted"), getToggleButton(Webhook.Type.IU)));
+                listItem.add(new HorizontalLayout(new Text("Customer created, updated or deleted"), getToggleButton(Webhook.Type.CU)));
+                listItem.add(new HorizontalLayout(new Text("Receipt created or updated"), getToggleButton(Webhook.Type.RU)));
+                listItem.add(new HorizontalLayout(new Text("Shift created"), getToggleButton(Webhook.Type.SU)));
+
+                dialog.add(listItem);
+            }
+
+
             dialog.open();
             button.addClickListener(f -> {
 
-                if(integration == null){
+                if (integration == null) {
                     integration = new Integration();
                     integration.setBusinessId(user.getBusinessId());
                     integration.setState(UUID.randomUUID().toString());
@@ -387,10 +416,10 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
                 integration = integrationService.update(integration);
 
-                if(StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken())){
+                if (StringUtils.isBlank(integration.getCode()) && StringUtils.isBlank(integration.getAccessToken())) {
                     String authorize = authController.authorize(user.getBusinessId());
-                    if(StringUtils.isNotBlank(authorize)) {
-                        UI.getCurrent().getPage().open(authorize,"_blank");
+                    if (StringUtils.isNotBlank(authorize)) {
+                        UI.getCurrent().getPage().open(authorize, "_blank");
                     }
                 }
 
@@ -401,6 +430,29 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                 dialog.close();
             });
         });
+    }
+
+    private ToggleButton getToggleButton(Webhook.Type type) {
+        Webhook byTypeAndBusinessId1 = webhookRepository.getByTypeAndBusinessId(type, integration.getBusinessId());
+        ToggleButton toggleButton1 = new ToggleButton(isInitialValue(byTypeAndBusinessId1));
+        toggleButton1.addValueChangeListener(l -> {
+            Webhook webhook = webhookRepository.getByTypeAndBusinessId(type, integration.getBusinessId());
+            if (webhook == null) {
+                // create one
+                webhook = new Webhook();
+                webhook.setTypee(type);
+                webhook.setStatus(l.getValue() ? Webhook.Status.ENABLED : Webhook.Status.DISABLED);
+                webhook.setBusinessId(integration.getBusinessId());
+            } else {
+                webhook.setStatus(l.getValue() ? Webhook.Status.ENABLED : Webhook.Status.DISABLED);
+            }
+            try {
+                webhookService.update(webhook);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        return toggleButton1;
     }
 
     private MenuItemInfo[] createMenuItems() {
@@ -429,16 +481,16 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             user = maybeUser.get();
             Integration byBusinessId = integrationRepository.getByBusinessId(user.getBusinessId());
 
-            if(byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getState())) {
+            if (byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getState())) {
                 boolean containsCode = beforeEnterEvent.getLocation().getQueryParameters().getParameters().containsKey("code");
                 boolean containsState = beforeEnterEvent.getLocation().getQueryParameters().getParameters().containsKey("state");
 
                 List<String> state = beforeEnterEvent.getLocation().getQueryParameters().getParameters().get("state");
-                if (containsCode && containsState && state.contains(byBusinessId.getState())){
+                if (containsCode && containsState && state.contains(byBusinessId.getState())) {
                     List<String> code = beforeEnterEvent.getLocation().getQueryParameters().getParameters().get("code");
                     byBusinessId.setCode(code.get(0));
                     integrationService.update(byBusinessId);
-                    authController.authorize(byBusinessId.getBusinessId(),false);
+                    authController.authorize(byBusinessId.getBusinessId(), false);
 //                    beforeEnterEvent.getRedirectQueryParameters().excluding("code","stats");
                 }
             }

@@ -1,5 +1,6 @@
 package sr.we.entity;
 
+import com.vaadin.flow.component.tabs.Tab;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -20,6 +21,7 @@ public class Integration extends AbstractEntity {
     private Integer expires;
     private String personalAccessToken;
     private LocalDateTime expireDate;
+    private String iu,icud,ccud,rcu,sc;
 
     public Long getBusinessId() {
         return businessId;
