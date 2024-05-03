@@ -1,8 +1,9 @@
 package sr.we.controllers.rest;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class ApiCommunication {
+public class ApiCommunication implements Serializable {
     private String merchant_id;
     private String type;
     private LocalDateTime created_at;
