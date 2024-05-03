@@ -91,7 +91,7 @@ public class ApiRestController {
         if (authorize != null) return authorize;
 
 
-        CollectReceipts collectReceipts = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().fromJson(payload, CollectReceipts.class);
+        ApiReceipts collectReceipts = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().fromJson(payload, ApiReceipts.class);
 
 
         if(collectReceipts != null && collectReceipts.getReceipts() != null){
