@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import sr.we.entity.Integration;
 import sr.we.repository.IntegrationRepository;
@@ -26,7 +27,8 @@ public class ApiRestController {
 
 
     @PostMapping("receipts")
-    public ResponseEntity<String> receipts(@RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload) {
+    public ResponseEntity<String> receipts(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload) {
+        LOGGER.debug("HEADERS["+headers+"]");
         LOGGER.debug("PAYLOAD["+payload+"]");
         LOGGER.debug("AUTH["+authorization+"]");
 
