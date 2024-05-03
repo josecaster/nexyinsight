@@ -30,7 +30,7 @@ public class ApiRestController {
         LOGGER.debug("PAYLOAD["+payload+"]");
         LOGGER.debug("AUTH["+authorization+"]");
 
-        if(StringUtils.isBlank(authorization)) {
+        if(StringUtils.isNotBlank(authorization)) {
             Integration byBusinessId = integrationRepository.getByBusinessId(0L);
             if (byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getClientSecret())) {
                 String key = byBusinessId.getClientSecret();
