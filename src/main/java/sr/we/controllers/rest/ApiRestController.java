@@ -31,7 +31,6 @@ public class ApiRestController {
     public ResponseEntity<String> receipts(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload) {
         LOGGER.debug("HEADERS["+headers+"]");
         LOGGER.debug("PAYLOAD["+payload+"]");
-        LOGGER.debug("AUTH["+authorization+"]");
 
         if(StringUtils.isBlank(authorization)){
             List<String> authorization1 = headers.get("x-loyverse-signature");
@@ -41,16 +40,17 @@ public class ApiRestController {
             authorization = authorization1.get(0);
         }
 
+        LOGGER.debug("AUTH["+authorization+"]");
+
         if(StringUtils.isNotBlank(authorization)) {
             Integration byBusinessId = integrationRepository.getByBusinessId(0L);
             if (byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getClientSecret())) {
                 String key = byBusinessId.getClientSecret();
                 // Extract HMAC from Authorization header
-                String providedHmac = authorization.substring("HMAC ".length());
-                LOGGER.debug("providedHmac["+providedHmac+"]");
+                LOGGER.debug("providedHmac["+authorization+"]");
 
                 // Decode base64-encoded HMAC
-                byte[] decodedHmacBytes = Base64.getDecoder().decode(providedHmac);
+                byte[] decodedHmacBytes = Base64.getDecoder().decode(authorization);
                 String providedHmacHex = Hex.encodeHexString(decodedHmacBytes);
                 LOGGER.debug("providedHmacHex["+providedHmacHex+"]");
 
