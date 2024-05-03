@@ -1,4 +1,4 @@
-package sr.we.controllers.rest;
+package sr.we.entity.eclipsestore.tables;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

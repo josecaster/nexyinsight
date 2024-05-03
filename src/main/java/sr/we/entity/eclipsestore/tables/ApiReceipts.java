@@ -1,6 +1,5 @@
-package sr.we.controllers.rest;
+package sr.we.entity.eclipsestore.tables;
 
-import sr.we.entity.eclipsestore.tables.Receipt;
 
 import java.util.List;
 

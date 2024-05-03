@@ -5,13 +5,12 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import sr.we.entity.Integration;
-import sr.we.entity.eclipsestore.tables.CollectReceipts;
+import sr.we.entity.eclipsestore.tables.ApiReceipts;
 import sr.we.integration.LocalDateTimeAdapter;
 import sr.we.repository.IntegrationRepository;
 import sr.we.schedule.JobbyLauncher;
@@ -20,6 +19,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.time.LocalDateTime;
 import java.util.List;
+
 
 @RestController
 @RequestMapping("webhook")
@@ -92,7 +92,7 @@ public class ApiRestController {
         if (authorize != null) return authorize;
 
 
-        if(body != null && body.getReceipts() != null){
+        if (body != null && body.getReceipts() != null) {
             jobbyLauncher.doForReceipt(body.getReceipts());
         }
 
