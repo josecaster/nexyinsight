@@ -587,11 +587,7 @@ public class JobbyLauncher implements Runnable {
         return headers;
     }
 
-    public void doForInventoryLevels(List<InventoryLevels> inventoryLevels) {
-        List<StockLevel> levels = new ArrayList<>();
-        for (InventoryLevels inventoryLevels1 : inventoryLevels) {
-            levels.addAll(inventoryLevels1.getInventory_levels());
-        }
+    public void doForInventoryLevels(List<StockLevel> levels) {
 
 
 
