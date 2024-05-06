@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import sr.we.entity.Integration;
+import sr.we.entity.eclipsestore.tables.ApiInventoryLevels;
+import sr.we.entity.eclipsestore.tables.ApiItems;
 import sr.we.entity.eclipsestore.tables.ApiReceipts;
 import sr.we.repository.IntegrationRepository;
 import sr.we.schedule.JobbyLauncher;
@@ -54,6 +56,11 @@ public class ApiRestController {
         ResponseEntity<String> authorize = authorize(headers, authorization, payload);
         if (authorize != null) return authorize;
 
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+        ApiItems body = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeDeserializer(formatter)).create().fromJson(payload, ApiItems.class);
+        if (body != null && body.getItems() != null) {
+            jobbyLauncher.doForItems(body.getItems(), false);// false means it will not affect the stock, we will leave that for the inventory api
+        }
 
         return ResponseEntity.status(HttpStatus.OK).body("Hooked");
     }
@@ -63,6 +70,11 @@ public class ApiRestController {
         ResponseEntity<String> authorize = authorize(headers, authorization, payload);
         if (authorize != null) return authorize;
 
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+        ApiInventoryLevels body = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeDeserializer(formatter)).create().fromJson(payload, ApiInventoryLevels.class);
+        if (body != null && body.getInventory_levels() != null) {
+            jobbyLauncher.doForInventoryLevels(body.getInventory_levels());
+        }
 
         return ResponseEntity.status(HttpStatus.OK).body("Hooked");
     }

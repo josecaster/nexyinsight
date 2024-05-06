@@ -8,23 +8,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.scheduling.TaskScheduler;
-import org.springframework.scheduling.Trigger;
-import org.springframework.scheduling.TriggerContext;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import sr.we.entity.Task;
-import sr.we.repository.SyncTimeRepository;
 import sr.we.entity.SyncTime;
 import sr.we.entity.eclipsestore.tables.*;
 import sr.we.integration.*;
+import sr.we.repository.SyncTimeRepository;
 import sr.we.repository.TaskRepository;
 import sr.we.services.TaskService;
 import sr.we.storage.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -156,8 +151,7 @@ public class JobbyLauncher implements Runnable {
     //    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
     private void updateStockLevels() {
         LOGGER.info("SCHEDULED run of stock levels STARTED");
-        List<StockLevel> levels = getStockLevels(); // get stock levels
-        iterateItems(itemStorage.allItems(getBusinessId()), levels);// rectify the amounts
+        doForItems(itemStorage.allItems(getBusinessId()), true);
     }
 
     //    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
@@ -290,10 +284,14 @@ public class JobbyLauncher implements Runnable {
             LOGGER.info("Items: " + (listLoyItems == null ? 0 : (listLoyItems.getItems() == null ? 0 : listLoyItems.getItems().size())));
         }
 
-        List<StockLevel> levels = getStockLevels(); // get stock levels
-        iterateItems(items, levels);// rectify the amounts
+        doForItems(items, true);
 
         getItemsLastUpdated(true);
+    }
+
+    public void doForItems(List<Item> items, boolean b) {
+        List<StockLevel> levels = getStockLevels(); // get stock levels
+        iterateItems(items, levels, b);// rectify the amounts
     }
 
 
@@ -461,8 +459,9 @@ public class JobbyLauncher implements Runnable {
      *
      * @param list   list
      * @param levels levels
+     * @param b
      */
-    private void iterateItems(List<Item> list, List<StockLevel> levels) {
+    private void iterateItems(List<Item> list, List<StockLevel> levels, boolean b) {
         for (Item item : list) {
             String itemId = item.getId();
             if (item.getVariants() == null) {
@@ -478,12 +477,12 @@ public class JobbyLauncher implements Runnable {
                         // transfer all needed fields from oneTime to item
 //                                        .setUuId(oneItem.getUuId());
                         oneItem.setCategory_id(item.getCategory_id());
-                        iterateStockLevels(oneItem, variant, store, levels, id);
+                        iterateStockLevels(oneItem, variant, store, levels, id,b);
                     } else {
                         if (StringUtils.isNotBlank(item.getUuId())) {// this is to split item variants in different nexy-insight items
-                            iterateStockLevels(item.clone(), variant, store, levels, id);
+                            iterateStockLevels(item.clone(), variant, store, levels, id, b);
                         } else {
-                            iterateStockLevels(item, variant, store, levels, id);
+                            iterateStockLevels(item, variant, store, levels, id, b);
                         }
                     }
 
@@ -535,10 +534,11 @@ public class JobbyLauncher implements Runnable {
      * @param store   store
      * @param levels  levels
      * @param id      id
+     * @param b
      */
-    private void iterateStockLevels(Item item, Variant variant, VariantStore store, List<StockLevel> levels, String id) {
+    private void iterateStockLevels(Item item, Variant variant, VariantStore store, List<StockLevel> levels, String id, boolean b) {
         item.setStoreCountMap(new HashMap<>());
-        if (!levels.isEmpty()) {
+        if (b && !levels.isEmpty()) {
             Optional<StockLevel> any = levels.stream().filter(l -> l.getStore_id().equalsIgnoreCase(store.getStore_id()) && l.getVariant_id().equalsIgnoreCase(variant.getVariant_id())).findAny();
             any.ifPresent(stockLevel -> {
                 int itemStockLevel = item.getStock_level();
@@ -583,4 +583,38 @@ public class JobbyLauncher implements Runnable {
         return headers;
     }
 
+    public void doForInventoryLevels(List<InventoryLevels> inventoryLevels) {
+        List<StockLevel> levels = new ArrayList<>();
+        for (InventoryLevels inventoryLevels1 : inventoryLevels) {
+            levels.addAll(inventoryLevels1.getInventory_levels());
+        }
+
+
+
+        List<Item> items = itemStorage.allItems(getBusinessId());
+        for (Item item : items) {
+            VariantStore store = item.getVariantStore();
+            Variant variant = item.getVariant();
+            Optional<StockLevel> any = levels.stream().filter(l -> l.getStore_id().equalsIgnoreCase(store.getStore_id()) && l.getVariant_id().equalsIgnoreCase(variant.getVariant_id())).findAny();
+            any.ifPresent(stockLevel -> {
+                int itemStockLevel = item.getStock_level();
+                int inStock = stockLevel.getIn_stock();
+                item.setStock_level(inStock);
+                item.setLastUpdateStockLevel(stockLevel.getUpdated_at());
+                InventoryHistory inventoryHistory = new InventoryHistory();
+                inventoryHistory.setBusinessId(getBusinessId());
+                Section section1 = storeStorage.oneStore(store.getStore_id());
+                inventoryHistory.setSection_id(section1.getUuId());
+                inventoryHistory.setLocalDateTime(stockLevel.getUpdated_at());
+                inventoryHistory.setItem_id(item.getUuId());
+                inventoryHistory.setStock_after(inStock);
+                inventoryHistory.setAdjustment(inStock - itemStockLevel);
+                inventoryHistory.setType(InventoryHistory.Type.SYNC);
+                inventoryHistoryStorage.saveOrUpdate(inventoryHistory);
+
+                itemStorage.saveOrUpdate(item);
+            });
+
+        }
+    }
 }
