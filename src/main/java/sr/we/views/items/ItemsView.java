@@ -455,7 +455,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
 
         public boolean check(Item item) {
             boolean check = true;
-            if (startDate.getValue() != null && endDate.getValue() != null) {
+            if (startDate.getValue() != null && endDate.getValue() != null && item.getLastUpdateStockLevel() != null) {
                 LocalDate receiptDate = item.getLastUpdateStockLevel().toLocalDate();
                 if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
                     check = false;
