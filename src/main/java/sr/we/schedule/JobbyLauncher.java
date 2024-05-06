@@ -290,8 +290,12 @@ public class JobbyLauncher implements Runnable {
     }
 
     public void doForItems(List<Item> items, boolean b) {
-        List<StockLevel> levels = getStockLevels(); // get stock levels
-        iterateItems(items, levels, b);// rectify the amounts
+        if(b) {
+            List<StockLevel> levels = getStockLevels(); // get stock levels
+            iterateItems(items, levels, true);// rectify the amounts
+        } else {
+            iterateItems(items, new ArrayList<>(), false);// rectify the amounts
+        }
     }
 
 
