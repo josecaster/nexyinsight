@@ -42,7 +42,7 @@ public class ItemsController {
                     return cont;
                 });
             }
-            return contains && f.getStock_level() != 0;
+            return contains /*&& f.getStock_level() != 0*/;
         };
     }
 
