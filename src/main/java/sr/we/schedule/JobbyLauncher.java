@@ -478,9 +478,30 @@ public class JobbyLauncher implements Runnable {
 
                     Item oneItem = itemStorage.oneItemByLoyId(id);
                     if (oneItem != null) {
-                        // transfer all needed fields from oneTime to item
-//                                        .setUuId(oneItem.getUuId());
+                        oneItem.setBusinessId(item.getBusinessId());
+                        oneItem.setItem_name(item.getItem_name());
                         oneItem.setCategory_id(item.getCategory_id());
+                        oneItem.setColor(item.getColor());
+                        oneItem.setId(item.getId());// this is the loyverse Id
+                        oneItem.setComponents(item.getComponents());
+                        oneItem.setForm(item.getForm());
+                        oneItem.setHandle(item.getHandle());
+                        oneItem.setImage_url(item.getImage_url());
+                        oneItem.setIs_composite(item.getIs_composite());
+                        oneItem.setVariants(item.getVariants());
+                        oneItem.setUse_production(item.isUse_production());
+                        oneItem.setTrack_stock(item.isTrack_stock());
+                        oneItem.setTax_ids(item.getTax_ids());
+                        oneItem.setSold_by_weight(item.isSold_by_weight());
+                        oneItem.setSeaqnsUuId(item.getSeaqnsUuId());
+                        oneItem.setReference_id(item.getReference_id());
+                        oneItem.setPrimary_supplier_id(item.getPrimary_supplier_id());
+                        oneItem.setOption3_name(item.getOption3_name());
+                        oneItem.setOption2_name(item.getOption2_name());
+                        oneItem.setOption1_name(item.getOption1_name());
+                        oneItem.setModifiers_ids(item.getModifiers_ids());
+                        oneItem.setStoreCountMap(item.getStoreCountMap());
+                        oneItem.setLastUpdateStockLevel(item.getLastUpdateStockLevel());
                         iterateStockLevels(oneItem, variant, store, levels, id,b);
                     } else {
                         if (StringUtils.isNotBlank(item.getUuId())) {// this is to split item variants in different nexy-insight items
