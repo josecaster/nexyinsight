@@ -251,14 +251,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                         trashBtn.setVisible(false);
                     }
                 }
-                case APPROVED, REJECTED -> {
-                    listBtn.setVisible(false);
-                    checkBtn.setVisible(false);
-                    approveBtn.setVisible(false);
-                    rejectBtn.setVisible(false);
-                    trashBtn.setVisible(false);
-                }
-                case CANCEL -> {
+                case APPROVED, REJECTED, CANCEL -> {
                     listBtn.setVisible(false);
                     checkBtn.setVisible(false);
                     approveBtn.setVisible(false);
