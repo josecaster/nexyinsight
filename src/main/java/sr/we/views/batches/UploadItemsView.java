@@ -105,6 +105,8 @@ public class UploadItemsView extends VerticalLayout {
         Grid.Column<BatchItems> priceColumn = grid.addColumn(BatchItems::getPrice).setHeader("PRICE").setAutoWidth(true);
         Grid.Column<BatchItems> actualColumn = grid.addComponentColumn(l -> {
             IntegerField integerField = new IntegerField();
+            integerField.setStepButtonsVisible(true);
+            integerField.setMin(0);
             integerField.setPlaceholder("Counted amount");
             integerField.setReadOnly(true);
             if (batch.getStatus().compareTo(Batch.Status.VALIDATE_ITEMS) == 0) {
@@ -265,6 +267,8 @@ public class UploadItemsView extends VerticalLayout {
         quantity = new IntegerField("Quantity");
         cost = new BigDecimalField("COST");
         price = new BigDecimalField("PRICE");
+
+        quantity.setMin(0);
 
         itemsCmb.setPlaceholder("FOR NEW ITEM LEAVE EMPTY");
         itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), l -> {

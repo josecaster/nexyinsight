@@ -6,6 +6,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -19,24 +20,21 @@ import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
-import com.vaadin.flow.data.renderer.LocalDateRenderer;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import jakarta.annotation.security.RolesAllowed;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.vaadin.lineawesome.LineAwesomeIcon;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresController;
-import sr.we.entity.Batch;
-import sr.we.entity.BatchItems;
-import sr.we.entity.Role;
-import sr.we.entity.User;
+import sr.we.entity.*;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
@@ -45,10 +43,9 @@ import sr.we.views.MainLayout;
 import sr.we.views.components.MyLineAwesome;
 
 import java.io.IOException;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @PageTitle("Batches")
 @Route(value = "batch/:batchId?/:action?(edit)", layout = MainLayout.class)
@@ -66,6 +63,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private final StoresController storesController;
     private final BatchService batchService;
     private final AuthenticatedUser authenticatedUser;
+
     TextField description;
     DatePicker startDate;
     DatePicker endDate;
@@ -75,8 +73,9 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private Button uploadBtn;
     private Batch batch;
     private Set<String> linkSections;
+    private List<Section> sections;
 
-    public BatchesView(ItemsController ItemService,BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
+    public BatchesView(ItemsController ItemService, BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
@@ -97,36 +96,131 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         add(splitLayout);
 
         // Configure Grid
-        grid.addColumn(batch -> "#" + batch.getId()).setHeader("#").setAutoWidth(true);
+        grid.addColumn(AbstractEntity::getId).setHeader("#").setAutoWidth(true);
         grid.addColumn(Batch::getDescription).setHeader("Description").setAutoWidth(true);
+        grid.addComponentColumn(r -> {
+            String collect1 = getSection(r);
+            Span span = new Span(collect1);
+            span.getStyle().set("white-space", "pre-line");
+            span.getElement().getThemeList().add("badge warning");
+            span.setWidthFull();
+            return span;
+        }).setHeader("Section").setAutoWidth(true);
 //        grid.addColumn(new LocalDateRenderer<>(Batch::getStartDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("Start date").setAutoWidth(true);
 //        grid.addColumn(new LocalDateRenderer<>(Batch::getEndDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("End date").setAutoWidth(true);
-//        grid.addColumn("status").setAutoWidth(true);
+        grid.addComponentColumn(bat -> {
+            Span span = new Span(bat.getStatus().name());
+            span.getElement().getThemeList().add("badge");
+            span.setWidthFull();
+
+            switch (bat.getStatus()) {
+                case NEW -> {
+                    span.getElement().getThemeList().add("warning");
+                }
+                case UPLOAD_ITEMS -> {
+                    span.getElement().getThemeList().add("contrast");
+                }
+                case VALIDATE_ITEMS -> {
+                    span.getElement().getThemeList().add("primary");
+                }
+                case APPROVED -> {
+                    span.getElement().getThemeList().add("success");
+                }
+                case REJECTED, CANCEL -> {
+                    span.getElement().getThemeList().add("error");
+                }
+            }
+
+            return span;
+        }).setAutoWidth(true);
 
 
         Set<Role> roles = authenticatedUser.get().get().getRoles();
         grid.addComponentColumn(c -> {
             HorizontalLayout horizontalLayout = new HorizontalLayout();
 
-            Button listBtn = new Button("Items", click -> doForUploadBtn());
+            Button listBtn = new Button("", click -> {
+                populateForm(c);
+                doForUploadBtn(Batch.Status.UPLOAD_ITEMS);
+            });
             listBtn.setIcon(MyLineAwesome.LIST_ALT.create());
 
-            Button checkBtn = new Button("Validate", click -> doForUploadBtn());
+            Button checkBtn = new Button("", click -> {
+                List<BatchItems> byBatchId = batchItemsService.findByBatchId(c.getId());
+                if (!byBatchId.isEmpty()) {
+                    populateForm(c);
+                    doForUploadBtn(Batch.Status.VALIDATE_ITEMS);
+                } else {
+                    Notification n = Notification.show("Cannot validate yet! Please add some batch Items first");
+                    n.setPosition(Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
+            });
             checkBtn.setIcon(MyLineAwesome.CLIPBOARD_CHECK_SOLID.create());
 
-            Button approveBtn = new Button("Approve");
+            Button approveBtn = new Button("", click -> {
+
+                List<BatchItems> byBatchId = batchItemsService.findByBatchId(c.getId());
+                if (!byBatchId.isEmpty() && byBatchId.stream().anyMatch(f -> f.getRealQuantity() != null && f.getRealQuantity() != 0)) {
+                    ConfirmDialog confirm = new ConfirmDialog("APPROVE BATCH", "Are you sure you want to approve this batch", "Yes", approved -> {
+                        c.setStatus(Batch.Status.APPROVED);
+                        try {
+                            Batch update = batchService.update(c);
+                            refreshGrid();
+                            populateForm(update);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    confirm.open();
+                } else {
+                    Notification n = Notification.show("Cannot approve yet! Please add counted values first!");
+                    n.setPosition(Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
+
+
+            });
             approveBtn.setIcon(MyLineAwesome.THUMBS_UP_SOLID.create());
             approveBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
 
-            Button rejectBtn = new Button("Reject");
+            Button rejectBtn = new Button("", click -> {
+
+                ConfirmDialog confirm = new ConfirmDialog("REJECT BATCH", "Are you sure you want to reject this batch", "Yes", approved -> {
+                    c.setStatus(Batch.Status.REJECTED);
+                    try {
+                        Batch update = batchService.update(c);
+                        refreshGrid();
+                        populateForm(update);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                confirm.open();
+            });
             rejectBtn.setIcon(MyLineAwesome.THUMBS_DOWN_SOLID.create());
             rejectBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
 
-            Button trashBtn = new Button("Cancel");
+            Button trashBtn = new Button("", click -> {
+
+                ConfirmDialog confirm = new ConfirmDialog("CANCEL BATCH", "Are you sure you want to cancel this batch", "Yes", approved -> {
+                    c.setStatus(Batch.Status.CANCEL);
+                    try {
+                        Batch update = batchService.update(c);
+                        refreshGrid();
+                        populateForm(update);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                confirm.open();
+
+
+            });
             trashBtn.setIcon(MyLineAwesome.TRASH_ALT.create());
 
 
-            horizontalLayout.add(listBtn,checkBtn,approveBtn,rejectBtn,trashBtn);
+            horizontalLayout.add(listBtn, checkBtn, approveBtn, rejectBtn, trashBtn);
             switch (c.getStatus()) {
                 case NEW -> {
                     listBtn.setVisible(true);
@@ -140,7 +234,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                     checkBtn.setVisible(true);
                     approveBtn.setVisible(false);
                     rejectBtn.setVisible(false);
-                    trashBtn.setVisible(false);
+                    trashBtn.setVisible(true);
                 }
                 case VALIDATE_ITEMS -> {
                     if (roles.contains(Role.ADMIN)) {
@@ -150,7 +244,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                         rejectBtn.setVisible(true);
                         trashBtn.setVisible(false);
                     } else {
-                        listBtn.setVisible(true);
+                        listBtn.setVisible(false);
                         checkBtn.setVisible(false);
                         approveBtn.setVisible(false);
                         rejectBtn.setVisible(false);
@@ -159,7 +253,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                 }
                 case APPROVED, REJECTED -> {
                     listBtn.setVisible(false);
-                    checkBtn.setVisible(true);
+                    checkBtn.setVisible(false);
                     approveBtn.setVisible(false);
                     rejectBtn.setVisible(false);
                     trashBtn.setVisible(false);
@@ -177,7 +271,8 @@ public class BatchesView extends Div implements BeforeEnterObserver {
 
         grid.setItems(query -> {
             PageRequest pageable = PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query));
-            return user.getRoles().contains(Role.ADMIN) ? batchService.list(pageable).stream() : batchService.list(pageable, (root, query2, cb) -> root.get("sectionId").in(linkSections)).stream();
+            Stream<Batch> sectionId1 = user.getRoles().contains(Role.ADMIN) ? batchService.list(pageable).stream() : batchService.list(pageable, (root, query2, cb) -> root.get("sectionId").in(linkSections)).stream();
+            return sectionId1.sorted(Comparator.comparingLong(Batch::getId).reversed());
         });
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 
@@ -196,7 +291,14 @@ public class BatchesView extends Div implements BeforeEnterObserver {
 
         // Bind fields. This is where you'd define e.g. validation rules
 
-        binder.bindInstanceFields(this);
+//        binder.bindInstanceFields(this);
+        binder.forField(status).withValidator(Objects::nonNull, "Status should not be empty").bind(Batch::getStatus, Batch::setStatus);
+        binder.forField(sectionId).withValidator(StringUtils::isNotBlank, "Section should not be empty").bind(Batch::getSectionId, Batch::setSectionId);
+        binder.forField(description).withValidator(StringUtils::isNotBlank, "Description should not be empty").bind(Batch::getDescription, Batch::setDescription);
+
+        status.setRequiredIndicatorVisible(true);
+        sectionId.setRequired(true);
+        description.setRequired(true);
 
         cancel.addClickListener(e -> {
             clearForm();
@@ -204,49 +306,113 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         });
 
         save.addClickListener(e -> {
-            try {
-                if (this.batch == null) {
-                    this.batch = new Batch();
+            BinderValidationStatus<Batch> validate = binder.validate();
+            if(validate.isOk()) {
+                try {
+                    if (this.batch == null) {
+                        this.batch = new Batch();
+                    }
+                    binder.writeBean(this.batch);
+                    Batch update = batchService.update(this.batch);
+                    clearForm();
+                    refreshGrid();
+                    populateForm(update);
+                    Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    UI.getCurrent().navigate(BatchesView.class);
+                } catch (ObjectOptimisticLockingFailureException exception) {
+                    Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
+                    n.setPosition(Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                } catch (ValidationException validationException) {
+                    Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+                } catch (IOException ex) {
+                    Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
                 }
-                binder.writeBean(this.batch);
-                Batch update = batchService.update(this.batch);
-                clearForm();
-                refreshGrid();
-                populateForm(update);
-                Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                UI.getCurrent().navigate(BatchesView.class);
-            } catch (ObjectOptimisticLockingFailureException exception) {
-                Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
-                n.setPosition(Position.MIDDLE);
-                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-            } catch (ValidationException validationException) {
+            } else {
                 Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
-            } catch (IOException ex) {
-                Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
             }
         });
     }
 
-    private void doForUploadBtn() {
+    private String getSection(Batch r) {
+        List<Section> collect = sections.stream().filter(l -> {
+            return StringUtils.isNotBlank(r.getSectionId()) && r.getSectionId().equalsIgnoreCase(l.getUuId());
+        }).toList();
+        if (collect.size() > 1) {
+            collect = collect.stream().filter(l -> !l.isDefault()).toList();
+        }
+//            sectionMultiSelectComboBox.setValue(collect);
+        String collect1 = collect.stream().map(Section::getName).collect(Collectors.joining("\n"));
+        return collect1;
+    }
+
+    private void doForUploadBtn(Batch.Status uploadItems) {
 
 
-        // create confirm dialog
-        ConfirmDialog dialog = new ConfirmDialog();
-        dialog.setHeader("Batch items");
-        dialog.setWidth("80%");
-        UploadItemsView uploadItemsView = new UploadItemsView(ItemService,batchItemsService, batchService, authenticatedUser, storesController, batch);
-        dialog.add(uploadItemsView);
-        dialog.setCancelable(true);
-        dialog.open();
-        dialog.addConfirmListener(l -> {
-            List<BatchItems> list = uploadItemsView.getGrid().getDataProvider().fetch(new Query<>()).toList();
-            batchItemsService.update(batch.getId(), list);
-            Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-        });
+        switch (uploadItems) {
+            case UPLOAD_ITEMS -> {
+                ConfirmDialog confirm = new ConfirmDialog("Add Batch Items", "Are you ready to add batch items?", "Yes", approved -> {
+                    try {
+                        this.batch.setStatus(uploadItems);
+                        this.batch = batchService.update(this.batch);
+                        this.grid.getDataProvider().refreshItem(this.batch);
+                        populateForm(this.batch);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    // create confirm dialog
+                    ConfirmDialog dialog = new ConfirmDialog();
+                    dialog.setHeader("Batch items");
+                    dialog.setWidth("80%");
+                    UploadItemsView uploadItemsView = new UploadItemsView(ItemService, batchItemsService, batchService, authenticatedUser, storesController, batch);
+                    dialog.add(uploadItemsView);
+                    dialog.setCancelable(true);
+                    dialog.open();
+                    dialog.addConfirmListener(l -> {
+                        List<BatchItems> list = uploadItemsView.getGrid().getDataProvider().fetch(new Query<>()).toList();
+                        batchItemsService.update(batch.getId(), list);
+                        Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    });
+                });
+                confirm.open();
+            }
+            case VALIDATE_ITEMS -> {
+                ConfirmDialog confirm = new ConfirmDialog("Item validation", "Validate the items count", "Yes", approved -> {
+                    try {
+                        this.batch.setStatus(uploadItems);
+                        this.batch = batchService.update(this.batch);
+                        this.grid.getDataProvider().refreshItem(this.batch);
+                        populateForm(this.batch);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+
+
+                    // create confirm dialog
+                    ConfirmDialog dialog = new ConfirmDialog();
+                    dialog.setHeader("Validate batch items");
+                    dialog.setWidth("80%");
+                    UploadItemsView uploadItemsView = new UploadItemsView(ItemService, batchItemsService, batchService, authenticatedUser, storesController, batch);
+                    dialog.add(uploadItemsView);
+                    dialog.setCancelable(true);
+                    dialog.open();
+                    dialog.addConfirmListener(l -> {
+                        List<BatchItems> list = uploadItemsView.getGrid().getDataProvider().fetch(new Query<>()).toList();
+                        batchItemsService.update(batch.getId(), list);
+                        Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    });
+                });
+                confirm.open();
+            }
+        }
+
+
     }
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        sections = storesController.allStores(getBusinessId());
         Optional<Long> batchId = event.getRouteParameters().get(BATCH_ID).map(Long::parseLong);
         if (batchId.isPresent()) {
             Optional<Batch> batchFromBackend = batchService.get(batchId.get());
@@ -299,8 +465,8 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         description = new TextField("Description");
         startDate = new DatePicker("Start date");
         endDate = new DatePicker("End date");
-        uploadBtn = new Button("Add batch items");
-        formLayout.add(batchIdFld, status, sectionId, description/*, startDate, endDate, uploadBtn*/);
+        uploadBtn = new Button("Show items");
+        formLayout.add(batchIdFld, status, sectionId, description/*, startDate, endDate*/, uploadBtn);
 
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);
@@ -310,8 +476,15 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         setStatusNew();
 
         uploadBtn.addClickListener(l -> {
-            doForUploadBtn();
+            Dialog dialog = new Dialog();
+            dialog.setWidth("80%");
+            UploadItemsView uploadItemsView = new UploadItemsView(ItemService, batchItemsService, batchService, authenticatedUser, storesController, batch);
+            uploadItemsView.setEnabled(false);
+            dialog.add(uploadItemsView);
+            dialog.open();
+
         });
+        uploadBtn.setVisible(false);
     }
 
     private Long getBusinessId() {
@@ -397,11 +570,12 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                 case NEW -> {
                     status.setItems(Batch.Status.NEW, Batch.Status.UPLOAD_ITEMS, Batch.Status.CANCEL);
                     status.setValue(Batch.Status.NEW);
+                    uploadBtn.setVisible(false);
                 }
                 case UPLOAD_ITEMS -> {
                     status.setItems(Batch.Status.UPLOAD_ITEMS, Batch.Status.VALIDATE_ITEMS, Batch.Status.CANCEL);
                     status.setValue(Batch.Status.UPLOAD_ITEMS);
-                    uploadBtn.setVisible(true);
+                    uploadBtn.setVisible(false);
                     uploadBtn.setText("Add batch items");
                 }
                 case VALIDATE_ITEMS -> {
@@ -411,7 +585,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                         status.setItems(Batch.Status.VALIDATE_ITEMS, Batch.Status.CANCEL);
                     }
                     status.setValue(Batch.Status.VALIDATE_ITEMS);
-                    uploadBtn.setVisible(true);
+                    uploadBtn.setVisible(false);
                     uploadBtn.setText("Count batch items");
                 }
 //                case SEND_FOR_APPROVAL -> {
@@ -431,6 +605,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                     description.setReadOnly(true);
                     startDate.setReadOnly(true);
                     endDate.setReadOnly(true);
+                    uploadBtn.setVisible(true);
                 }
                 case REJECTED -> {
                     status.setItems(Batch.Status.REJECTED, Batch.Status.VALIDATE_ITEMS);
@@ -441,6 +616,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                     description.setReadOnly(true);
                     startDate.setReadOnly(true);
                     endDate.setReadOnly(true);
+                    uploadBtn.setVisible(true);
                 }
                 case CANCEL -> {
                     status.setItems(Batch.Status.CANCEL);
@@ -451,6 +627,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                     description.setReadOnly(true);
                     startDate.setReadOnly(true);
                     endDate.setReadOnly(true);
+                    uploadBtn.setVisible(true);
                 }
             }
         } else {
