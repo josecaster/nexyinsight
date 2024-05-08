@@ -12,6 +12,7 @@ public class BatchItems extends AbstractEntity {
     private BigDecimal price,cost;
     private Integer quantity, realQuantity;
     private Long batchId;
+    private String itemId;
 
     public BatchItems() {
     }
@@ -88,5 +89,13 @@ public class BatchItems extends AbstractEntity {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public String getItemId() {
+        return itemId;
+    }
+
+    public void setItemId(String itemId) {
+        this.itemId = itemId;
     }
 }

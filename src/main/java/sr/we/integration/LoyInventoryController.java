@@ -7,6 +7,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.client.RestTemplate;
+import sr.we.controllers.rest.LocalDateTimeDeserializer;
 import sr.we.entity.eclipsestore.tables.InventoryLevels;
 import sr.we.repository.IntegrationRepository;
 
@@ -69,6 +70,8 @@ public class LoyInventoryController extends Parent {
 
     public void add(String loyverseToken, InventoryLevels inventoryLevels) {
         String url = "https://api.loyverse.com/v1.0/inventory";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+        LocalDateTimeDeserializer localDateTimeDeserializer = new LocalDateTimeDeserializer(formatter);
         String json = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter()).create().toJson(inventoryLevels);
         RestTemplate restTemplate = new RestTemplate();
 

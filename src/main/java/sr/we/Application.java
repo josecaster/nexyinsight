@@ -27,6 +27,7 @@ import sr.we.repository.SamplePersonRepository;
  */
 @SpringBootApplication
 @Theme(value = "nexy-insight")
+//@Theme(value = "breeze")
 //@Theme(
 //        themeClass = Lumo.class,
 //        variant = "dark"

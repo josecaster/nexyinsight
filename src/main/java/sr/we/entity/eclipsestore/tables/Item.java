@@ -1,5 +1,7 @@
 package sr.we.entity.eclipsestore.tables;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -17,7 +19,8 @@ public class Item extends SuperDao implements Cloneable{
     private String category_id;
     private boolean track_stock;
     private boolean sold_by_weight;
-    private String is_composite;
+    private String is_composite_string;
+    private boolean is_composite = false;
     private boolean use_production;
     private List<Component> components;
     private String primary_supplier_id;
@@ -110,12 +113,17 @@ public class Item extends SuperDao implements Cloneable{
         this.sold_by_weight = sold_by_weight;
     }
 
-    public String getIs_composite() {
-        return is_composite;
+
+
+    public String getIs_composite_string() {
+        return is_composite_string;
     }
 
-    public void setIs_composite(String is_composite) {
-        this.is_composite = is_composite;
+    public void setIs_composite_string(String is_composite_string) {
+        this.is_composite_string = is_composite_string;
+        if(StringUtils.isNotBlank(is_composite_string)) {
+            this.is_composite = Boolean.parseBoolean(is_composite_string);
+        }
     }
 
     public boolean isUse_production() {
@@ -276,6 +284,14 @@ public class Item extends SuperDao implements Cloneable{
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public boolean isIs_composite() {
+        return is_composite;
+    }
+
+    public void setIs_composite(boolean is_composite) {
+        this.is_composite = is_composite;
     }
 
     public void addStoreCount(String uuId, BigDecimal value) {

@@ -47,6 +47,13 @@
 
 
         <dependency>
+            <groupId>org.vaadin.addons.parttio</groupId>
+            <artifactId>breeze-theme</artifactId>
+            <version>1.0.5</version>
+        </dependency>
+
+
+        <dependency>
             <groupId>software.xdev</groupId>
             <artifactId>vaadin-date-range-picker</artifactId>
             <version>4.0.2</version>

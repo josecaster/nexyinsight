@@ -1,7 +1,9 @@
 package sr.we.views.batches;
 
+import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -19,14 +21,18 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresController;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
+import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
@@ -47,11 +53,14 @@ public class UploadItemsView extends VerticalLayout {
     private final BeanValidationBinder<BatchItems> binder;
     private final BatchItemsService batchItemsService;
     private final StoresController storesController;
+    private final ItemsController ItemService;
     private final BatchService batchService;
     private final AuthenticatedUser authenticatedUser;
     private final Long batchId;
     private final Batch batch;
-    private TextField sku;
+    boolean populateForm = false;
+    private ComboBox<Item> itemsCmb;
+//    private TextField sku;
     private TextField code;
     private TextField name;
     private IntegerField quantity;
@@ -59,11 +68,12 @@ public class UploadItemsView extends VerticalLayout {
     private BigDecimalField price;
     private BatchItems batchItems;
 
-    public UploadItemsView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController, Batch batch) {
+    public UploadItemsView(ItemsController ItemService, BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController, Batch batch) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
         this.storesController = storesController;
+        this.ItemService = ItemService;
         this.batch = batch;
         this.batchId = this.batch.getId();
 
@@ -82,7 +92,7 @@ public class UploadItemsView extends VerticalLayout {
             doForUploadSucceed(receiver, grid);
         });
 
-        add(upload, splitLayout);
+        add(/*upload, */splitLayout);
 
         grid.setHeight("400px");
 
@@ -97,12 +107,12 @@ public class UploadItemsView extends VerticalLayout {
             IntegerField integerField = new IntegerField();
             integerField.setPlaceholder("Counted amount");
             integerField.setReadOnly(true);
-            if(batch.getStatus().compareTo(Batch.Status.VALIDATE_ITEMS) == 0){
+            if (batch.getStatus().compareTo(Batch.Status.VALIDATE_ITEMS) == 0) {
                 integerField.setReadOnly(false);
             }
             integerField.setValue(l.getRealQuantity());
-            integerField.addValueChangeListener( v -> {
-               l.setRealQuantity(v.getValue());
+            integerField.addValueChangeListener(v -> {
+                l.setRealQuantity(v.getValue());
             });
             return integerField;
         }).setHeader("COUNTED").setAutoWidth(true);
@@ -124,28 +134,71 @@ public class UploadItemsView extends VerticalLayout {
         // Configure Form
         binder = new BeanValidationBinder<>(BatchItems.class);
 
-        // Bind fields. This is where you'd define e.g. validation rules
 
-        binder.bindInstanceFields(this);
+//        sku.setMaxLength(40);
+        code.setMaxLength(128);
+        name.setMaxLength(128);
+
+        // Bind fields. This is where you'd define e.g. validation rules
+//        binder.forField(sku).withValidator(v -> StringUtils.isNotBlank(sku.getValue()), "SKU is Required").bind(BatchItems::getSku, BatchItems::setSku);
+        binder.forField(code).withValidator(v -> StringUtils.isNotBlank(code.getValue()), "CODE is Required").bind(BatchItems::getCode, BatchItems::setCode);
+        binder.forField(name).withValidator(v -> StringUtils.isNotBlank(name.getValue()), "NAME is Required").bind(BatchItems::getName, BatchItems::setName);
+        binder.forField(price).withValidator(v -> price.getValue() != null, "PRICE is Required").bind(BatchItems::getPrice, BatchItems::setPrice);
+        binder.forField(quantity).withValidator(v -> quantity.getValue() != null, "QUANTITY is Required").bind(BatchItems::getQuantity, BatchItems::setQuantity);
+//        binder.bindInstanceFields(this);
+
+//        sku.addValueChangeListener(v -> {
+//            if (!populateForm) {
+//                Optional<Item> any = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get().get(), l -> {
+//                    boolean contains = true;
+//                    String s = v.getValue().toUpperCase();
+//                    contains = l.getVariant().getSku().contains(s);
+//                    return contains;
+//                }).findAny();
+//                any.ifPresent(item -> itemsCmb.setValue(item));
+//            }
+//        });
+
+//        sku.setClearButtonVisible(true);
+        itemsCmb.setClearButtonVisible(true);
+        code.setClearButtonVisible(true);
+        name.setClearButtonVisible(true);
+        quantity.setClearButtonVisible(true);
+        cost.setClearButtonVisible(true);
+        price.setClearButtonVisible(true);
+
 
         cancel.addClickListener(e -> {
             clearForm();
             refreshGrid();
         });
 
+        cancel.addClickShortcut(Key.ARROW_DOWN);
+        save.addClickShortcut(Key.ENTER);
+
+        save.setTooltipText("For faster use, use Enter");
+        cancel.setTooltipText("For faster use, use Arrow Down Key");
+
         save.addClickListener(e -> {
             try {
-                if (this.batchItems == null) {
-                    this.batchItems = new BatchItems();
-                    this.batchItems.setBatchId(batchId);
-                }
-                binder.writeBean(this.batchItems);
-                BatchItems update = batchItemsService.update(this.batchItems);
-                clearForm();
-                refreshGrid();
-                populateForm(update);
-                Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
+                BinderValidationStatus<BatchItems> validate = binder.validate();
+                if (validate.isOk()) {
+
+                    if (this.batchItems == null) {
+                        this.batchItems = new BatchItems();
+                        this.batchItems.setBatchId(batchId);
+                    }
+                    binder.writeBean(this.batchItems);
+                    BatchItems update = batchItemsService.update(this.batchItems);
+                    clearForm();
+                    refreshGrid();
+                    populateForm(update);
+                    Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+                } else {
+                    Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+                }
             } catch (ObjectOptimisticLockingFailureException exception) {
                 Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
                 n.setPosition(Position.MIDDLE);
@@ -183,7 +236,6 @@ public class UploadItemsView extends VerticalLayout {
         }
     }
 
-
     public void populateForm(Long batchItemId) {
         if (batchItemId != null) {
             Optional<BatchItems> batchItems1 = batchItemsService.get(batchItemId);
@@ -206,18 +258,61 @@ public class UploadItemsView extends VerticalLayout {
 
         FormLayout formLayout = new FormLayout();
 
-        sku = new TextField("SKU");
+        itemsCmb = new ComboBox<>("ITEM");
+//        sku = new TextField("SKU");
         code = new TextField("CODE");
         name = new TextField("NAME");
         quantity = new IntegerField("Quantity");
         cost = new BigDecimalField("COST");
         price = new BigDecimalField("PRICE");
-        formLayout.add(sku, code, name, quantity, cost, price);
+
+        itemsCmb.setPlaceholder("FOR NEW ITEM LEAVE EMPTY");
+        itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), l -> {
+            Optional<String> filter = query.getFilter();
+            boolean contains = true;
+            if (filter.isPresent()) {
+                String s = filter.get().toUpperCase();
+                contains = l.getItem_name().toUpperCase().contains(s);
+                if (!contains) contains = l.getVariant().getSku().contains(s);
+                if (!contains) contains = l.getItem_name().contains(s);
+                if (!contains && StringUtils.isNotBlank(l.getVariant().getBarcode()))
+                    contains = l.getVariant().getBarcode().contains(s);
+                if (!contains && StringUtils.isNotBlank(l.getDescription())) contains = l.getDescription().contains(s);
+            }
+
+            return contains;
+        }));
+        itemsCmb.setItemLabelGenerator(l -> {
+            return l.getVariant().getSku() + " - " + l.getItem_name();
+        });
+
+        itemsCmb.addValueChangeListener(v -> {
+            if (populateForm) {
+                return;
+            }
+            Item value = v.getValue();
+            if (this.batchItems == null) {
+                this.batchItems = new BatchItems();
+                this.batchItems.setBatchId(batchId);
+            }
+            if (value != null) {
+                this.batchItems.setItemId(value.getUuId());
+//                sku.setValue(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getSku() : "");
+                code.setValue(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getBarcode() : "");
+                name.setValue(StringUtils.isNotBlank(value.getItem_name()) ? value.getItem_name() : "");
+                cost.setValue(value.getVariant().getCost());
+                price.setValue(value.getVariant().getDefault_price());
+            } else {
+                this.batchItems.setItemId(null);
+            }
+        });
+
+        formLayout.add(itemsCmb, /*sku,*/ code, name, quantity, cost, price);
 
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);
 
-        if(this.batch.getStatus().compareTo(Batch.Status.UPLOAD_ITEMS) == 0) {
+        if (this.batch.getStatus().compareTo(Batch.Status.UPLOAD_ITEMS) == 0) {
             splitLayout.addToSecondary(editorLayoutDiv);
         } else {
             splitLayout.addToSecondary(new Span("Nothing to find here"));
@@ -258,8 +353,10 @@ public class UploadItemsView extends VerticalLayout {
     }
 
     private void populateForm(BatchItems value) {
+        this.populateForm = true;
         this.batchItems = value;
         binder.readBean(this.batchItems);
+
         if (value != null) {
             // BatchItems Id
 
@@ -269,7 +366,8 @@ public class UploadItemsView extends VerticalLayout {
                 Batch batch = batchOptional.get();
                 switch (batch.getStatus()) {
                     case UPLOAD_ITEMS -> {
-                        sku.setReadOnly(false);
+                        itemsCmb.setReadOnly(false);
+//                        sku.setReadOnly(false);
                         code.setReadOnly(false);
                         name.setReadOnly(false);
                         quantity.setReadOnly(false);
@@ -278,9 +376,15 @@ public class UploadItemsView extends VerticalLayout {
                     }
                 }
             }
+            if (StringUtils.isNotBlank(value.getItemId())) {
+                itemsCmb.setValue(ItemService.oneItem(getBusinessId(), value.getItemId()));
+            }
         } else {
             // BatchItems Id
+            cost.setValue(null);
+            itemsCmb.clear();
         }
+        this.populateForm = false;
     }
 
 

@@ -487,7 +487,8 @@ public class JobbyLauncher implements Runnable {
                         oneItem.setForm(item.getForm());
                         oneItem.setHandle(item.getHandle());
                         oneItem.setImage_url(item.getImage_url());
-                        oneItem.setIs_composite(item.getIs_composite());
+                        oneItem.setIs_composite(item.isIs_composite());
+                        oneItem.setIs_composite_string(item.getIs_composite_string());
                         oneItem.setVariants(item.getVariants());
                         oneItem.setUse_production(item.isUse_production());
                         oneItem.setTrack_stock(item.isTrack_stock());

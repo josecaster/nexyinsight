@@ -42,7 +42,8 @@ public class ItemStorage extends EclipseStoreSuperService<Item> implements IItem
             f.setForm(item.getForm());
             f.setHandle(item.getHandle());
             f.setImage_url(item.getImage_url());
-            f.setIs_composite(item.getIs_composite());
+            f.setIs_composite(item.isIs_composite());
+            f.setIs_composite_string(item.getIs_composite_string());
             f.setVariants(item.getVariants());
             f.setUse_production(item.isUse_production());
             f.setTrack_stock(item.isTrack_stock());

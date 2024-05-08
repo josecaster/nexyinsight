@@ -30,6 +30,8 @@ import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.vaadin.lineawesome.LineAwesomeIcon;
+import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresController;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
@@ -40,6 +42,7 @@ import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
 import sr.we.views.MainLayout;
+import sr.we.views.components.MyLineAwesome;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
@@ -59,6 +62,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private final Button save = new Button("Save");
     private final BeanValidationBinder<Batch> binder;
     private final BatchItemsService batchItemsService;
+    private final ItemsController ItemService;
     private final StoresController storesController;
     private final BatchService batchService;
     private final AuthenticatedUser authenticatedUser;
@@ -72,11 +76,12 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private Batch batch;
     private Set<String> linkSections;
 
-    public BatchesView(BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
+    public BatchesView(ItemsController ItemService,BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.batchItemsService = batchItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
         this.storesController = storesController;
+        this.ItemService = ItemService;
 
         User user = authenticatedUser.get().get();
         linkSections = user.getLinkSections();
@@ -94,9 +99,81 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         // Configure Grid
         grid.addColumn(batch -> "#" + batch.getId()).setHeader("#").setAutoWidth(true);
         grid.addColumn(Batch::getDescription).setHeader("Description").setAutoWidth(true);
-        grid.addColumn(new LocalDateRenderer<>(Batch::getStartDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("Start date").setAutoWidth(true);
-        grid.addColumn(new LocalDateRenderer<>(Batch::getEndDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("End date").setAutoWidth(true);
-        grid.addColumn("status").setAutoWidth(true);
+//        grid.addColumn(new LocalDateRenderer<>(Batch::getStartDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("Start date").setAutoWidth(true);
+//        grid.addColumn(new LocalDateRenderer<>(Batch::getEndDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("End date").setAutoWidth(true);
+//        grid.addColumn("status").setAutoWidth(true);
+
+
+        Set<Role> roles = authenticatedUser.get().get().getRoles();
+        grid.addComponentColumn(c -> {
+            HorizontalLayout horizontalLayout = new HorizontalLayout();
+
+            Button listBtn = new Button("Items", click -> doForUploadBtn());
+            listBtn.setIcon(MyLineAwesome.LIST_ALT.create());
+
+            Button checkBtn = new Button("Validate", click -> doForUploadBtn());
+            checkBtn.setIcon(MyLineAwesome.CLIPBOARD_CHECK_SOLID.create());
+
+            Button approveBtn = new Button("Approve");
+            approveBtn.setIcon(MyLineAwesome.THUMBS_UP_SOLID.create());
+            approveBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+
+            Button rejectBtn = new Button("Reject");
+            rejectBtn.setIcon(MyLineAwesome.THUMBS_DOWN_SOLID.create());
+            rejectBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
+
+            Button trashBtn = new Button("Cancel");
+            trashBtn.setIcon(MyLineAwesome.TRASH_ALT.create());
+
+
+            horizontalLayout.add(listBtn,checkBtn,approveBtn,rejectBtn,trashBtn);
+            switch (c.getStatus()) {
+                case NEW -> {
+                    listBtn.setVisible(true);
+                    checkBtn.setVisible(false);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(true);
+                }
+                case UPLOAD_ITEMS -> {
+                    listBtn.setVisible(true);
+                    checkBtn.setVisible(true);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(false);
+                }
+                case VALIDATE_ITEMS -> {
+                    if (roles.contains(Role.ADMIN)) {
+                        listBtn.setVisible(false);
+                        checkBtn.setVisible(true);
+                        approveBtn.setVisible(true);
+                        rejectBtn.setVisible(true);
+                        trashBtn.setVisible(false);
+                    } else {
+                        listBtn.setVisible(true);
+                        checkBtn.setVisible(false);
+                        approveBtn.setVisible(false);
+                        rejectBtn.setVisible(false);
+                        trashBtn.setVisible(false);
+                    }
+                }
+                case APPROVED, REJECTED -> {
+                    listBtn.setVisible(false);
+                    checkBtn.setVisible(true);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(false);
+                }
+                case CANCEL -> {
+                    listBtn.setVisible(false);
+                    checkBtn.setVisible(false);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(false);
+                }
+            }
+            return horizontalLayout;
+        });
 
         grid.setItems(query -> {
             PageRequest pageable = PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query));
@@ -157,7 +234,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Batch items");
         dialog.setWidth("80%");
-        UploadItemsView uploadItemsView = new UploadItemsView(batchItemsService, batchService, authenticatedUser, storesController, batch);
+        UploadItemsView uploadItemsView = new UploadItemsView(ItemService,batchItemsService, batchService, authenticatedUser, storesController, batch);
         dialog.add(uploadItemsView);
         dialog.setCancelable(true);
         dialog.open();
@@ -223,7 +300,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         startDate = new DatePicker("Start date");
         endDate = new DatePicker("End date");
         uploadBtn = new Button("Add batch items");
-        formLayout.add(batchIdFld, status, sectionId, description, startDate, endDate, uploadBtn);
+        formLayout.add(batchIdFld, status, sectionId, description/*, startDate, endDate, uploadBtn*/);
 
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);

@@ -4,8 +4,9 @@
 @import url('./views/sections-view.css');
 @import url('./views/batches-view.css');
 @import url('./views/items-view.css');
-@import url('./views/users-view.css');    html {
-      --lumo-shade-5pct: rgba(33, 33, 33, 0.05);
+@import url('./views/users-view.css');
+html {
+      /*--lumo-shade-5pct: rgba(33, 33, 33, 0.05);
       --lumo-shade-10pct: rgba(33, 33, 33, 0.1);
       --lumo-shade-20pct: rgba(33, 33, 33, 0.2);
       --lumo-shade-30pct: rgba(33, 33, 33, 0.3);
@@ -50,12 +51,12 @@
       --lumo-size-l: 2.5rem;
       --lumo-size-m: 2rem;
       --lumo-size-s: 1.75rem;
-      --lumo-size-xs: 1.5rem;
+      --lumo-size-xs: 1.5rem;*/
 
     }
 
     [theme~="dark"] {
-      --lumo-shade-5pct: rgba(33, 33, 33, 0.05);
+      /*--lumo-shade-5pct: rgba(33, 33, 33, 0.05);
       --lumo-shade-10pct: rgba(33, 33, 33, 0.1);
       --lumo-shade-20pct: rgba(33, 33, 33, 0.2);
       --lumo-shade-30pct: rgba(33, 33, 33, 0.3);
@@ -79,7 +80,7 @@
       --lumo-success-color: hsl(159, 76%, 57%);
       --lumo-success-contrast-color: hsl(159, 29%, 10%);
       --lumo-success-text-color: hsl(159, 61%, 40%);
-      --lumo-base-color: rgb(33, 33, 33);
+      --lumo-base-color: rgb(33, 33, 33);*/
 
     }
 

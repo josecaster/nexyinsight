@@ -5,6 +5,7 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
+import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.contextmenu.MenuItem;
@@ -16,7 +17,10 @@ import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.sidenav.SideNav;
+import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.EmailField;
@@ -25,10 +29,12 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.dom.ThemeList;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
+import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.auth.AccessAnnotationChecker;
 import com.vaadin.flow.theme.lumo.Lumo;
+import com.vaadin.flow.theme.lumo.LumoUtility;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.servlet.http.Cookie;
 import org.apache.commons.lang3.StringUtils;
@@ -57,6 +63,7 @@ import sr.we.services.TaskService;
 import sr.we.services.UserService;
 import sr.we.services.WebhookService;
 import sr.we.views.batches.BatchesView;
+import sr.we.views.components.MyLineAwesome;
 import sr.we.views.dashboard.DashboardView;
 import sr.we.views.inventoryvaluation.InventoryValuationView;
 import sr.we.views.items.ItemsView;
@@ -120,9 +127,135 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         this.jobbyLauncher = jobbyLauncher;
         this.authController = authController;
 
-        addToNavbar(createHeaderContent());
-        setDrawerOpened(false);
+        setPrimarySection(Section.DRAWER);
+        addDrawerContent();
+        addHeaderContent();
+
+
+//        addToNavbar(createHeaderContent());
+//        setDrawerOpened(false);
     }
+
+    private H2 viewTitle;
+
+    private void addHeaderContent() {
+        DrawerToggle toggle = new DrawerToggle();
+        toggle.setAriaLabel("Menu toggle");
+
+        viewTitle = new H2();
+        viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
+
+        addToNavbar(true, toggle, viewTitle);
+    }
+
+    private void addDrawerContent() {
+        H1 appName = new H1("Nexyinsight");
+        appName.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
+        Header header = new Header(appName);
+
+        Scroller scroller = new Scroller(createNavigation());
+
+        addToDrawer(header, scroller, createFooter());
+    }
+
+    @Override
+    protected void afterNavigation() {
+        super.afterNavigation();
+        viewTitle.setText(getCurrentPageTitle());
+    }
+
+    private String getCurrentPageTitle() {
+        PageTitle title = getContent().getClass().getAnnotation(PageTitle.class);
+        return title == null ? "" : title.value();
+    }
+
+    private Footer createFooter() {
+        Footer footer = new Footer();
+
+
+        String themeLabel = "Dark";
+        Cookie cookieByName = CookieUtil.getCookieByName(CookieUtil.THEME);
+        if (cookieByName == null || cookieByName.getValue().equalsIgnoreCase("DARK")) {
+            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+            themeList.add(Lumo.DARK);
+            themeLabel = "Dark";
+        } else {
+            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+            themeList.remove(Lumo.DARK);
+            themeLabel = "Light";
+        }
+
+        toggleButton = new ToggleButton(themeLabel.equalsIgnoreCase("Light"));
+        toggleButton.setLabel(themeLabel);
+        toggleButton.addClickListener(click -> {
+            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+
+            if (themeList.contains(Lumo.DARK)) {
+                themeList.remove(Lumo.DARK);
+                CookieUtil.createNewCookie("LIGHT", CookieUtil.THEME);
+                toggleButton.setLabel("Light");
+            } else {
+                themeList.add(Lumo.DARK);
+                CookieUtil.createNewCookie("DARK", CookieUtil.THEME);
+                toggleButton.setLabel("Dark");
+            }
+        });
+
+
+        footer.add(toggleButton);
+
+
+        Optional<User> maybeUser = authenticatedUser.get();
+        if (maybeUser.isPresent()) {
+            user = maybeUser.get();
+
+            Avatar avatar = new Avatar(user.getName());
+            StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(user.getProfilePicture()));
+            avatar.setImageResource(resource);
+            avatar.setThemeName("xsmall");
+            avatar.getElement().setAttribute("tabindex", "-1");
+
+            MenuBar userMenu = new MenuBar();
+            userMenu.setThemeName("tertiary-inline contrast");
+
+            MenuItem userName = userMenu.addItem("");
+            Div div = new Div();
+            div.add(avatar);
+            div.add(user.getName());
+            div.add(new Icon("lumo", "dropdown"));
+            div.getElement().getStyle().set("display", "flex");
+            div.getElement().getStyle().set("align-items", "center");
+            div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
+            userName.add(div);
+            account(userName);
+            changePassword(userName);
+            loyverseIntegration(userName);
+            synchronize(userName);
+            signOut(userName);
+            footer.add(userMenu);
+        } else {
+            Anchor loginLink = new Anchor("login", "Sign in");
+            footer.add(loginLink);
+        }
+
+        return footer;
+    }
+
+    private SideNav createNavigation() {
+        SideNav nav = new SideNav();
+
+        for (MenuItemInfo menuItem : createMenuItems()) {
+            if (accessChecker.hasAccess(menuItem.getView())) {
+//                list.add(menuItem);
+                nav.addItem(new SideNavItem(menuItem.getMenuTitle(), menuItem.getView(), menuItem.getIcon()));
+            }
+
+        }
+
+        return nav;
+    }
+
+
 
     private static boolean isInitialValue(Webhook iuw) {
         return iuw != null && iuw.getStatus() != null && iuw.getStatus().compareTo(Webhook.Status.ENABLED) == 0;
@@ -457,19 +590,19 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private MenuItemInfo[] createMenuItems() {
         return new MenuItemInfo[]{ //
-                new MenuItemInfo("Dashboard", LineAwesomeIcon.CHART_AREA_SOLID.create(), DashboardView.class), //
+                new MenuItemInfo("Dashboard", MyLineAwesome.CHART_AREA_SOLID.create(), DashboardView.class), //
 
-                new MenuItemInfo("Sections", LineAwesomeIcon.LAYER_GROUP_SOLID.create(), SectionsView.class), //
-                new MenuItemInfo("Receipts", LineAwesomeIcon.RECEIPT_SOLID.create(), ReceiptsView.class), //
+                new MenuItemInfo("Sections", MyLineAwesome.LAYER_GROUP_SOLID.create(), SectionsView.class), //
+                new MenuItemInfo("Receipts", MyLineAwesome.RECEIPT_SOLID.create(), ReceiptsView.class), //
 
-                new MenuItemInfo("Batches", LineAwesomeIcon.OBJECT_GROUP.create(), BatchesView.class), //
+                new MenuItemInfo("Batches", MyLineAwesome.OBJECT_GROUP.create(), BatchesView.class), //
 
-                new MenuItemInfo("Items", LineAwesomeIcon.PRODUCT_HUNT.create(), ItemsView.class), //
-                new MenuItemInfo("Stock adjustment", LineAwesomeIcon.BALANCE_SCALE_LEFT_SOLID.create(), StockAdjustmentView.class), //
+                new MenuItemInfo("Items", MyLineAwesome.PRODUCT_HUNT.create(), ItemsView.class), //
+                new MenuItemInfo("Stock adjustment", MyLineAwesome.BALANCE_SCALE_LEFT_SOLID.create(), StockAdjustmentView.class), //
 
-                new MenuItemInfo("Inventory valuation", LineAwesomeIcon.CALCULATOR_SOLID.create(), InventoryValuationView.class), //
+                new MenuItemInfo("Inventory valuation", MyLineAwesome.CALCULATOR_SOLID.create(), InventoryValuationView.class), //
 
-                new MenuItemInfo("Users", LineAwesomeIcon.USERS_SOLID.create(), UsersView.class), //
+                new MenuItemInfo("Users", MyLineAwesome.USERS_SOLID.create(), UsersView.class), //
 
         };
     }
@@ -504,9 +637,13 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     public static class MenuItemInfo extends ListItem {
 
         private final Class<? extends Component> view;
+        private final String menuTitle;
+        private final Component icon;
 
         public MenuItemInfo(String menuTitle, Component icon, Class<? extends Component> view) {
             this.view = view;
+            this.menuTitle = menuTitle;
+            this.icon = icon;
             RouterLink link = new RouterLink();
             // Use Lumo classnames for various styling
             link.addClassNames(Display.FLEX, Gap.XSMALL, Height.MEDIUM, AlignItems.CENTER, Padding.Horizontal.SMALL, TextColor.BODY);
@@ -523,10 +660,17 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             add(link);
         }
 
-        public Class<?> getView() {
+        public Class<? extends Component> getView() {
             return view;
         }
 
+        public String getMenuTitle() {
+            return menuTitle;
+        }
+
+        public Component getIcon() {
+            return icon;
+        }
     }
 
 }
