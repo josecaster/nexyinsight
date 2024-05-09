@@ -9,34 +9,28 @@ import jakarta.servlet.ServletRegistration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.web.WebApplicationInitializer;
 import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.servlet.DispatcherServlet;
 
-//@EnableVaadin
-public abstract class ExampleWebAppInitializer /*implements WebApplicationInitializer*/ {
+/*@Configuration*/
+public abstract class ExampleWebAppInitializer /*implements WebApplicationInitializer*/  {
 
-//    @Bean
-//    @ConditionalOnClass(VaadinServlet.class)
-//    public ServletRegistrationBean<VaadinServlet> vaadinServletRegistration() {
-//        ServletRegistrationBean<VaadinServlet> registration = new ServletRegistrationBean<>(new VaadinServlet(), "/app/*");
-//        registration.addInitParameter("disable-xsrf-protection", "true");
-//        return registration;
-//    }
+/*
+    @Override
+    public void onStartup(ServletContext servletContext) {
 
-//    @Override
-//    public void onStartup(ServletContext servletContext) throws ServletException {
-//        AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
-//        registerConfiguration(context);
-//        servletContext.addListener(new ContextLoaderListener(context));
-//
-//        ServletRegistration.Dynamic registration = servletContext.addServlet("webhook", new SpringServlet(context, true));
-//        registration.setLoadOnStartup(1);
-//        registration.addMapping("/webhook/*");
-//    }
-//
-//    private void registerConfiguration(AnnotationConfigWebApplicationContext context) {
-//        // register your configuration classes here
-//    }
+        // Load Spring web application configuration
+        AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
+//        context.register(AppConfig.class);
+
+        // Create and register the DispatcherServlet
+        DispatcherServlet servlet = new DispatcherServlet(context);
+        ServletRegistration.Dynamic registration = servletContext.addServlet("app", servlet);
+        registration.setLoadOnStartup(1);
+        registration.addMapping("/app/*");
+    }*/
 
 }
