@@ -34,6 +34,7 @@ import org.vaadin.addons.yuri0x7c1.bslayout.BsColumn;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsLayout;
 import org.vaadin.addons.yuri0x7c1.bslayout.BsRow;
 import sr.we.controllers.ReceiptsController;
+import sr.we.controllers.StoresController;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.views.CookieUtil;
@@ -59,9 +60,12 @@ public class SalesBoard implements Serializable {
     private VerticalLayout viewEvents;
     private ApexChartsBuilder chart;
     private Set<String> sectionIds;
+    private List<ServiceHealth> list;
+    private final StoresController storesController;
 
-    public SalesBoard(DashboardView dashboardView, Long businessId, ReceiptsController receiptsController, UI ui, BsLayout board) {
+    public SalesBoard(DashboardView dashboardView, Long businessId, ReceiptsController receiptsController, UI ui, BsLayout board, StoresController storesController) {
         this.dashboardView = dashboardView;
+        this.storesController = storesController;
         this.businessId = businessId;
         this.receiptsController = receiptsController;
         this.ui = ui;
@@ -274,10 +278,10 @@ public class SalesBoard implements Serializable {
 
     private Component createServiceHealth() {
         // Header
-        HorizontalLayout header = createHeader("Service health", "Input / output");
+        HorizontalLayout header = createHeader("Top ranking", "Most earned per month");
 
         // Grid
-        Grid<ServiceHealth> grid = new Grid();
+        Grid<ServiceHealth> grid = new Grid<>();
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.setAllRowsVisible(true);
 
@@ -289,11 +293,32 @@ public class SalesBoard implements Serializable {
             status.getElement().getThemeList().add(getStatusTheme(serviceHealth));
             return status;
         })).setHeader("").setFlexGrow(0).setAutoWidth(true);
-        grid.addColumn(ServiceHealth::getCity).setHeader("City").setFlexGrow(1);
-        grid.addColumn(ServiceHealth::getInput).setHeader("Input").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(ServiceHealth::getOutput).setHeader("Output").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        grid.addColumn(ServiceHealth::getCity).setHeader("Section").setFlexGrow(1);
+        grid.addColumn(ServiceHealth::getInput).setHeader("Gross sales").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
-        grid.setItems(new ServiceHealth(ServiceHealth.Status.EXCELLENT, "Münster", 324, 1540), new ServiceHealth(ServiceHealth.Status.OK, "Cluj-Napoca", 311, 1320), new ServiceHealth(ServiceHealth.Status.FAILING, "Ciudad Victoria", 300, 1219));
+
+        list = new ArrayList<>();
+        for(String sectionId : this.sectionIds){
+
+            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+            BigDecimal value = getValue(collect, LocalDate.now().getYear(), LocalDate.now().getMonth(), r -> r.getLine_item().getGross_total_money());
+            String name = storesController.oneStore(getBusinessId(), sectionId).getName();
+            ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, value, 0);
+            list.add(munster);
+        }
+        list = list.stream().sorted(Comparator.comparing(ServiceHealth::getInput).reversed()).toList();
+        list.forEach(c -> {
+            if (list.indexOf(c) == 0) {
+                c.setStatus(ServiceHealth.Status.EXCELLENT);
+            } else {
+                if (list.indexOf(c) == 1) {
+                    c.setStatus(ServiceHealth.Status.OK);
+                } else {
+                    c.setStatus(ServiceHealth.Status.FAILING);
+                }
+            }
+        });
+        grid.setItems(list);
 
         // Add it all together
         VerticalLayout serviceHealth = new VerticalLayout(header, grid);

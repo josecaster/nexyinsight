@@ -105,7 +105,7 @@ public class DashboardView extends Main implements BeforeEnterObserver  {
             inventoryBoard.build();
         } else if (value.compareTo(DashType.SALES) == 0) {
             if (salesBoard == null) {
-                salesBoard = new SalesBoard(this, getBusinessId(), receiptsController, ui, board);
+                salesBoard = new SalesBoard(this, getBusinessId(), receiptsController, ui, board, storesController);
             }
             if (filters.rangePicker.getValue() != null && filters.rangePicker.getValue().getStart() != null && filters.rangePicker.getValue().getEnd() != null && !filters.sectionId.getValue().isEmpty()) {
                 salesBoard.build(filters.rangePicker.getValue().getStart(), filters.rangePicker.getValue().getEnd(), filters.sectionId.getValue());

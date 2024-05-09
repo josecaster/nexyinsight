@@ -1,5 +1,7 @@
 package sr.we.views.dashboard;
 
+import java.math.BigDecimal;
+
 /**
  * Simple DTO class for the inbox list to demonstrate complex object data
  */
@@ -9,7 +11,7 @@ public class ServiceHealth {
 
     private String city;
 
-    private int input;
+    private BigDecimal input;
 
     private int output;
 
@@ -23,7 +25,7 @@ public class ServiceHealth {
 
     }
 
-    public ServiceHealth(Status status, String city, int input, int output) {
+    public ServiceHealth(Status status, String city, BigDecimal input, int output) {
         this.status = status;
         this.city = city;
         this.input = input;
@@ -46,11 +48,11 @@ public class ServiceHealth {
         this.city = city;
     }
 
-    public int getInput() {
+    public BigDecimal getInput() {
         return input;
     }
 
-    public void setInput(int input) {
+    public void setInput(BigDecimal input) {
         this.input = input;
     }
 

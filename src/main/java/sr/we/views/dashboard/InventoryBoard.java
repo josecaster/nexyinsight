@@ -52,10 +52,10 @@ import java.util.stream.Collectors;
 
 public class InventoryBoard implements Serializable {
     private final DashboardView dashboardView;
-    private final  Long businessId;
+    private final Long businessId;
     private final InventoryValuationController inventoryValuationStorage;
     private final UI ui;
-    
+
     private final BsLayout board;
     private HorizontalLayout header;
     private VerticalLayout viewEvents;
@@ -69,62 +69,59 @@ public class InventoryBoard implements Serializable {
         this.board = board;
     }
 
-    public void build() {
-
-
-        board.addRow(new BsRow(new BsColumn(createHighlight("Total inventory value", span -> {
-            //new Thread(() -> {
-                Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
-                ui.access(() -> {
-                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getInventoryValue() : BigDecimal.ZERO);
-                    span.setText(format);
-                });
-            //}).start();
-            return null;
-        })).withSize(BsColumn.Size.XS), //
-                new BsColumn(createHighlight("Total retail value", span -> {
-                    //new Thread(() -> {
-                        Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
-                        ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getRetailValue() : BigDecimal.ZERO);
-                            span.setText(format);
-                        });
-                    //}).start();
-                    return null;
-                })).withSize(BsColumn.Size.XS), //
-                new BsColumn(createHighlight("Potential profit", span -> {
-                    //new Thread(() -> {
-                        Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
-                        ui.access(() -> {
-                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getPotentialProfit() : BigDecimal.ZERO);
-                            span.setText(format);
-                        });
-                    //}).start();
-                    return null;
-                })).withSize(BsColumn.Size.XS), //
-                new BsColumn(createHighlight("Margin", span -> {
-                    //new Thread(() -> {
-                        Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
-                        ui.access(() -> {
-                            String format = new DecimalFormat(" #,##0.00 '%'").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getMargin() : BigDecimal.ZERO);
-                            span.setText(format);
-                        });
-                    //}).start();
-                    return null;
-                })).withSize(BsColumn.Size.XS)));
-        board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
-        board.addRow(new BsRow(new BsColumn(createServiceHealth()).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes()).withSize(BsColumn.Size.XS)));
-    }
-
-
-
-
     private static boolean check(Item item) {
         return true;
     }
 
     private static BigDecimal getValue(Map<Pair<Integer, Month>, List<InventoryValuation>> collect, Integer year, Month month, Function<InventoryValuation, BigDecimal> function) {
         return collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0).map(Map.Entry::getValue).flatMap(List::stream).min(Comparator.comparing(InventoryValuation::getLocalDate).reversed()).map(function).orElse(BigDecimal.ZERO);
+    }
+
+    public void build() {
+
+
+        board.addRow(new BsRow(new BsColumn(createHighlight("Total inventory value", span -> {
+            //new Thread(() -> {
+            Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
+            ui.access(() -> {
+                String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getInventoryValue() : BigDecimal.ZERO);
+                span.setText(format);
+            });
+            //}).start();
+            return null;
+        })).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Total retail value", span -> {
+                    //new Thread(() -> {
+                    Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
+                    ui.access(() -> {
+                        String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getRetailValue() : BigDecimal.ZERO);
+                        span.setText(format);
+                    });
+                    //}).start();
+                    return null;
+                })).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Potential profit", span -> {
+                    //new Thread(() -> {
+                    Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
+                    ui.access(() -> {
+                        String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getPotentialProfit() : BigDecimal.ZERO);
+                        span.setText(format);
+                    });
+                    //}).start();
+                    return null;
+                })).withSize(BsColumn.Size.XS), //
+                new BsColumn(createHighlight("Margin", span -> {
+                    //new Thread(() -> {
+                    Optional<InventoryValuation> inventoryValuationOptional = inventoryValuationStorage.getInventoryValuation(getBusinessId(), LocalDate.now());
+                    ui.access(() -> {
+                        String format = new DecimalFormat(" #,##0.00 '%'").format(inventoryValuationOptional.isPresent() ? inventoryValuationOptional.get().getMargin() : BigDecimal.ZERO);
+                        span.setText(format);
+                    });
+                    //}).start();
+                    return null;
+                })).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createServiceHealth()).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes()).withSize(BsColumn.Size.XS)));
     }
 
     private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
@@ -193,7 +190,7 @@ public class InventoryBoard implements Serializable {
 
         XAxisBuilder xAxis = XAxisBuilder.get();
         XAxis axis = xAxis.withCategories("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").build();
-       chart.withXaxis(axis);
+        chart.withXaxis(axis);
 
 
         // Add it all together
@@ -289,7 +286,7 @@ public class InventoryBoard implements Serializable {
         grid.addColumn(ServiceHealth::getInput).setHeader("Input").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         grid.addColumn(ServiceHealth::getOutput).setHeader("Output").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
-        grid.setItems(new ServiceHealth(ServiceHealth.Status.EXCELLENT, "Münster", 324, 1540), new ServiceHealth(ServiceHealth.Status.OK, "Cluj-Napoca", 311, 1320), new ServiceHealth(ServiceHealth.Status.FAILING, "Ciudad Victoria", 300, 1219));
+        grid.setItems(new ServiceHealth(ServiceHealth.Status.EXCELLENT, "Münster", BigDecimal.valueOf(324), 1540), new ServiceHealth(ServiceHealth.Status.OK, "Cluj-Napoca", BigDecimal.valueOf(311), 1320), new ServiceHealth(ServiceHealth.Status.FAILING, "Ciudad Victoria", BigDecimal.valueOf(300), 1219));
 
         // Add it all together
         VerticalLayout serviceHealth = new VerticalLayout(header, grid);
