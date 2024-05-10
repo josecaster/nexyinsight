@@ -162,19 +162,20 @@ public class ReceiptsController{
                 boolean containsDevice = true;
                 boolean containsCatregory = true;
                 Section l = storesController.oneStore(businessId, n);
-                boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-                if (containsStore) {
-                    if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-                        // check on pos device
-                        containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-                    }
-
-                    if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                        // check on item category
-                        containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-                    }
-                }
-                return containsStore && containsDevice && containsCatregory;
+//                boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+//                if (containsStore) {
+////                    if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+////                        // check on pos device
+////                        containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+////                    }
+//
+//                    if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                        // check on item category
+//                        containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+//                    }
+//                }
+//                return containsStore && containsDevice && containsCatregory;
+                return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(),receipt.getColor(), l);
             }).findAny();
             if (any.isEmpty()) {
                 check = false;
@@ -194,19 +195,20 @@ public class ReceiptsController{
                         boolean containsDevice = true;
                         boolean containsCatregory = true;
                         Section l = storesController.oneStore(businessId, n);
-                        boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-                        if (containsStore) {
-                            if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-                                // check on pos device
-                                containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-                            }
-
-                            if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                                // check on item category
-                                containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-                            }
-                        }
-                        return containsStore && containsDevice && containsCatregory;
+//                        boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+//                        if (containsStore) {
+//                            if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+//                                // check on pos device
+//                                containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+//                            }
+//
+//                            if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                                // check on item category
+//                                containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+//                            }
+//                        }
+//                        return containsStore && containsDevice && containsCatregory;
+                        return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(),receipt.getColor(), l);
                     }).findAny();
                     if (any.isEmpty()) {
                         check = false;

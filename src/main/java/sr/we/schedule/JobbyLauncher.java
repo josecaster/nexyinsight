@@ -453,6 +453,8 @@ public class JobbyLauncher implements Runnable {
         receipt.setLine_item(item);
         Item item1 = itemStorage.oneItemByLoyId(item.getItem_id() + "|" + receipt.getLine_item().getVariant_id() + "|" + receipt.getStore_id());
         receipt.setCategory_id(item1 == null ? null : item1.getCategory_id());
+        receipt.setForm(item1 == null ? null : item1.getForm());
+        receipt.setColor(item1 == null ? null : item1.getColor());
         receipt.setReceipt_number(id);
         receipt.setBusinessId(getBusinessId());
         receiptsStorage.saveOrUpdate(receipt);

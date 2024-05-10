@@ -31,7 +31,9 @@ import sr.we.entity.eclipsestore.tables.Category;
 import sr.we.entity.eclipsestore.tables.Device;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.MainLayout;
+import sr.we.views.components.MyLineAwesome;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,8 +52,8 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     private List<Category> categoryList;
     private ComboBox<String> storeComboBox;
     private Grid.Column<Section> myStoreNameColumn;
-    private MultiSelectComboBox<String> categoryComboBox;
-    private MultiSelectComboBox<String> deviceComboBox;
+    private ComboBox<String> categoryComboBox;
+//    private MultiSelectComboBox<String> deviceComboBox;
 
     public SectionsView(StoresController sectionService, CategoryController categoryController, DevicesController devicesController) {
         this.sectionService = sectionService;
@@ -64,7 +66,43 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
         createButton();
 
-        add(newButton, grid);
+        Button settings = new Button(MyLineAwesome.COG_SOLID.create());
+        settings.getElement().getStyle().set("margin-left", "auto");
+
+        newButton.setIcon(MyLineAwesome.PLUS_SOLID.create());
+        newButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        HorizontalLayout horizontalLayout = new HorizontalLayout(newButton, settings);
+        horizontalLayout.setWidthFull();
+        add(horizontalLayout, grid);
+
+        settings.addClickListener(c -> {
+            Dialog dialog = new Dialog("Synchronize sections & categories");
+            ComboBox<String> storeComboBox = new ComboBox<>("Select a store");
+
+            storeComboBox.setWidthFull();
+
+            storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));
+            storeComboBox.setItemLabelGenerator(m -> {
+                Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(m)).findAny();
+                return any.map(n -> StringUtils.isBlank(n.getDefault_name()) ? "!" : n.getDefault_name()).orElse(m);
+            });
+            dialog.add("This feature will get the categories from this system an create them as sections");
+            dialog.add(storeComboBox);
+            Button button = new Button("Synchronize");
+            dialog.add(button);
+            button.addClickListener(l -> {
+                if (StringUtils.isNotBlank(storeComboBox.getValue())) {
+                    sectionService.synCategories(getBusinessId(), storeComboBox.getValue());
+                    Notification.show("Synchronizing done", 5000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    dialog.close();
+                    grid.getDataProvider().refreshAll();
+                } else {
+                    Notification.show("First select a store to link", 5000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
+            });
+            dialog.open();
+        });
     }
 
     private void createButton() {
@@ -133,7 +171,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
         createStoreNameColumn();
         createLinkStoreColumn();
-        createDeviceColumn();
+//        createDeviceColumn();
         createCategoryColumn();
         createDefaultColumn();
         createEditColumn();
@@ -202,20 +240,20 @@ public class SectionsView extends Div implements BeforeEnterObserver {
             return deviceComboBox;
         }).setHeader("Device");
 
-        deviceComboBox = new MultiSelectComboBox<>();
-        deviceComboBox.setWidthFull();
-        binder.forField(deviceComboBox).bind(Section::getDevices, Section::setDevices);
-        deviceColumn.setEditorComponent(deviceComboBox);
+//        deviceComboBox = new MultiSelectComboBox<>();
+//        deviceComboBox.setWidthFull();
+//        binder.forField(deviceComboBox).bind(Section::getDevices, Section::setDevices);
+//        deviceColumn.setEditorComponent(deviceComboBox);
     }
 
     private void createCategoryColumn() {
         Grid.Column<Section> categoryColumn = grid.addComponentColumn(section -> {
-            MultiSelectComboBox<String> categoryComboBox = new MultiSelectComboBox<>();
+            ComboBox<String> categoryComboBox = new ComboBox<>();
             categoryComboBox.setWidthFull();
             categoryComboBox.setReadOnly(true);
             categoryComboBox.setItems((categoryList.stream().map(Category::getUuId).toList()));
-            if (!categoryList.isEmpty()) {
-                categoryComboBox.setValue(section.getCategories());
+            if (!categoryList.isEmpty() && section.getCategories() != null && !section.getCategories().isEmpty()) {
+                categoryComboBox.setValue(section.getCategories().stream().findAny().get());
             }
             categoryComboBox.setItemLabelGenerator(l -> {
                 Optional<Category> any = categoryList.stream().filter(n -> n.getUuId().equalsIgnoreCase(l)).findAny();
@@ -224,9 +262,15 @@ public class SectionsView extends Div implements BeforeEnterObserver {
             return categoryComboBox;
         }).setHeader("Category");
 
-        categoryComboBox = new MultiSelectComboBox<>();
+        categoryComboBox = new ComboBox<>();
         categoryComboBox.setWidthFull();
-        binder.forField(categoryComboBox).bind(Section::getCategories, Section::setCategories);
+        binder.forField(categoryComboBox).bind(section -> section.getCategories() == null || section.getCategories().isEmpty() ? null : section.getCategories().stream().findAny().get(), (section, value) -> {
+            if (StringUtils.isBlank(value)) {
+                section.setCategories(null);
+            } else {
+                section.setCategories(new HashSet<>(List.of(value)));
+            }
+        });
         categoryColumn.setEditorComponent(categoryComboBox);
     }
 
@@ -283,11 +327,11 @@ public class SectionsView extends Div implements BeforeEnterObserver {
             return any.map(Category::getName).orElse(l);
         });
 
-        deviceComboBox.setItems((deciveList.stream().map(Device::getUuId).toList()));
-        deviceComboBox.setItemLabelGenerator(l -> {
-            Optional<Device> any = deciveList.stream().filter(n -> n.getUuId().equalsIgnoreCase(l)).findAny();
-            return any.map(Device::getName).orElse(l);
-        });
+//        deviceComboBox.setItems((deciveList.stream().map(Device::getUuId).toList()));
+//        deviceComboBox.setItemLabelGenerator(l -> {
+//            Optional<Device> any = deciveList.stream().filter(n -> n.getUuId().equalsIgnoreCase(l)).findAny();
+//            return any.map(Device::getName).orElse(l);
+//        });
 
 //        storeComboBox.setItems(sections.stream().filter(Section::isDefault).map(Section::getId).toList());
         storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));

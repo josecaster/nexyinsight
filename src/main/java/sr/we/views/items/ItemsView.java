@@ -190,18 +190,19 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     private String getSection(Item r) {
         List<Section> collect = sections.stream().filter(l -> {
 
-            VariantStore variantStore = r.getVariantStore();
-            String storeId = variantStore.getStore_id();
-
-            boolean containsCatregory = true;
-            boolean containsStore = l.getId().equalsIgnoreCase(storeId);
-            if (containsStore) {
-                if (l.getCategories() != null && !l.getCategories().isEmpty()) {
-                    // check on item category
-                    containsCatregory = l.getCategories().contains(r.getCategory_id());
-                }
-            }
-            return containsStore && containsCatregory;
+//            VariantStore variantStore = r.getVariantStore();
+//            String storeId = variantStore.getStore_id();
+//
+//            boolean containsCatregory = true;
+//            boolean containsStore = l.getId().equalsIgnoreCase(storeId);
+//            if (containsStore) {
+//                if (l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                    // check on item category
+//                    containsCatregory = l.getCategories().contains(r.getCategory_id());
+//                }
+//            }
+//            return containsStore && containsCatregory;
+            return ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(),r.getColor(), l);
         }).toList();
         if (collect.size() > 1) {
             collect = collect.stream().filter(l -> !l.isDefault()).toList();
@@ -337,15 +338,16 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             Optional<String> any = sectionId.getValue().stream().filter(n -> {
                 boolean containsCatregory = true;
                 Section l = storesController.oneStore(getBusinessId(), n);
-                boolean containsStore = l.getId().equalsIgnoreCase(item.getVariantStore().getStore_id());
-                if (containsStore) {
-
-                    if (l.getCategories() != null && !l.getCategories().isEmpty()) {
-                        // check on item category
-                        containsCatregory = l.getCategories().contains(item.getCategory_id());
-                    }
-                }
-                return containsStore && containsCatregory;
+//                boolean containsStore = l.getId().equalsIgnoreCase(item.getVariantStore().getStore_id());
+//                if (containsStore) {
+//
+//                    if (l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                        // check on item category
+//                        containsCatregory = l.getCategories().contains(item.getCategory_id());
+//                    }
+//                }
+//                return containsStore && containsCatregory;
+                return ItemsController.linkSection(l.getId(), item.getCategory_id(), item.getForm(), item.getColor(), l);
             }).findAny();
             if (any.isEmpty()) {
                 check = false;

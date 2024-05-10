@@ -76,6 +76,12 @@ public class BatchService {
                     if (section.getCategories() != null && !section.getCategories().isEmpty()) {
                         item.setCategory_id(section.getCategories().stream().findFirst().get());
                     }
+                    if(section.getForm() != null){
+                        item.setForm(section.getForm().name());
+                    }
+                    if(section.getColor() != null){
+                        item.setColor(section.getColor().name());
+                    }
                     Variant variant = new Variant();
 //                    variant.setSku(batchItems.getSku());
                     variant.setBarcode(batchItems.getCode());

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class Receipt extends SuperDao implements Cloneable{
+    private String form, color;
     private Long businessId;
     private String receipt_number;
     private String note;
@@ -36,6 +37,22 @@ public class Receipt extends SuperDao implements Cloneable{
     private LineItem line_item;
     private List<Payment> payments;
     private String category_id;
+
+    public String getForm() {
+        return form;
+    }
+
+    public void setForm(String form) {
+        this.form = form;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
 
     public String getReceipt_number() {
         return receipt_number;
@@ -254,6 +271,8 @@ public class Receipt extends SuperDao implements Cloneable{
             clone.setLine_items(null);
             clone.setLine_item(null);
             clone.setCategory_id(null);
+            clone.setForm(null);
+            clone.setColor(null);
             // TODO: copy mutable state here, so the clone can't change the internals of the original
             return clone;
         } catch (CloneNotSupportedException e) {

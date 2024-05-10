@@ -1,5 +1,6 @@
 package sr.we.controllers;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,15 +36,25 @@ public class ItemsController {
             boolean contains = true;
             if (sectionIds != null) {
                 contains = sectionIds.stream().anyMatch(l -> {
-                    boolean cont = l.getId().equalsIgnoreCase(f.getVariantStore().getStore_id());
-                    if (cont && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                        cont = l.getCategories().contains(f.getCategory_id());
-                    }
-                    return cont;
+                    return linkSection(f.getVariantStore().getStore_id(),f.getCategory_id(), f.getForm(), f.getColor(), l);
                 });
             }
             return contains /*&& f.getStock_level() != 0*/;
         };
+    }
+
+    public static boolean linkSection(String section, String category, String form, String color, Section l) {
+        boolean cont = l.getId().equalsIgnoreCase(section);
+        if (cont && l.getCategories() != null && !l.getCategories().isEmpty()) {
+            cont = l.getCategories().contains(category);
+        }
+        if(cont && l.getForm() != null && StringUtils.isNotBlank(form)){
+            cont = l.getForm().compareTo(Section.Form.valueOf(form)) == 0;
+        }
+        if(cont && l.getColor() != null && StringUtils.isNotBlank(color)){
+            cont = l.getColor().compareTo(Section.Color.valueOf(color)) == 0;
+        }
+        return cont;
     }
 
     public Item oneItem(Long businessId, String id) {

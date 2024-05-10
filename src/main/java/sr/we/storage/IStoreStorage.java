@@ -37,5 +37,5 @@ public interface IStoreStorage {
      */
     boolean deleteStore(String uuId);
 
-    Optional<Section> findSection(Long businessId, String storeId, String variantId, String posDeviceId, boolean door);
+    Optional<Section> findSection(Long businessId, String storeId, String variantId, String posDeviceId, Section.Color color, Section.Form form, boolean door);
 }

@@ -58,6 +58,8 @@ public class StoreStorage extends EclipseStoreSuperService<Section> implements I
             f.setDefault_name(section.getDefault_name());
             f.setCategories(section.getCategories());
             f.setDevices(section.getDevices());
+            f.setColor(section.getColor());
+            f.setForm(section.getForm());
             return f;
         }, uuId);
     }
@@ -69,27 +71,32 @@ public class StoreStorage extends EclipseStoreSuperService<Section> implements I
     }
 
     @Override
-    public Optional<Section> findSection(Long businessId, String storeId, String categoryId, String posDeviceId, boolean door) {
+    public Optional<Section> findSection(Long businessId, String storeId, String categoryId, String posDeviceId, Section.Color color, Section.Form form, boolean door) {
         Stream<Section> sectionStream = allStores(businessId).stream().filter(f -> f.getId().equalsIgnoreCase(storeId));
         if (StringUtils.isNotBlank(categoryId)) {
             sectionStream = sectionStream.filter(f -> f.getCategories() != null && f.getCategories().contains(categoryId));
         }
-        if (StringUtils.isNotBlank(posDeviceId)) {
-            sectionStream = sectionStream.filter(f -> f.getDevices() != null && f.getDevices().contains(posDeviceId));
+//        if (StringUtils.isNotBlank(posDeviceId)) {
+//            sectionStream = sectionStream.filter(f -> f.getDevices() != null && f.getDevices().contains(posDeviceId));
+//        }
+        if (color != null) {
+            sectionStream = sectionStream.filter(f -> f.getColor() != null && f.getColor().compareTo(color) == 0);
         }
-        Optional<Section> any = sectionStream.findAny();
-        if (any.isEmpty() && door) {
-            Optional<Section> section = findSection(businessId, storeId, categoryId, null, false);// find with category
-            if (section.isEmpty()) {
-                section = findSection(businessId, storeId, null, posDeviceId, false);// find with pos device
-                if (section.isEmpty()) {
-                    section = findSection(businessId, storeId, null, null, false);// find default
-                    return section;
-                }
-            } else {
-                return section;
-            }
+        if (form != null) {
+            sectionStream = sectionStream.filter(f -> f.getForm() != null && f.getForm().compareTo(form) == 0);
         }
-        return any;
+        //        if (any.isEmpty() && door) {
+//            Optional<Section> section = findSection(businessId, storeId, categoryId, null, null, null, false);// find with category
+//            if (section.isEmpty()) {
+//                section = findSection(businessId, storeId, null, posDeviceId, null, null, false);// find with pos device
+//                if (section.isEmpty()) {
+//                    section = findSection(businessId, storeId, null, null, null, null, false);// find default
+//                    return section;
+//                }
+//            } else {
+//                return section;
+//            }
+//        }
+        return sectionStream.findAny();
     }
 }

@@ -69,6 +69,16 @@ public class Section extends SuperDao implements ISection {
      */
     LocalDateTime deletedAt;
     private Set<String> categories, devices;
+    private Form form;
+    private Color color;
+
+    public enum Color {
+        GREY,RED,PINK,ORANGE,YELLOW,GREEN,BLUE,PURPLE
+    }
+
+    public enum Form {
+        SQUARE,CIRCLE,SUN,OCTAGON
+    }
 
     public Section() {
     }
@@ -83,6 +93,22 @@ public class Section extends SuperDao implements ISection {
         this.createdAt = LocalDateTime.now();
         this.updatedAtt = this.createdAt;
         this.deletedAt = null;
+    }
+
+    public Form getForm() {
+        return form;
+    }
+
+    public void setForm(Form form) {
+        this.form = form;
+    }
+
+    public Color getColor() {
+        return color;
+    }
+
+    public void setColor(Color color) {
+        this.color = color;
     }
 
     public String getDefault_name() {

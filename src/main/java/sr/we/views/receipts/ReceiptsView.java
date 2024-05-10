@@ -28,6 +28,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
+import sr.we.controllers.ItemsController;
 import sr.we.controllers.ReceiptsController;
 import sr.we.controllers.StoresController;
 import sr.we.entity.Role;
@@ -103,21 +104,22 @@ public class ReceiptsView extends Div {
     private static List<Section> getSections(Receipt r) {
         List<Section> collect = sections.stream().filter(l -> {
 
-            boolean containsDevice = true;
-            boolean containsCatregory = true;
-            boolean containsStore = l.getId().equalsIgnoreCase(r.getStore_id());
-            if (containsStore) {
-                if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-                    // check on pos device
-                    containsDevice = l.getDevices().contains(r.getPos_device_id());
-                }
-
-                if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                    // check on item category
-                    containsCatregory = l.getCategories().contains(r.getCategory_id());
-                }
-            }
-            return containsStore && containsDevice && containsCatregory;
+//            boolean containsDevice = true;
+//            boolean containsCatregory = true;
+//            boolean containsStore = l.getId().equalsIgnoreCase(r.getStore_id());
+//            if (containsStore) {
+//                if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+//                    // check on pos device
+//                    containsDevice = l.getDevices().contains(r.getPos_device_id());
+//                }
+//
+//                if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                    // check on item category
+//                    containsCatregory = l.getCategories().contains(r.getCategory_id());
+//                }
+//            }
+//            return containsStore && containsDevice && containsCatregory;
+            return ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(),r.getColor(), l);
         }).toList();
         if (collect.size() > 1) {
             collect = collect.stream().filter(l -> !l.isDefault()).toList();
@@ -446,21 +448,22 @@ public class ReceiptsView extends Div {
             if (check && user.getRoles().contains(Role.SECTION_OWNER)) {
 
                 Optional<Section> any = sections.stream().filter(l -> {
-                    boolean containsDevice = true;
-                    boolean containsCatregory = true;
-                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-                    if (containsStore) {
-                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-                            // check on pos device
-                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-                        }
-
-                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                            // check on item category
-                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-                        }
-                    }
-                    return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
+//                    boolean containsDevice = true;
+//                    boolean containsCatregory = true;
+//                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+//                    if (containsStore) {
+//                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+//                            // check on pos device
+//                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+//                        }
+//
+//                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                            // check on item category
+//                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+//                        }
+//                    }
+//                    return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
+                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), null,null, l);
                 }).findAny();
                 if (any.isEmpty()) {
                     check = false;
@@ -471,19 +474,20 @@ public class ReceiptsView extends Div {
                     boolean containsDevice = true;
                     boolean containsCatregory = true;
                     Section l = storesController.oneStore(getBusinessId(), n);
-                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-                    if (containsStore) {
-                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-                            // check on pos device
-                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-                        }
-
-                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-                            // check on item category
-                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-                        }
-                    }
-                    return containsStore && containsDevice && containsCatregory;
+//                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
+//                    if (containsStore) {
+//                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
+//                            // check on pos device
+//                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
+//                        }
+//
+//                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
+//                            // check on item category
+//                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
+//                        }
+//                    }
+//                    return containsStore && containsDevice && containsCatregory;
+                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(),receipt.getColor(), l);
                 }).findAny();
                 if (any.isEmpty()) {
                     check = false;
