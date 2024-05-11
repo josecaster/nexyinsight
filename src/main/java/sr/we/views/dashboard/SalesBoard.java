@@ -15,7 +15,6 @@ import com.github.appreciated.apexcharts.config.theme.Mode;
 import com.github.appreciated.apexcharts.helper.Series;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.charts.model.DataSeries;
 import com.vaadin.flow.component.charts.model.DataSeriesItem;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
@@ -39,6 +38,7 @@ import sr.we.controllers.ReceiptsController;
 import sr.we.controllers.StoresController;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Receipt;
+import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.CookieUtil;
 
 import java.io.Serializable;
@@ -303,9 +303,12 @@ public class SalesBoard implements Serializable {
 
             Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
             BigDecimal value = getValue(collect, LocalDate.now().getYear(), LocalDate.now().getMonth(), r -> r.getLine_item().getGross_total_money());
-            String name = storesController.oneStore(getBusinessId(), sectionId).getName();
-            ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, value, 0);
-            list.add(munster);
+            Section section = storesController.oneStore(getBusinessId(), sectionId);
+            if (!section.isDefault()) {
+                String name = section.getName();
+                ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, value, 0);
+                list.add(munster);
+            }
         }
         list = list.stream().sorted(Comparator.comparing(ServiceHealth::getInput).reversed()).toList();
         list.forEach(c -> {
@@ -335,14 +338,10 @@ public class SalesBoard implements Serializable {
         HorizontalLayout header = createHeader("Receipt pie", "The amount of receipts the section covered per month");
 
         List<DataSeriesItem> list = new ArrayList<>();
-        long total = receiptsController.allReceipts(getBusinessId(), 0, Integer.MAX_VALUE, f -> true)
-                .filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE"))
-                .filter(f -> f.getReceipt_date().getYear() == LocalDate.now().getYear() && f.getReceipt_date().getMonth().compareTo(LocalDate.now().getMonth()) == 0)
-                .map(r -> {
-                    String[] number = r.getReceipt_number().split("-");
-                    return number[0] + "-" + number[1];
-                }).distinct().count();
-        long left = total;
+        long left = receiptsController.allReceipts(getBusinessId(), 0, Integer.MAX_VALUE, f1 -> true).filter(f1 -> f1.getCancelled_at() == null && f1.getReceipt_type().equalsIgnoreCase("SALE")).filter(f1 -> f1.getReceipt_date().getYear() == LocalDate.now().getYear() && f1.getReceipt_date().getMonth().compareTo(LocalDate.now().getMonth()) == 0).map(r1 -> {
+            String[] number1 = r1.getReceipt_number().split("-");
+            return number1[0] + "-" + number1[1];
+        }).distinct().count();
         for (String sectionId : this.sectionIds) {
 
             Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
@@ -354,13 +353,16 @@ public class SalesBoard implements Serializable {
                 return number[0] + "-" + number[1];
             }).distinct().count();
 
-            left = left - count;
-            String name = storesController.oneStore(getBusinessId(), sectionId).getName();
-            DataSeriesItem munster = new DataSeriesItem(name, (double) count);
-            list.add(munster);
+            Section section = storesController.oneStore(getBusinessId(), sectionId);
+            if (!section.isDefault()) {
+                left = left - count;
+                String name = section.getName();
+                DataSeriesItem munster = new DataSeriesItem(name, (double) count);
+                list.add(munster);
+            }
         }
 
-        if(left > 0){
+        if (left > 0) {
             DataSeriesItem munster = new DataSeriesItem("Other sections", (double) left);
             list.add(munster);
         }
@@ -372,11 +374,7 @@ public class SalesBoard implements Serializable {
         ApexChartsBuilder chart = ApexChartsBuilder.get();
         NoData noData = new NoData();
         noData.setText("No data present at the moment");
-        chart.withChart(ChartBuilder.get().withType(Type.PIE).withHeight("400px").build())
-                .withLabels(list1.toArray(new String[0]))
-                .withLegend(LegendBuilder.get().withPosition(Position.RIGHT).build())
-                .withSeries(list2.toArray(new Double[0]))
-                .withResponsive(ResponsiveBuilder.get().withBreakpoint(480.0).withOptions(OptionsBuilder.get().withLegend(LegendBuilder.get().withPosition(Position.BOTTOM).build()).build()).build()).withNoData(noData);
+        chart.withChart(ChartBuilder.get().withType(Type.PIE).withHeight("400px").build()).withLabels(list1.toArray(new String[0])).withLegend(LegendBuilder.get().withPosition(Position.RIGHT).build()).withSeries(list2.toArray(new Double[0])).withResponsive(ResponsiveBuilder.get().withBreakpoint(480.0).withOptions(OptionsBuilder.get().withLegend(LegendBuilder.get().withPosition(Position.BOTTOM).build()).build()).build()).withNoData(noData);
 //        Configuration conf = chart.getConfiguration();
 //        conf.getChart().setStyledMode(true);
 //        chart.setThemeName("gradient");
