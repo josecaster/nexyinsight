@@ -180,7 +180,10 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         batchIdFld = new Span("!!!NEW!!!");
         batchIdFld.getElement().getThemeList().add("badge warning");
         sectionId = new ComboBox<>("Section");
-        sectionId.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        sectionId.setItemLabelGenerator(label -> {
+            Section section = storesController.oneStore(getBusinessId(), label);
+            return section == null ? "Error" : section.getName();
+        });
         sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
             Optional<User> userOptional = authenticatedUser.get();
             if (userOptional.isEmpty()) {

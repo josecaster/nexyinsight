@@ -212,7 +212,10 @@ public class UsersView extends Div implements BeforeEnterObserver {
         email.setClearButtonVisible(true);
         linkSections.setClearButtonVisible(true);
 
-        linkSections.setItemLabelGenerator(label -> storesController.oneStore(getBusinessId(), label).getName());
+        linkSections.setItemLabelGenerator(label -> {
+            Section section = storesController.oneStore(getBusinessId(), label);
+            return section == null ? "Error" : section.getName();
+        });
         linkSections.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).map(Section::getUuId));
 
         changePwdBtn = new Button("change password");
