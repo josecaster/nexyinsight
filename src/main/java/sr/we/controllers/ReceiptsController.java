@@ -216,4 +216,11 @@ public class ReceiptsController{
                     return check;
                 }).toList();
     }
+
+    public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end) {
+        return receiptStorage.allReceipts(businessId).stream().filter(r -> (r.getReceipt_date().toLocalDate().isEqual(start) || r.getReceipt_date().toLocalDate().isAfter(start)) //
+                        && (r.getReceipt_date().toLocalDate().isEqual(end) || r.getReceipt_date().toLocalDate().isBefore(end)))
+
+                .toList();
+    }
 }

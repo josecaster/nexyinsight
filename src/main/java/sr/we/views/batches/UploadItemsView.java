@@ -302,7 +302,7 @@ public class UploadItemsView extends VerticalLayout {
             if (value != null) {
                 this.batchItems.setItemId(value.getUuId());
 //                sku.setValue(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getSku() : "");
-                code.setValue(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getBarcode() : "");
+                code.setValue(StringUtils.isNotBlank(value.getVariant().getBarcode()) ? value.getVariant().getBarcode() : "");
                 name.setValue(StringUtils.isNotBlank(value.getItem_name()) ? value.getItem_name() : "");
                 cost.setValue(value.getVariant().getCost());
                 price.setValue(value.getVariant().getDefault_price());

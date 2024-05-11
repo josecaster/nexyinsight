@@ -84,6 +84,12 @@ public class SalesBoard implements Serializable {
         return list.stream().map(Map.Entry::getValue).flatMap(List::stream).map(function).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private static BigDecimal getValue(Map<Pair<Integer, Month>, List<Receipt>> collect, Function<Receipt, BigDecimal> function) {
+        Stream<Map.Entry<Pair<Integer, Month>, List<Receipt>>> entryStream = collect.entrySet().stream();
+        List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> list = entryStream.toList();
+        return list.stream().map(Map.Entry::getValue).flatMap(List::stream).map(function).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     public void build(LocalDate start, LocalDate end, Set<String> sectionIds) {
         this.sectionIds = sectionIds;
 
@@ -134,7 +140,7 @@ public class SalesBoard implements Serializable {
                     return null;
                 })).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
-        board.addRow(new BsRow(new BsColumn(createServiceHealth()).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes()).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createServiceHealth(start,end)).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes(start, end)).withSize(BsColumn.Size.XS)));
     }
 
     private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
@@ -277,9 +283,9 @@ public class SalesBoard implements Serializable {
 //        }));
     }
 
-    private Component createServiceHealth() {
+    private Component createServiceHealth(LocalDate start, LocalDate end) {
         // Header
-        HorizontalLayout header = createHeader("Top ranking", "Most earned per month");
+        HorizontalLayout header = createHeader("Top ranking", "Most earned per given period");
 
         // Grid
         Grid<ServiceHealth> grid = new Grid<>();
@@ -301,8 +307,8 @@ public class SalesBoard implements Serializable {
         list = new ArrayList<>();
         for (String sectionId : this.sectionIds) {
 
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
-            BigDecimal value = getValue(collect, LocalDate.now().getYear(), LocalDate.now().getMonth(), r -> r.getLine_item().getGross_total_money());
+            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), start, end,new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+            BigDecimal value = getValue(collect, r -> r.getLine_item().getGross_total_money());
             Section section = storesController.oneStore(getBusinessId(), sectionId);
             if (!section.isDefault()) {
                 String name = section.getName();
@@ -334,20 +340,20 @@ public class SalesBoard implements Serializable {
         return serviceHealth;
     }
 
-    private Component createResponseTimes() {
-        HorizontalLayout header = createHeader("Receipt pie", "The amount of receipts the section covered per month");
+    private Component createResponseTimes(LocalDate start, LocalDate end) {
+        HorizontalLayout header = createHeader("Receipt Cookie", "The amount of receipts each section covered per given period");
 
         List<DataSeriesItem> list = new ArrayList<>();
-        long left = receiptsController.allReceipts(getBusinessId(), 0, Integer.MAX_VALUE, f1 -> true).filter(f1 -> f1.getCancelled_at() == null && f1.getReceipt_type().equalsIgnoreCase("SALE")).filter(f1 -> f1.getReceipt_date().getYear() == LocalDate.now().getYear() && f1.getReceipt_date().getMonth().compareTo(LocalDate.now().getMonth()) == 0).map(r1 -> {
+        long left = receiptsController.receipts(getBusinessId(), start, end).stream().filter(f1 -> f1.getCancelled_at() == null && f1.getReceipt_type().equalsIgnoreCase("SALE")).map(r1 -> {
             String[] number1 = r1.getReceipt_number().split("-");
             return number1[0] + "-" + number1[1];
         }).distinct().count();
         for (String sectionId : this.sectionIds) {
 
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), start, end, new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
 
 
-            List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> n = collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(LocalDate.now().getYear()) == 0 && f.getKey().getValue().compareTo(LocalDate.now().getMonth()) == 0).toList();
+            List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> n = collect.entrySet().stream().toList();
             long count = n.stream().map(Map.Entry::getValue).flatMap(List::stream).map(r -> {
                 String[] number = r.getReceipt_number().split("-");
                 return number[0] + "-" + number[1];

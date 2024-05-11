@@ -92,7 +92,7 @@ public class BatchService {
                     item.setVariants(List.of(variant));
                     Item add = loyItemsController.add(loyverseToken, item);
 
-                    if (add != null && add.getVariants() != null && !add.getVariants().isEmpty()) {
+                    if (add != null && add.getVariants() != null && !add.getVariants().isEmpty() && batchItems.getRealQuantity() != null) {
                         Variant variant1 = add.getVariants().get(0);
                         String id = section.getId();
                         Integer stockAfter = batchItems.getRealQuantity();

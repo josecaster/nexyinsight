@@ -1,7 +1,10 @@
 package sr.we.views.items;
 
 import com.flowingcode.vaadin.addons.gridexporter.GridExporter;
+import com.vaadin.componentfactory.onboarding.Onboarding;
+import com.vaadin.componentfactory.onboarding.OnboardingStep;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -39,6 +42,7 @@ import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.entity.eclipsestore.tables.VariantStore;
 import sr.we.security.AuthenticatedUser;
+import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
 
 import java.math.BigDecimal;
@@ -57,7 +61,7 @@ import java.util.stream.Collectors;
 @Route(value = "items", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ItemsView extends Div implements BeforeEnterObserver {
+public class ItemsView extends Div implements BeforeEnterObserver , HelpFunction {
 
     private final ItemsController ItemService;
     private final Filters filters;
@@ -358,6 +362,25 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         }
 
         return check;
+    }
+
+    @Override
+    public String help(Onboarding onboarding) {
+        OnboardingStep step1 = new OnboardingStep(this);
+        step1.setHeader("Introduction to Items view");
+        step1.setContent(new Html("""
+                <div style="padding: var(--lumo-space-s); background-color: var(--lumo-shade-5pct);">
+                              <p>Welcome to the Items view! This section provides a comprehensive overview and filtering system for all items managed within our platform.</p>
+                            
+                              <p>Here, you can explore a complete list of items available in your inventory. Whether it's products, materials, or equipment, you'll find detailed information for each item, including names, descriptions, prices, and quantities.</p>
+                            
+                              <p>Utilize our filtering options to streamline your search based on specific criteria such as category, brand, or stock availability. This enables you to efficiently navigate through your inventory and locate items with ease.</p>
+                            
+                              <p>With the Items view, you can effectively manage and monitor your inventory, ensuring accurate stock levels and facilitating smooth operations for your business.</p>
+                            </div>
+                """));
+        onboarding.addStep(step1);
+        return "ItemsHelpFunction";
     }
 
     public static class Filters extends Div {

@@ -1,6 +1,8 @@
 package sr.we.views;
 
 import com.vaadin.componentfactory.ToggleButton;
+import com.vaadin.componentfactory.onboarding.Onboarding;
+import com.vaadin.componentfactory.onboarding.OnboardingStep;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
@@ -8,11 +10,13 @@ import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.MenuItem;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.SvgIcon;
 import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -21,8 +25,6 @@ import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
-import com.vaadin.flow.component.tabs.Tab;
-import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -38,18 +40,11 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.servlet.http.Cookie;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.scheduling.TaskScheduler;
-import org.springframework.scheduling.Trigger;
-import org.springframework.scheduling.TriggerContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.addons.joelpop.changepassword.ChangePassword;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordDialog;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordRule;
-import org.vaadin.lineawesome.LineAwesomeIcon;
-import sr.we.entity.Integration;
-import sr.we.entity.Task;
-import sr.we.entity.User;
-import sr.we.entity.Webhook;
+import sr.we.entity.*;
 import sr.we.integration.AuthController;
 import sr.we.repository.IntegrationRepository;
 import sr.we.repository.TaskRepository;
@@ -75,15 +70,10 @@ import sr.we.views.users.UsersView;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * The main view is a top-level placeholder for other views.
@@ -111,6 +101,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private TextField personalAccessTokenFld;
     private TextField redirectUrlFld;
     private Integration integration;
+    private H2 viewTitle;
+    private SvgIcon infoButton;
+    private Onboarding onboarding;
 
     public MainLayout(WebhookRepository webhookRepository, WebhookService webhookService, AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
         this.webhookRepository = webhookRepository;
@@ -136,7 +129,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 //        setDrawerOpened(false);
     }
 
-    private H2 viewTitle;
+    private static boolean isInitialValue(Webhook iuw) {
+        return iuw != null && iuw.getStatus() != null && iuw.getStatus().compareTo(Webhook.Status.ENABLED) == 0;
+    }
 
     private void addHeaderContent() {
         DrawerToggle toggle = new DrawerToggle();
@@ -145,7 +140,13 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         viewTitle = new H2();
         viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
 
-        addToNavbar(true, toggle, viewTitle);
+        infoButton = MyLineAwesome.INFO_CIRCLE_SOLID.create();
+        infoButton.setColor("var(--lumo-primary-text-color)");
+        infoButton.getElement().getStyle().set("margin-right","var(--lumo-space-s)");
+        infoButton.getElement().getStyle().set("margin-left", "auto");
+        infoButton.setVisible(false);
+        infoButton.addClickListener(c -> onboarding.start());
+        addToNavbar(true, toggle, viewTitle, infoButton);
     }
 
     private void addDrawerContent() {
@@ -159,9 +160,32 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     }
 
     @Override
+    public void setContent(Component content) {
+        super.setContent(content);
+
+
+        if (content instanceof HelpFunction) {
+            onboarding = new Onboarding();
+            String help = ((HelpFunction) content).help(onboarding);
+
+            Cookie cookieByName = CookieUtil.getCookieByName(help);
+            if (cookieByName == null) {
+                CookieUtil.createNewCookie("true", help, Integer.MAX_VALUE);
+                onboarding.start();
+            }
+
+            infoButton.setVisible(true);
+        } else {
+            infoButton.setVisible(false);
+        }
+
+    }
+
+    @Override
     protected void afterNavigation() {
         super.afterNavigation();
         viewTitle.setText(getCurrentPageTitle());
+
     }
 
     private String getCurrentPageTitle() {
@@ -170,7 +194,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     }
 
     private Footer createFooter() {
-        Footer footer = new Footer();
+        VerticalLayout footer = new VerticalLayout();
 
 
         String themeLabel = "Dark";
@@ -228,9 +252,11 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
             userName.add(div);
             account(userName);
-            changePassword(userName);
-            loyverseIntegration(userName);
-            synchronize(userName);
+            if(user.getRoles().contains(Role.ADMIN)) {
+                changePassword(userName);
+                loyverseIntegration(userName);
+                synchronize(userName);
+            }
             signOut(userName);
             footer.add(userMenu);
         } else {
@@ -238,7 +264,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             footer.add(loginLink);
         }
 
-        return footer;
+        return new Footer(footer);
     }
 
     private SideNav createNavigation() {
@@ -253,12 +279,6 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         }
 
         return nav;
-    }
-
-
-
-    private static boolean isInitialValue(Webhook iuw) {
-        return iuw != null && iuw.getStatus() != null && iuw.getStatus().compareTo(Webhook.Status.ENABLED) == 0;
     }
 
     private Component createHeaderContent() {

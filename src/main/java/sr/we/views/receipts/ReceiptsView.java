@@ -1,7 +1,10 @@
 package sr.we.views.receipts;
 
 import com.flowingcode.vaadin.addons.gridexporter.GridExporter;
+import com.vaadin.componentfactory.onboarding.Onboarding;
+import com.vaadin.componentfactory.onboarding.OnboardingStep;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -36,6 +39,7 @@ import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
+import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
 
 import java.text.SimpleDateFormat;
@@ -43,14 +47,17 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
-import java.util.*;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @PageTitle("Receipts")
 @Route(value = "receipts", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ReceiptsView extends Div {
+public class ReceiptsView extends Div implements HelpFunction {
 
     private static List<Section> sections;
     private static User user;
@@ -119,7 +126,7 @@ public class ReceiptsView extends Div {
 //                }
 //            }
 //            return containsStore && containsDevice && containsCatregory;
-            return ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(),r.getColor(), l);
+            return ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(), r.getColor(), l);
         }).toList();
         if (collect.size() > 1) {
             collect = collect.stream().filter(l -> !l.isDefault()).toList();
@@ -206,23 +213,38 @@ public class ReceiptsView extends Div {
 //        headerRow.getCell(discountColumn).setComponent(discountFld);
 //        headerRow.getCell(totalColumn).setComponent(totalFld);
 //        headerRow.getCell(grossTotalColumn).setComponent(grossTotalFld);
-        exporter.setCustomHeader(createDateColumn,"Create date");
-        exporter.setCustomHeader(receiptNumberColumn,"Receipt #");
-        exporter.setCustomHeader(storeColumn,"Store");
-        exporter.setCustomHeader(typeColumn,"Type");
-        exporter.setCustomHeader(itemColumn,"Item");
-        exporter.setCustomHeader(sectionColumn,"Section");
-        exporter.setCustomHeader(costColumn,"Cost");
-        exporter.setCustomHeader(discountColumn,"Discount");
-        exporter.setCustomHeader(totalColumn,"Total");
-        exporter.setCustomHeader(grossTotalColumn,"Gross Total");
+        exporter.setCustomHeader(createDateColumn, "Create date");
+        exporter.setCustomHeader(receiptNumberColumn, "Receipt #");
+        exporter.setCustomHeader(storeColumn, "Store");
+        exporter.setCustomHeader(typeColumn, "Type");
+        exporter.setCustomHeader(itemColumn, "Item");
+        exporter.setCustomHeader(sectionColumn, "Section");
+        exporter.setCustomHeader(costColumn, "Cost");
+        exporter.setCustomHeader(discountColumn, "Discount");
+        exporter.setCustomHeader(totalColumn, "Total");
+        exporter.setCustomHeader(grossTotalColumn, "Gross Total");
         exporter.setFileName("GridExportReceipts" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
 
         return grid;
     }
 
-    public enum Type {
-        ALL,SALE,REFUND
+    @Override
+    public String help(Onboarding onboarding) {
+        OnboardingStep step1 = new OnboardingStep(this);
+        step1.setHeader("Introduction to Receipts view");
+        step1.setContent(new Html("""
+                <div style="padding: var(--lumo-space-s); background-color: var(--lumo-shade-5pct);">
+                        <p>Welcome to the Receipts module! This module serves as a comprehensive view and filtering system for all receipts synced with our backend system.</p>
+                      
+                        <p>In this view, you'll have access to all the receipts that are seamlessly integrated with our platform. Whether it's sales, returns, or exchanges, you'll find a detailed overview of every transaction.</p>
+                      
+                        <p>Utilize our filtering options to narrow down your search based on specific criteria such as date range, payment method, or customer details. This allows for quick and efficient access to the information you need.</p>
+                      
+                        <p>With the Receipts module, you can effortlessly track and analyze your transaction history, helping you make informed decisions to optimize your business operations.</p>
+                      </div>
+                """));
+        onboarding.addStep(step1);
+        return "ReceiptsHelpFunction";
     }
 
     private void createGridFilter() {
@@ -294,7 +316,7 @@ public class ReceiptsView extends Div {
         grossTotalFld.setClearButtonVisible(true);
         itemFld.setClearButtonVisible(true);
 
-        typeFld.setItems(Type.ALL,Type.SALE,Type.REFUND);
+        typeFld.setItems(Type.ALL, Type.SALE, Type.REFUND);
         typeFld.setValue(Type.ALL);
         typeFld.addValueChangeListener(l -> grid.getDataProvider().refreshAll());
 
@@ -311,6 +333,10 @@ public class ReceiptsView extends Div {
 
     private void refreshGrid() {
         grid.getDataProvider().refreshAll();
+    }
+
+    public enum Type {
+        ALL, SALE, REFUND
     }
 
     public class Filters extends Div {
@@ -466,13 +492,13 @@ public class ReceiptsView extends Div {
 //                        }
 //                    }
 //                    return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
-                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), null,null, l);
+                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), null, null, l);
                 }).findAny();
                 if (any.isEmpty()) {
                     check = false;
                 }
             }
-            if(check) {
+            if (check) {
                 Optional<String> any = sectionId.getValue().stream().filter(n -> {
                     boolean containsDevice = true;
                     boolean containsCatregory = true;
@@ -490,7 +516,7 @@ public class ReceiptsView extends Div {
 //                        }
 //                    }
 //                    return containsStore && containsDevice && containsCatregory;
-                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(),receipt.getColor(), l);
+                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(), receipt.getColor(), l);
                 }).findAny();
                 if (any.isEmpty()) {
                     check = false;

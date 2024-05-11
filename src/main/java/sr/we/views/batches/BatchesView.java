@@ -1,5 +1,9 @@
 package sr.we.views.batches;
 
+import com.vaadin.componentfactory.onboarding.Onboarding;
+import com.vaadin.componentfactory.onboarding.OnboardingStep;
+import com.vaadin.flow.component.Html;
+import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -39,6 +43,7 @@ import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
+import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
 import sr.we.views.components.MyLineAwesome;
 
@@ -50,7 +55,7 @@ import java.util.stream.Stream;
 @PageTitle("Batches")
 @Route(value = "batch/:batchId?/:action?(edit)", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
-public class BatchesView extends Div implements BeforeEnterObserver {
+public class BatchesView extends Div implements BeforeEnterObserver, HelpFunction {
 
     final String BATCH_ID = "batchId";
     private final String BATCH_EDIT_ROUTE_TEMPLATE = "batch/%s/edit";
@@ -74,6 +79,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     private Batch batch;
     private Set<String> linkSections;
     private List<Section> sections;
+    private Div editorLayoutDiv;
 
     public BatchesView(ItemsController ItemService, BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.batchItemsService = batchItemsService;
@@ -230,11 +236,19 @@ public class BatchesView extends Div implements BeforeEnterObserver {
                     trashBtn.setVisible(true);
                 }
                 case UPLOAD_ITEMS -> {
-                    listBtn.setVisible(true);
-                    checkBtn.setVisible(true);
-                    approveBtn.setVisible(false);
-                    rejectBtn.setVisible(false);
-                    trashBtn.setVisible(true);
+                    if (roles.contains(Role.ADMIN)) {
+                        listBtn.setVisible(true);
+                        checkBtn.setVisible(true);
+                        approveBtn.setVisible(false);
+                        rejectBtn.setVisible(false);
+                        trashBtn.setVisible(true);
+                    } else {
+                        listBtn.setVisible(true);
+                        checkBtn.setVisible(false);
+                        approveBtn.setVisible(false);
+                        rejectBtn.setVisible(false);
+                        trashBtn.setVisible(true);
+                    }
                 }
                 case VALIDATE_ITEMS -> {
                     if (roles.contains(Role.ADMIN)) {
@@ -422,7 +436,7 @@ public class BatchesView extends Div implements BeforeEnterObserver {
     }
 
     private void createEditorLayout(SplitLayout splitLayout) {
-        Div editorLayoutDiv = new Div();
+        editorLayoutDiv = new Div();
         editorLayoutDiv.setClassName("editor-layout");
 
         Div editorDiv = new Div();
@@ -629,5 +643,55 @@ public class BatchesView extends Div implements BeforeEnterObserver {
         } else {
             throw new RuntimeException("Something is wrong with the batches authentication");
         }
+    }
+
+    @Override
+    public String help(Onboarding onboarding) {
+
+        OnboardingStep step1 = new OnboardingStep(this);
+        step1.setHeader("Introduction to Batches module");
+        step1.setContent(new Html("""
+                <div style="padding: var(--lumo-space-s); background-color: var(--lumo-shade-5pct);">
+                  <p>Welcome to Batches! This feature helps you gather and manage your stock data easily. With Batches, you can create lists of items with their quantities, which you'll then send for approval. It's a simple way for section owners to organize and share their inventory info with the main store owner. Let's dive in and get you started!</p>
+                </div>
+                """));
+
+
+        OnboardingStep step2 = new OnboardingStep(grid);
+        step2.setHeader("Batches Grid Overview");
+        step2.setContent(new Html("""
+                <div style="padding: var(--lumo-space-s); background-color: var(--lumo-shade-5pct);">
+                  <p>In the Batches grid, you'll find all the essential details at a glance to keep your workflow moving smoothly. Each batch is represented with its unique Batch number, allowing for easy identification and reference. The Description column provides a brief overview of the contents or purpose of the batch, ensuring clarity for all involved parties. The Status column keeps you informed about the current stage of approval, whether it's pending, approved, or in progress.</p>
+                                
+                  <p>But that's not all—Actions give you the power to expedite the workflow process. Whether it's submitting a batch for review, approving it, or taking other necessary steps, the Actions column provides quick access to perform these essential tasks, helping you keep your inventory management efficient and effective.</p>
+                </div>
+                """));
+
+
+        OnboardingStep step3 = new OnboardingStep(editorLayoutDiv);
+        step3.setHeader("Batch Form Fields");
+        step3.setContent(new Html("""
+                <div style="padding: var(--lumo-space-s); background-color: var(--lumo-shade-5pct);">
+                                
+                  <p>The Batch Form is your central hub for tracking and updating batch information effortlessly. Here, you'll find key details and tools to streamline your workflow.</p>
+                                
+                  <ul>
+                    <li><strong>Process Status:</strong> Stay informed about the current status of your batch process. Whether it's pending, in progress, or completed, the process status keeps you up-to-date every step of the way.</li>
+                    <li><strong>Batch ID:</strong> Each batch is assigned a unique ID for easy reference and organization. Quickly locate specific batches using their distinctive identifiers.</li>
+                    <li><strong>Section Involvement:</strong> Identify the section associated with each batch, ensuring clear communication and accountability throughout the process.</li>
+                    <li><strong>Description Field:</strong> Add or update descriptions to provide context and clarity regarding the contents or purpose of each batch.</li>
+                  </ul>
+                                
+                  <p><strong style="color: var(--lumo-primary-text-color);">Save Button:</strong> Seamlessly save any changes or updates made to batch information with the click of a button, ensuring accuracy and efficiency in data management.</p>
+                                
+                  <p><strong style="color: var(--lumo-primary-text-color);">Add New Batch Button:</strong> Start a new batch with ease by initiating the creation process directly from the Batch Form. Simplify your workflow by effortlessly adding new batches as needed.</p>
+                                
+                  <p>With the Batch Form, managing and monitoring your batches has never been more convenient. Stay organized, informed, and productive as you navigate through your batch processes.</p>
+                </div>
+                """));
+        onboarding.addStep(step1);
+        onboarding.addStep(step2);
+        onboarding.addStep(step3);
+        return "BatchHelpFunction";
     }
 }

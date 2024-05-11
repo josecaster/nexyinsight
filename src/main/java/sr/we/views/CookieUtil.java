@@ -55,4 +55,18 @@ public class CookieUtil {
 		VaadinService.getCurrentResponse().addCookie(localeCookie);
 		return localeCookie;
 	}
+
+	public static Cookie createNewCookie(String value, String name, int expire) {
+		Cookie localeCookie = new Cookie(name, value);
+
+		// Make cookie expire in 2 minutes
+		localeCookie.setMaxAge(expire);
+
+		// Set the cookie path.
+		localeCookie.setPath(VaadinService.getCurrentRequest().getContextPath());
+
+		// Save cookie
+		VaadinService.getCurrentResponse().addCookie(localeCookie);
+		return localeCookie;
+	}
 }
