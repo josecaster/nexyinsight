@@ -68,7 +68,7 @@ public class StoresController{
                 section.setCategories(new HashSet<>(List.of(category.getId())));
                 section.setName(category.getName());
                 section.setBusinessId(businessId);
-                section.setUuId(uuId);
+                section.setId(uuId);
                 addNewStore(section);
             }
         }

@@ -82,7 +82,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
     private List<Section> sections;
     private Grid.Column<Item> sectionColumn;
     private MultiSelectComboBox<String> sectionId;
-    private Grid.Column<Item> stockLevelDate;
+//    private Grid.Column<Item> stockLevelDate;
 
     public ItemsView(ItemsController ItemService, StoresController sectionService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.ItemService = ItemService;
@@ -133,7 +133,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         grid = new Grid<>(Item.class, false);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
 
-        stockLevelDate = grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
+//        stockLevelDate = grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
         itemNameColumn = grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
         stockLevelColumn = grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         costColumn = grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
@@ -176,7 +176,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
         exporter.setExportValue(sectionColumn, this::getSection);
         exporter.setFileName("GridExportItems" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
         exporter.setCustomHeader(itemNameColumn, "Item name");
-        exporter.setCustomHeader(stockLevelDate, "Stock level date");
+//        exporter.setCustomHeader(stockLevelDate, "Stock level date");
         exporter.setCustomHeader(stockLevelColumn, "Stock level");
         exporter.setCustomHeader(costColumn, "Cost");
         exporter.setCustomHeader(inventoryValueColumn, "Inventory Value");
@@ -385,7 +385,7 @@ public class ItemsView extends Div implements BeforeEnterObserver {
             actions.addClassName(LumoUtility.Gap.SMALL);
             actions.addClassName("actions");
 
-            add(createDateRangeFilter(), actions);
+//            add(createDateRangeFilter(), actions);
         }
 
         private Component createDateRangeFilter() {
@@ -457,12 +457,12 @@ public class ItemsView extends Div implements BeforeEnterObserver {
 
         public boolean check(Item item) {
             boolean check = true;
-            if (startDate.getValue() != null && endDate.getValue() != null && item.getLastUpdateStockLevel() != null) {
-                LocalDate receiptDate = item.getLastUpdateStockLevel().toLocalDate();
-                if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
-                    check = false;
-                }
-            }
+//            if (startDate.getValue() != null && endDate.getValue() != null && item.getLastUpdateStockLevel() != null) {
+//                LocalDate receiptDate = item.getLastUpdateStockLevel().toLocalDate();
+//                if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
+//                    check = false;
+//                }
+//            }
             return check;
         }
     }
