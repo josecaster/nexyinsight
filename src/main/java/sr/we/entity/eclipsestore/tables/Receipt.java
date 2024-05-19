@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
+
 public class Receipt extends SuperDao implements Cloneable{
     private String form, color;
     private Long businessId;

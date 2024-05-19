@@ -1,5 +1,6 @@
 package sr.we.views.batches;
 
+import com.vaadin.componentfactory.ToggleButton;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -7,6 +8,8 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.AnchorTarget;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
@@ -24,7 +27,9 @@ import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.server.StreamResource;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -37,11 +42,11 @@ import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,9 +65,10 @@ public class UploadItemsView extends VerticalLayout {
     private final Batch batch;
     boolean populateForm = false;
     private ComboBox<Item> itemsCmb;
-//    private TextField sku;
+    //    private TextField sku;
     private TextField code;
-    private TextField name;
+    private TextField name, description;
+    private ToggleButton variableBtn;
     private IntegerField quantity;
     private BigDecimalField cost;
     private BigDecimalField price;
@@ -92,7 +98,26 @@ public class UploadItemsView extends VerticalLayout {
             doForUploadSucceed(receiver, grid);
         });
 
-        add(/*upload, */splitLayout);
+        HorizontalLayout horizontalLayout = new HorizontalLayout(upload);
+        horizontalLayout.setWidthFull();
+        Anchor anchor = new Anchor(new StreamResource("template.csv", () -> {
+
+
+            ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(byteArrayInputStream);
+            try (BufferedWriter writer = new BufferedWriter(outputStreamWriter); CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader("SKU", "CODE", "NAME", "DESCRIPTION", "QUANTITY", "VARIABLE", "PRICE", "COST"))) {
+                csvPrinter.flush();
+                byte[] buf = byteArrayInputStream.toByteArray();
+                return new ByteArrayInputStream(buf);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            return null;
+        }), "Download .csv template template");
+        anchor.getElement().getStyle().set("margin-left", "auto");
+        anchor.setTarget(AnchorTarget.BLANK);
+        horizontalLayout.add(anchor);
+        add(horizontalLayout, splitLayout);
 
         grid.setHeight("400px");
 
@@ -102,6 +127,7 @@ public class UploadItemsView extends VerticalLayout {
         Grid.Column<BatchItems> nameColumn = grid.addColumn(BatchItems::getName).setHeader("NAME").setAutoWidth(true);
         Grid.Column<BatchItems> quantityColumn = grid.addColumn(BatchItems::getQuantity).setHeader("QUANTITY").setAutoWidth(true);
         Grid.Column<BatchItems> costColumn = grid.addColumn(BatchItems::getCost).setHeader("COST").setAutoWidth(true);
+        Grid.Column<BatchItems> variableColumn = grid.addColumn(BatchItems::isOptional).setHeader("VARIABLE PRICE").setAutoWidth(true);
         Grid.Column<BatchItems> priceColumn = grid.addColumn(BatchItems::getPrice).setHeader("PRICE").setAutoWidth(true);
         Grid.Column<BatchItems> actualColumn = grid.addComponentColumn(l -> {
             IntegerField integerField = new IntegerField();
@@ -192,6 +218,10 @@ public class UploadItemsView extends VerticalLayout {
                         this.batchItems.setBatchId(batchId);
                     }
                     binder.writeBean(this.batchItems);
+                    this.batchItems.setOptional(variableBtn.getValue());
+                    if (this.batchItems.isOptional()) {
+                        this.batchItems.setPrice(null);
+                    }
                     BatchItems update = batchItemsService.update(this.batchItems);
                     clearForm();
                     refreshGrid();
@@ -216,7 +246,7 @@ public class UploadItemsView extends VerticalLayout {
             Reader in = new InputStreamReader(receiver.getInputStream());
 
 
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "QUANTITY", "PRICE", "COST").setSkipHeaderRecord(true).build();
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "DESCRIPTION", "QUANTITY", "VARIABLE", "PRICE", "COST").setSkipHeaderRecord(true).build();
 
             Iterable<CSVRecord> records = null;
             records = csvFormat.parse(in);
@@ -230,7 +260,15 @@ public class UploadItemsView extends VerticalLayout {
                 String quantity = record.get("QUANTITY");
                 String price = record.get("PRICE");
                 String cost = record.get("COST");
-                list.add(new BatchItems(UploadItemsView.this.batchId, sku, code, name, Integer.valueOf(quantity), BigDecimal.valueOf(Double.parseDouble(price)), BigDecimal.valueOf(Double.parseDouble(cost))));
+                String optional = record.get("VARIABLE");
+                String description = record.get("DESCRIPTION");
+
+                Integer quantity1 = StringUtils.isBlank(quantity) ? null : Integer.valueOf(quantity);
+                BigDecimal price1 = StringUtils.isBlank(price) ? null : BigDecimal.valueOf(Double.parseDouble(price));
+                BigDecimal cost1 = StringUtils.isBlank(cost) ? null : BigDecimal.valueOf(Double.parseDouble(cost));
+                boolean optional1 = !StringUtils.isBlank(optional) && Boolean.parseBoolean(optional);
+
+                list.add(new BatchItems(UploadItemsView.this.batchId, sku, code, name, quantity1, price1, cost1, optional1, description));
             }
             itemImportGrid.setItems(list);
         } catch (IOException e) {
@@ -264,28 +302,21 @@ public class UploadItemsView extends VerticalLayout {
 //        sku = new TextField("SKU");
         code = new TextField("CODE");
         name = new TextField("NAME");
+        description = new TextField("DESCRIPTION");
+        variableBtn = new ToggleButton("VARIABLE PRICE");
         quantity = new IntegerField("Quantity");
         cost = new BigDecimalField("COST");
         price = new BigDecimalField("PRICE");
 
+        code.setMaxLength(128);
+        name.setMaxLength(64);
+        description.setMaxLength(512);
+
+
         quantity.setMin(0);
 
         itemsCmb.setPlaceholder("FOR NEW ITEM LEAVE EMPTY");
-        itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), l -> {
-            Optional<String> filter = query.getFilter();
-            boolean contains = true;
-            if (filter.isPresent()) {
-                String s = filter.get().toUpperCase();
-                contains = l.getItem_name().toUpperCase().contains(s);
-                if (!contains) contains = l.getVariant().getSku().contains(s);
-                if (!contains) contains = l.getItem_name().contains(s);
-                if (!contains && StringUtils.isNotBlank(l.getVariant().getBarcode()))
-                    contains = l.getVariant().getBarcode().contains(s);
-                if (!contains && StringUtils.isNotBlank(l.getDescription())) contains = l.getDescription().contains(s);
-            }
-
-            return contains;
-        }));
+        itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), query.getFilter()));
         itemsCmb.setItemLabelGenerator(l -> {
             return l.getVariant().getSku() + " - " + l.getItem_name();
         });
@@ -302,6 +333,8 @@ public class UploadItemsView extends VerticalLayout {
             if (value != null) {
                 this.batchItems.setItemId(value.getUuId());
 //                sku.setValue(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getSku() : "");
+                description.setValue(StringUtils.isNotBlank(value.getDescription()) ? value.getDescription() : "");
+                variableBtn.setValue(!value.getVariant().getDefault_pricing_type().equalsIgnoreCase("FIXED"));
                 code.setValue(StringUtils.isNotBlank(value.getVariant().getBarcode()) ? value.getVariant().getBarcode() : "");
                 name.setValue(StringUtils.isNotBlank(value.getItem_name()) ? value.getItem_name() : "");
                 cost.setValue(value.getVariant().getCost());
@@ -311,7 +344,11 @@ public class UploadItemsView extends VerticalLayout {
             }
         });
 
-        formLayout.add(itemsCmb, /*sku,*/ code, name, quantity, cost, price);
+        variableBtn.addValueChangeListener(f -> {
+            price.setVisible(!f.getValue());
+        });
+
+        formLayout.add(itemsCmb, /*sku,*/ code, name, description, quantity, cost, variableBtn, price);
 
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);
@@ -374,6 +411,8 @@ public class UploadItemsView extends VerticalLayout {
 //                        sku.setReadOnly(false);
                         code.setReadOnly(false);
                         name.setReadOnly(false);
+                        description.setRequired(false);
+                        variableBtn.setReadOnly(false);
                         quantity.setReadOnly(false);
                         cost.setReadOnly(false);
                         price.setReadOnly(false);
@@ -381,11 +420,13 @@ public class UploadItemsView extends VerticalLayout {
                 }
             }
             if (StringUtils.isNotBlank(value.getItemId())) {
-                itemsCmb.setValue(ItemService.oneItem(getBusinessId(), value.getItemId()));
+                itemsCmb.setValue(ItemService.oneItem(value.getItemId()));
             }
+            variableBtn.setValue(value.isOptional());
         } else {
             // BatchItems Id
             cost.setValue(null);
+            variableBtn.setValue(false);
             itemsCmb.clear();
         }
         this.populateForm = false;

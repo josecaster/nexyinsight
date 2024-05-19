@@ -39,9 +39,9 @@ public class ApiRestController {
 
     private static String calculateHMAC(String data, String key) {
         try {
-            String hmacSHA256 = "HmacSHA1";
-            SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), hmacSHA256);
-            Mac mac = Mac.getInstance(hmacSHA256);
+            String hmacSHA1 = "HmacSHA1";
+            SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), hmacSHA1);
+            Mac mac = Mac.getInstance(hmacSHA1);
             mac.init(secretKeySpec);
             byte[] hmacBytes = mac.doFinal(data.getBytes());
             return Hex.encodeHexString(hmacBytes);

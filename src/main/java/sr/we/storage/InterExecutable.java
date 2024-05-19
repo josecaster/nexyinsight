@@ -1,4 +1,4 @@
-package sr.we.storage.impl;
+package sr.we.storage;
 
 public interface InterExecutable<R,P> {
 	

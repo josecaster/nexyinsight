@@ -34,13 +34,12 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.mongodb.core.query.Criteria;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresController;
-import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Section;
-import sr.we.entity.eclipsestore.tables.VariantStore;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
@@ -51,23 +50,21 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @PageTitle("Items")
 @Route(value = "items", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ItemsView extends Div implements BeforeEnterObserver , HelpFunction {
+public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction {
 
     private final ItemsController ItemService;
     private final Filters filters;
     private final StoresController sectionService;
     private final AuthenticatedUser authenticatedUser;
     private final StoresController storesController;
+    private final Set<String> linkSections;
     private Grid<Item> grid;
     private Grid.Column<Item> storeColumn;
     private Grid.Column<Item> priceColumn;
@@ -81,7 +78,6 @@ public class ItemsView extends Div implements BeforeEnterObserver , HelpFunction
     private BigDecimalField inventoryValueFld;
     private BigDecimalField priceFld;
     private ComboBox<Section> storeFld;
-    private Set<String> linkSections;
     private User user;
     private List<Section> sections;
     private Grid.Column<Item> sectionColumn;
@@ -192,22 +188,7 @@ public class ItemsView extends Div implements BeforeEnterObserver , HelpFunction
     }
 
     private String getSection(Item r) {
-        List<Section> collect = sections.stream().filter(l -> {
-
-//            VariantStore variantStore = r.getVariantStore();
-//            String storeId = variantStore.getStore_id();
-//
-//            boolean containsCatregory = true;
-//            boolean containsStore = l.getId().equalsIgnoreCase(storeId);
-//            if (containsStore) {
-//                if (l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                    // check on item category
-//                    containsCatregory = l.getCategories().contains(r.getCategory_id());
-//                }
-//            }
-//            return containsStore && containsCatregory;
-            return ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(),r.getColor(), l);
-        }).toList();
+        List<Section> collect = sections.stream().filter(l -> ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(), r.getColor(), l)).toList();
         if (collect.size() > 1) {
             collect = collect.stream().filter(l -> !l.isDefault()).toList();
         }
@@ -226,30 +207,13 @@ public class ItemsView extends Div implements BeforeEnterObserver , HelpFunction
         priceFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
         storeFld = new ComboBox<>(l -> grid.getDataProvider().refreshAll());
         storeFld.setItemLabelGenerator(Section::getDefault_name);
-        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).filter(Section::isDefault));
+        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()).filter(Section::isDefault));
         sectionId = new MultiSelectComboBox<>();
         sectionId.setItemLabelGenerator(label -> {
-            Section section = storesController.oneStore(getBusinessId(), label);
+            Section section = storesController.oneStore(label);
             return section == null ? "Error" : section.getName();
         });
-        List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
-            Optional<User> userOptional = authenticatedUser.get();
-            if (userOptional.isEmpty()) {
-                return false;
-            }
-            User user = userOptional.get();
-            if (user.getRoles().contains(Role.ADMIN)) {
-                return true;
-            } else {
-                // check sections uu ids
-                linkSections = user.getLinkSections();
-                if (linkSections.isEmpty()) {
-                    return false;
-                }
-                return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
-            }
-
-        }).map(Section::getUuId).toList();
+        List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get()).map(Section::getUuId).toList();
         sectionId.setItems(sects);
         sectionId.setValue(sects);
         sectionId.addValueChangeListener(l -> grid.getDataProvider().refreshAll());
@@ -298,70 +262,76 @@ public class ItemsView extends Div implements BeforeEnterObserver , HelpFunction
         Optional<User> maybeUser = authenticatedUser.get();
         if (maybeUser.isPresent()) {
             user = maybeUser.get();
-            sections = sectionService.allStores(getBusinessId());
-            grid.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), user, this::check));
+            sections = sectionService.allSections(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get()).toList();
+            grid.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), sectionId.getValue(), check()));
         }
     }
 
-    private boolean check(Item item) {
-
-        boolean check = true;
+    private Collection<Criteria> check() {
+        List<Criteria> criterias = new ArrayList<>();
+//        boolean check = true;
         if (StringUtils.isNotBlank(itemNameFld.getValue())) {
-            check = item.getItem_name().toUpperCase().contains(itemNameFld.getValue().toUpperCase());
+//            check = item.getItem_name().toUpperCase().contains(itemNameFld.getValue().toUpperCase());
+            criterias.add(Criteria.where("item_name").regex(".*"+itemNameFld.getValue()+".*"));
         }
-        if (check && storeFld.getValue() != null) {
-            check = item.getVariantStore().getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
+        if (storeFld.getValue() != null) {
+//            check = item.getVariantStore().getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
+            criterias.add(Criteria.where("variantStore.store_id").is(storeFld.getValue().getId()));
         }
-        if (check && stockLevelFld.getValue() != null) {
-            check = item.getStock_level() == stockLevelFld.getValue();
+        if (stockLevelFld.getValue() != null) {
+//            check = item.getStock_level() == stockLevelFld.getValue();
+            criterias.add(Criteria.where("stock_level").is(stockLevelFld.getValue()));
         }
-        if (check && costFld.getValue() != null) {
-            check = item.getVariant().getCost().compareTo(costFld.getValue()) == 0;
+        if (costFld.getValue() != null) {
+//            check = item.getVariant().getCost().compareTo(costFld.getValue()) == 0;
+            criterias.add(Criteria.where("variant.cost").is(costFld.getValue()));
         }
-        if (check && priceFld.getValue() != null) {
-            check = item.getVariant().getDefault_price() != null && item.getVariant().getDefault_price().compareTo(priceFld.getValue()) == 0;
+        if (priceFld.getValue() != null) {
+//            check = item.getVariant().getDefault_price() != null && item.getVariant().getDefault_price().compareTo(priceFld.getValue()) == 0;
+            criterias.add(Criteria.where("variant.default_price").is(priceFld.getValue()));
         }
-        if (check && inventoryValueFld.getValue() != null) {
-            check = item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())).compareTo(inventoryValueFld.getValue()) == 0;
+        if (inventoryValueFld.getValue() != null) {
+//            check = item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())).compareTo(inventoryValueFld.getValue()) == 0;
+//            criterias.add(Criteria.where("item_name").regex(".*ab.*", itemNameFld.getValue()));TODO
         }
-
-        if (check) {
-            check = filters.check(item);
-        }
-
-        if (check && user.getRoles().contains(Role.SECTION_OWNER)) {
-            String categoryId = item.getCategory_id();
-            VariantStore variantStore = item.getVariantStore();
-            String storeId = variantStore.getStore_id();
-
-            Optional<Section> any = sections.stream().filter(f -> f.getId().compareTo(storeId) == 0 && (f.getCategories() == null || f.getCategories().contains(categoryId))).findAny();
-            if (any.isEmpty()) {
-                check = false;
-            }
-        }
-
-
-        if(check) {
-            Optional<String> any = sectionId.getValue().stream().filter(n -> {
-                boolean containsCatregory = true;
-                Section l = storesController.oneStore(getBusinessId(), n);
-//                boolean containsStore = l.getId().equalsIgnoreCase(item.getVariantStore().getStore_id());
-//                if (containsStore) {
 //
-//                    if (l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                        // check on item category
-//                        containsCatregory = l.getCategories().contains(item.getCategory_id());
-//                    }
-//                }
-//                return containsStore && containsCatregory;
-                return ItemsController.linkSection(l.getId(), item.getCategory_id(), item.getForm(), item.getColor(), l);
-            }).findAny();
-            if (any.isEmpty()) {
-                check = false;
-            }
-        }
+//        if (check) {
+//            check = filters.check(item);
+//        }
+//
+//        if (user.getRoles().contains(Role.SECTION_OWNER)) {
+//            String categoryId = item.getCategory_id();
+//            VariantStore variantStore = item.getVariantStore();
+//            String storeId = variantStore.getStore_id();
+//
+//            Optional<Section> any = sections.stream().filter(f -> f.getId().compareTo(storeId) == 0 && (f.getCategories() == null || f.getCategories().contains(categoryId))).findAny();
+//            if (any.isEmpty()) {
+//                check = false;
+//            }
+//        }
+//
+//
+//        if(check) {
+//            Optional<String> any = sectionId.getValue().stream().filter(n -> {
+//                boolean containsCatregory = true;
+//                Section l = storesController.oneStore(getBusinessId(), n);
+////                boolean containsStore = l.getId().equalsIgnoreCase(item.getVariantStore().getStore_id());
+////                if (containsStore) {
+////
+////                    if (l.getCategories() != null && !l.getCategories().isEmpty()) {
+////                        // check on item category
+////                        containsCatregory = l.getCategories().contains(item.getCategory_id());
+////                    }
+////                }
+////                return containsStore && containsCatregory;
+//                return ItemsController.linkSection(l.getId(), item.getCategory_id(), item.getForm(), item.getColor(), l);
+//            }).findAny();
+//            if (any.isEmpty()) {
+//                check = false;
+//            }
+//        }
 
-        return check;
+        return criterias;
     }
 
     @Override

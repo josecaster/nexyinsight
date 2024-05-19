@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 @Entity
 public class StockAdjustmentItems extends AbstractEntity {
 
-    private String itemId;
+    private String itemId, itemName;
     private BigDecimal cost;
     private Integer inStock,adjustment,stockAfter;
     private Long stockAdjustmentId;
@@ -22,6 +22,14 @@ public class StockAdjustmentItems extends AbstractEntity {
         this.adjustment = adjustment;
         this.stockAfter = stockAfter;
         this.stockAdjustmentId = stockAdjustmentId;
+    }
+
+    public String getItemName() {
+        return itemName;
+    }
+
+    public void setItemName(String itemName) {
+        this.itemName = itemName;
     }
 
     public String getItemId() {

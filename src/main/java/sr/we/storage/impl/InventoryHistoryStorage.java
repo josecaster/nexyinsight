@@ -9,26 +9,27 @@ import sr.we.storage.IInventoryHistoryStorage;
 
 import java.util.List;
 
+@Deprecated
 @Component
-public class InventoryHistoryStorage extends EclipseStoreSuperService<InventoryHistory> implements IInventoryHistoryStorage {
+public class InventoryHistoryStorage extends EclipseStoreSuperService<InventoryHistory> /*implements IInventoryHistoryStorage*/ {
 
     public InventoryHistoryStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, InventoryHistory.class);
     }
 
-    @Override
+//    @Override
     @Read
     public InventoryHistory oneInventoryHistory(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public List<InventoryHistory> allInventoryHistorys(Long businessId) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Write
     public InventoryHistory saveOrUpdate(InventoryHistory inventoryHistory) {
 
@@ -45,7 +46,7 @@ public class InventoryHistoryStorage extends EclipseStoreSuperService<InventoryH
         });
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteInventoryHistory(String uuId) {
         return delete(uuId);

@@ -87,7 +87,7 @@ public class InventoryValuationView extends Div implements BeforeEnterObserver {
         grid.addColumn(inventoryValuation -> inventoryValuation.getRetailValue() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuation.getRetailValue())).setHeader("retail value").setAutoWidth(true);
         grid.addColumn(inventoryValuation -> inventoryValuation.getPotentialProfit() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuation.getPotentialProfit())).setHeader("Potential profit").setAutoWidth(true);
         grid.addColumn(inventoryValuation -> inventoryValuation.getMargin() == null ? null : new DecimalFormat(" #,##0.00 '%'").format(inventoryValuation.getMargin())).setHeader("Margin").setAutoWidth(true);
-        grid.setItems(query -> inventoryValuationService.allInventoryValuations(getBusinessId(), query.getPage(), query.getPageSize(), f -> true));
+        grid.setItems(query -> inventoryValuationService.allInventoryValuations(getBusinessId(), query.getPage(), query.getPageSize()));
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 
         // when a row is selected or deselected, populate form

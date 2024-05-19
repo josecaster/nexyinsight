@@ -48,7 +48,6 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class SalesBoard implements Serializable {
@@ -78,6 +77,13 @@ public class SalesBoard implements Serializable {
         return true;
     }
 
+
+    private static BigDecimal getValue(List<ReceiptsController.Bar> collect, Integer year, Month month) {
+        Stream<ReceiptsController.Bar> entryStream = collect.stream().filter(f -> f.year().compareTo(year.longValue()) == 0 && f.month().compareTo((long) month.getValue()) == 0);
+//        List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> list = entryStream.toList();
+        return entryStream.map(ReceiptsController.Bar::get).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private static BigDecimal getValue(Map<Pair<Integer, Month>, List<Receipt>> collect, Integer year, Month month, Function<Receipt, BigDecimal> function) {
         Stream<Map.Entry<Pair<Integer, Month>, List<Receipt>>> entryStream = collect.entrySet().stream().filter(f -> f.getKey().getKey().compareTo(year) == 0 && f.getKey().getValue().compareTo(month) == 0);
         List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> list = entryStream.toList();
@@ -94,53 +100,55 @@ public class SalesBoard implements Serializable {
         this.sectionIds = sectionIds;
 
         board.addRow(new BsRow(new BsColumn(createHighlight("Gross sales", span -> {
-            //new Thread(() -> {
-            List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
-            ui.access(() -> {
-                BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
-                String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales);
-                span.setText(format);
-            });
-            //}).start();
+            new Thread(() -> {
+                ReceiptsController.Value inventoryValuationOptional = receiptsController.gross(getBusinessId(), start, end, sectionIds);
+//            BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                ui.access(() -> {
+                    String format = new DecimalFormat("###,###,###,###,###,##0.00").format(inventoryValuationOptional.get());
+                    span.setText(format);
+                });
+            }).start();
             return null;
         })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Refunds", span -> {
-                    //new Thread(() -> {
-                    List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
-                    ui.access(() -> {
-                        BigDecimal refunds = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        String format = new DecimalFormat("###,###,###,###,###,##0.00").format(refunds);
-                        span.setText(format);
-                    });
-                    //}).start();
+                    new Thread(() -> {
+//                    List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
+//                    BigDecimal refunds = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        ReceiptsController.Value refunds = receiptsController.refund(getBusinessId(), start, end, sectionIds);
+                        ui.access(() -> {
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(refunds.get());
+                            span.setText(format);
+                        });
+                    }).start();
                     return null;
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Discounts", span -> {
-                    //new Thread(() -> {
-                    List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
-                    ui.access(() -> {
-                        BigDecimal discounts = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        String format = new DecimalFormat("###,###,###,###,###,##0.00").format(discounts);
-                        span.setText(format);
-                    });
-                    //}).start();
+                    new Thread(() -> {
+//                    List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
+//                    BigDecimal discounts = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                        ReceiptsController.Value discounts = receiptsController.discount(getBusinessId(), start, end, sectionIds);
+                        ui.access(() -> {
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(discounts.get());
+                            span.setText(format);
+                        });
+                    }).start();
                     return null;
                 })).withSize(BsColumn.Size.XS), //
                 new BsColumn(createHighlight("Net sales", span -> {
-                    //new Thread(() -> {
-                    List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
-                    ui.access(() -> {
-                        BigDecimal grossSales = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal refunds = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("REFUND")).map(r -> r.getLine_item().getGross_total_money()).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        BigDecimal discounts = inventoryValuationOptional.stream().filter(f -> f.getReceipt_type().equalsIgnoreCase("SALE")).map(r -> r.getLine_item().getTotal_discount()).reduce(BigDecimal.ZERO, BigDecimal::add);
-                        String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales.subtract(refunds).subtract(discounts));
-                        span.setText(format);
-                    });
-                    //}).start();
+                    new Thread(() -> {
+//                    List<Receipt> inventoryValuationOptional = receiptsController.receipts(getBusinessId(), start, end, sectionIds);
+                        Double grossSales = receiptsController.gross(getBusinessId(), start, end, sectionIds).get();
+                        Double refunds = receiptsController.refund(getBusinessId(), start, end, sectionIds).get();
+                        Double discounts = receiptsController.discount(getBusinessId(), start, end, sectionIds).get();
+                        ui.access(() -> {
+                            String format = new DecimalFormat("###,###,###,###,###,##0.00").format(grossSales - (refunds) - (discounts));
+                            span.setText(format);
+                        });
+                    }).start();
                     return null;
                 })).withSize(BsColumn.Size.XS)));
         board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
-        board.addRow(new BsRow(new BsColumn(createServiceHealth(start,end)).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes(start, end)).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createServiceHealth(start, end)).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes(start, end)).withSize(BsColumn.Size.XS)));
     }
 
     private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
@@ -228,57 +236,63 @@ public class SalesBoard implements Serializable {
 //        dashboardView.setSubmit(dashboardView.getExecutorService().submit(() -> {
 //
 //        }));
-        Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
-        int year1 = now.getYear();
-        Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year1, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
+        new Thread(() -> {
+            List<ReceiptsController.Bar> collect = receiptsController.chart(getBusinessId(), (long) LocalDate.now().getYear(), this.sectionIds);
+//        Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), this.sectionIds).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
+            int year1 = now.getYear();
+            Number[] data = new Number[]{getValue(collect, year1, Month.JANUARY),//
+                    getValue(collect, year1, Month.FEBRUARY),//
+                    getValue(collect, year1, Month.MARCH),//
+                    getValue(collect, year1, Month.APRIL),//
+                    getValue(collect, year1, Month.MAY),//
+                    getValue(collect, year1, Month.JUNE),//
+                    getValue(collect, year1, Month.JULY),//
+                    getValue(collect, year1, Month.AUGUST),//
+                    getValue(collect, year1, Month.SEPTEMBER),//
+                    getValue(collect, year1, Month.OCTOBER),//
+                    getValue(collect, year1, Month.NOVEMBER),//
+                    getValue(collect, year1, Month.DECEMBER)
 
-        };
+            };
 
-        int year2 = year1 - 1;
-        Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.FEBRUARY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.MARCH, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.APRIL, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.MAY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.JUNE, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.JULY, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.AUGUST, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.SEPTEMBER, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.OCTOBER, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.NOVEMBER, r -> r.getLine_item().getGross_total_money()),//
-                getValue(collect, year2, Month.DECEMBER, r -> r.getLine_item().getGross_total_money())
+            int year2 = year1 - 1;
+            collect = receiptsController.chart(getBusinessId(), (long) year2, this.sectionIds);
+            Number[] data1 = new Number[]{getValue(collect, year2, Month.JANUARY),//
+                    getValue(collect, year2, Month.FEBRUARY),//
+                    getValue(collect, year2, Month.MARCH),//
+                    getValue(collect, year2, Month.APRIL),//
+                    getValue(collect, year2, Month.MAY),//
+                    getValue(collect, year2, Month.JUNE),//
+                    getValue(collect, year2, Month.JULY),//
+                    getValue(collect, year2, Month.AUGUST),//
+                    getValue(collect, year2, Month.SEPTEMBER),//
+                    getValue(collect, year2, Month.OCTOBER),//
+                    getValue(collect, year2, Month.NOVEMBER),//
+                    getValue(collect, year2, Month.DECEMBER)
 
-        };
+            };
 
-        Series<Number>[] listSeries = new Series[2];
+            Series<Number>[] listSeries = new Series[2];
 
-        Series<Number> flowIn = new Series<Number>();
-        flowIn.setName("Sales value");
-        flowIn.setData(data);
-        flowIn.setType(SeriesType.LINE);
-        listSeries[0] = flowIn;
+            Series<Number> flowIn = new Series<Number>();
+            flowIn.setName("Sales value");
+            flowIn.setData(data);
+            flowIn.setType(SeriesType.LINE);
+            listSeries[0] = flowIn;
 
 
-        Series<Number> flowOut = new Series<Number>();
-        flowOut.setName("Sales value last year");
-        flowOut.setData(data1);
-        flowOut.setType(SeriesType.COLUMN);
-        listSeries[1] = flowOut;
+            Series<Number> flowOut = new Series<Number>();
+            flowOut.setName("Sales value last year");
+            flowOut.setData(data1);
+            flowOut.setType(SeriesType.COLUMN);
+            listSeries[1] = flowOut;
 
-        chart.withSeries(listSeries);
-        viewEvents.removeAll();
-        viewEvents.add(header, chart.build());
+            ui.access(() -> {
+                chart.withSeries(listSeries);
+                viewEvents.removeAll();
+                viewEvents.add(header, chart.build());
+            });
+        }).start();
 //        dashboardView.setSubmit2(ui.access(() -> {
 //        }));
     }
@@ -304,31 +318,35 @@ public class SalesBoard implements Serializable {
         grid.addColumn(ServiceHealth::getInput).setHeader("Gross sales").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
 
-        list = new ArrayList<>();
-        for (String sectionId : this.sectionIds) {
-
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), start, end,new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
-            BigDecimal value = getValue(collect, r -> r.getLine_item().getGross_total_money());
-            Section section = storesController.oneStore(getBusinessId(), sectionId);
-            if (!section.isDefault()) {
-                String name = section.getName();
-                ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, value, 0);
-                list.add(munster);
+        new Thread(() -> {
+            List<ServiceHealth> list = new ArrayList<>();
+            for (String sectionId : this.sectionIds) {
+                ReceiptsController.Value gross = receiptsController.gross(getBusinessId(), start, end, new HashSet<>(List.of(sectionId)));
+                Section section = storesController.oneStore(sectionId);
+//                if (!section.isDefault()) {
+                    String name = section.getName();
+                    ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, BigDecimal.valueOf(gross.get()), 0);
+                    list.add(munster);
+//                }
             }
-        }
-        list = list.stream().sorted(Comparator.comparing(ServiceHealth::getInput).reversed()).toList();
-        list.forEach(c -> {
-            if (list.indexOf(c) == 0) {
-                c.setStatus(ServiceHealth.Status.EXCELLENT);
-            } else {
-                if (list.indexOf(c) == 1) {
-                    c.setStatus(ServiceHealth.Status.OK);
+            list = list.stream().sorted(Comparator.comparing(ServiceHealth::getInput).reversed()).toList();
+            List<ServiceHealth> finalList = list;
+            list.forEach(c -> {
+                if (finalList.indexOf(c) == 0) {
+                    c.setStatus(ServiceHealth.Status.EXCELLENT);
                 } else {
-                    c.setStatus(ServiceHealth.Status.FAILING);
+                    if (finalList.indexOf(c) == 1) {
+                        c.setStatus(ServiceHealth.Status.OK);
+                    } else {
+                        c.setStatus(ServiceHealth.Status.FAILING);
+                    }
                 }
-            }
-        });
-        grid.setItems(list);
+            });
+            List<ServiceHealth> finalList1 = list;
+            ui.access(() -> {
+                grid.setItems(finalList1);
+            });
+        }).start();
         grid.setHeight("400px");
 
         // Add it all together
@@ -341,61 +359,46 @@ public class SalesBoard implements Serializable {
     }
 
     private Component createResponseTimes(LocalDate start, LocalDate end) {
-        HorizontalLayout header = createHeader("Receipt Cookie", "The amount of receipts each section covered per given period");
+        HorizontalLayout header = createHeader("Section Traffic Coverage", "The amount of receipts each section covered per given period");
+        VerticalLayout serviceHealth = new VerticalLayout(header);
+        new Thread(() -> {
+            List<DataSeriesItem> list = new ArrayList<>();
+            ReceiptsController.Value val = receiptsController.count(getBusinessId(), start, end, sectionIds);
+            Double left = val.get();
+            for (String sectionId : this.sectionIds) {
 
-        List<DataSeriesItem> list = new ArrayList<>();
-        long left = receiptsController.receipts(getBusinessId(), start, end).stream().filter(f1 -> f1.getCancelled_at() == null && f1.getReceipt_type().equalsIgnoreCase("SALE")).map(r1 -> {
-            String[] number1 = r1.getReceipt_number().split("-");
-            return number1[0] + "-" + number1[1];
-        }).distinct().count();
-        for (String sectionId : this.sectionIds) {
+                ReceiptsController.Value val2 = receiptsController.count(getBusinessId(), start, end, new HashSet<>(List.of(sectionId)));
+                Double count = val2.get();
+                Section section = storesController.oneStore(sectionId);
+//                if (!section.isDefault()) {
+                    left = left - count;
+                    String name = section.getName();
+                    DataSeriesItem munster = new DataSeriesItem(name, count);
+                    list.add(munster);
+//                }
+            }
 
-            Map<Pair<Integer, Month>, List<Receipt>> collect = receiptsController.receipts(getBusinessId(), start, end, new HashSet<>(List.of(sectionId))).stream().filter(f -> f.getCancelled_at() == null && f.getReceipt_type().equalsIgnoreCase("SALE")).collect(Collectors.groupingBy(g -> Pair.of(g.getReceipt_date().getYear(), g.getReceipt_date().getMonth())));
-
-
-            List<Map.Entry<Pair<Integer, Month>, List<Receipt>>> n = collect.entrySet().stream().toList();
-            long count = n.stream().map(Map.Entry::getValue).flatMap(List::stream).map(r -> {
-                String[] number = r.getReceipt_number().split("-");
-                return number[0] + "-" + number[1];
-            }).distinct().count();
-
-            Section section = storesController.oneStore(getBusinessId(), sectionId);
-            if (!section.isDefault()) {
-                left = left - count;
-                String name = section.getName();
-                DataSeriesItem munster = new DataSeriesItem(name, (double) count);
+            if (left > 0) {
+                DataSeriesItem munster = new DataSeriesItem("Other sections", left);
                 list.add(munster);
             }
-        }
 
-        if (left > 0) {
-            DataSeriesItem munster = new DataSeriesItem("Other sections", (double) left);
-            list.add(munster);
-        }
+            List<String> list1 = list.stream().map(DataSeriesItem::getName).toList();
+            List<Double> list2 = list.stream().map(f -> f.getY().doubleValue()).toList();
 
-        List<String> list1 = list.stream().map(DataSeriesItem::getName).toList();
-        List<Double> list2 = list.stream().map(f -> f.getY().doubleValue()).toList();
+            // Chart
+            ApexChartsBuilder chart = ApexChartsBuilder.get();
+            NoData noData = new NoData();
+            noData.setText("No data present at the moment");
+            chart.withChart(ChartBuilder.get().withType(Type.PIE).withHeight("400px").build()).withLabels(list1.toArray(new String[0])).withLegend(LegendBuilder.get().withPosition(Position.RIGHT).build()).withSeries(list2.toArray(new Double[0])).withResponsive(ResponsiveBuilder.get().withBreakpoint(480.0).withOptions(OptionsBuilder.get().withLegend(LegendBuilder.get().withPosition(Position.BOTTOM).build()).build()).build()).withNoData(noData);
 
-        // Chart
-        ApexChartsBuilder chart = ApexChartsBuilder.get();
-        NoData noData = new NoData();
-        noData.setText("No data present at the moment");
-        chart.withChart(ChartBuilder.get().withType(Type.PIE).withHeight("400px").build()).withLabels(list1.toArray(new String[0])).withLegend(LegendBuilder.get().withPosition(Position.RIGHT).build()).withSeries(list2.toArray(new Double[0])).withResponsive(ResponsiveBuilder.get().withBreakpoint(480.0).withOptions(OptionsBuilder.get().withLegend(LegendBuilder.get().withPosition(Position.BOTTOM).build()).build()).build()).withNoData(noData);
-//        Configuration conf = chart.getConfiguration();
-//        conf.getChart().setStyledMode(true);
-//        chart.setThemeName("gradient");
-//
-//
-//        series.add(new DataSeriesItem("System 1", 12.5));
-//        series.add(new DataSeriesItem("System 2", 12.5));
-//        series.add(new DataSeriesItem("System 3", 12.5));
-//        series.add(new DataSeriesItem("System 4", 12.5));
-//        series.add(new DataSeriesItem("System 5", 12.5));
-//        series.add(new DataSeriesItem("System 6", 12.5));
-//        conf.addSeries(series);
+            ui.access(() -> {
+                serviceHealth.add(chart.build());
+            });
+        }).start();
 
         // Add it all together
-        VerticalLayout serviceHealth = new VerticalLayout(header, chart.build());
+
         serviceHealth.addClassName(LumoUtility.Padding.LARGE);
         serviceHealth.setPadding(false);
         serviceHealth.setSpacing(false);
@@ -432,7 +435,7 @@ public class SalesBoard implements Serializable {
 //        } else {
 //            return status.toString();
 //        }
-        return "# " + (list.indexOf(serviceHealth) + 1);
+        return "#";
     }
 
     private String getStatusTheme(ServiceHealth serviceHealth) {

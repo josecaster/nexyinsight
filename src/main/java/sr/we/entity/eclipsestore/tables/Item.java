@@ -1,6 +1,7 @@
 package sr.we.entity.eclipsestore.tables;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Document("items")
 public class Item extends SuperDao implements Cloneable{
     private String id;
     private Long businessId;

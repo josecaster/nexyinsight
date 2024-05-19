@@ -451,27 +451,10 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
         status.setItems(Batch.Status.values());
         sectionId = new ComboBox<>("Section");
         sectionId.setItemLabelGenerator(label -> {
-            Section section = storesController.oneStore(getBusinessId(), label);
+            Section section = storesController.oneStore(label);
             return section == null ? "Error" : section.getName();
         });
-        sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
-            Optional<User> userOptional = authenticatedUser.get();
-            if (userOptional.isEmpty()) {
-                return false;
-            }
-            User user = userOptional.get();
-            if (user.getRoles().contains(Role.ADMIN)) {
-                return true;
-            } else {
-                // check sections uu ids
-                linkSections = user.getLinkSections();
-                if (linkSections.isEmpty()) {
-                    return false;
-                }
-                return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
-            }
-
-        }).map(Section::getUuId));
+        sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get()).map(Section::getUuId));
         description = new TextField("Description");
         startDate = new DatePicker("Start date");
         endDate = new DatePicker("End date");

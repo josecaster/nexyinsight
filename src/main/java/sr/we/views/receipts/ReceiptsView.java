@@ -26,15 +26,17 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.mongodb.core.query.Criteria;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.ReceiptsController;
 import sr.we.controllers.StoresController;
-import sr.we.entity.Role;
 import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
@@ -43,21 +45,17 @@ import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
 
 import java.text.SimpleDateFormat;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.YearMonth;
+import java.time.*;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @PageTitle("Receipts")
 @Route(value = "receipts", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ReceiptsView extends Div implements HelpFunction {
+public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFunction {
 
     private static List<Section> sections;
     private static User user;
@@ -109,25 +107,8 @@ public class ReceiptsView extends Div implements HelpFunction {
     }
 
     private static List<Section> getSections(Receipt r) {
-        List<Section> collect = sections.stream().filter(l -> {
-
-//            boolean containsDevice = true;
-//            boolean containsCatregory = true;
-//            boolean containsStore = l.getId().equalsIgnoreCase(r.getStore_id());
-//            if (containsStore) {
-//                if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-//                    // check on pos device
-//                    containsDevice = l.getDevices().contains(r.getPos_device_id());
-//                }
-//
-//                if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                    // check on item category
-//                    containsCatregory = l.getCategories().contains(r.getCategory_id());
-//                }
-//            }
-//            return containsStore && containsDevice && containsCatregory;
-            return ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(), r.getColor(), l);
-        }).toList();
+        List<Section> collect = sections
+                .stream().filter(l -> ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(), r.getColor(), l)).toList();
         if (collect.size() > 1) {
             collect = collect.stream().filter(l -> !l.isDefault()).toList();
         }
@@ -187,10 +168,10 @@ public class ReceiptsView extends Div implements HelpFunction {
         grossTotalColumn = grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
 
-        sections = sectionService.allStores(getBusinessId());
+//        sections = sectionService.allStores(getBusinessId());
         Optional<User> userOptional = authenticatedUser.get();
         userOptional.ifPresent(value -> user = value);
-        grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), filters::check));
+        grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), sectionId.getValue(), filters.check()));
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
 
@@ -259,30 +240,13 @@ public class ReceiptsView extends Div implements HelpFunction {
         grossTotalFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
         storeFld = new ComboBox<>(l -> grid.getDataProvider().refreshAll());
         storeFld.setItemLabelGenerator(Section::getDefault_name);
-        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> true).filter(Section::isDefault));
+        storeFld.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()).filter(Section::isDefault));
         sectionId = new MultiSelectComboBox<>();
         sectionId.setItemLabelGenerator(label -> {
-            Section section = storesController.oneStore(getBusinessId(), label);
+            Section section = storesController.oneStore(label);
             return section == null ? "Error" : section.getName();
         });
-        List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
-            Optional<User> userOptional = authenticatedUser.get();
-            if (userOptional.isEmpty()) {
-                return false;
-            }
-            User user = userOptional.get();
-            if (user.getRoles().contains(Role.ADMIN)) {
-                return true;
-            } else {
-                // check sections uu ids
-                linkSections = user.getLinkSections();
-                if (linkSections.isEmpty()) {
-                    return false;
-                }
-                return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
-            }
-
-        }).map(Section::getUuId).toList();
+        List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get()).map(Section::getUuId).toList();
         sectionId.setItems(sects);
         sectionId.setValue(sects);
         sectionId.addValueChangeListener(l -> grid.getDataProvider().refreshAll());
@@ -333,6 +297,11 @@ public class ReceiptsView extends Div implements HelpFunction {
 
     private void refreshGrid() {
         grid.getDataProvider().refreshAll();
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
+        sections = sectionService.allSections(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get()).toList();
     }
 
     public enum Type {
@@ -442,87 +411,70 @@ public class ReceiptsView extends Div implements HelpFunction {
         }
 
 
-        public boolean check(Receipt receipt) {
-            boolean check = true;
+        public Collection<Criteria> check() {
+//            boolean check = true;
+            List<Criteria> criterias = new ArrayList<>();
             if (startDate.getValue() != null && endDate.getValue() != null) {
-                LocalDate receiptDate = receipt.getReceipt_date().toLocalDate();
-                if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
-                    check = false;
-                }
+                LocalDateTime starting = LocalDateTime.of(startDate.getValue(), LocalTime.MIN);
+                LocalDateTime ending = LocalDateTime.of(endDate.getValue(), LocalTime.MAX);
+                Criteria criteria = Criteria.where("receipt_date").gte(starting).andOperator(Criteria.where("receipt_date").lte(ending));
+                criterias.add(criteria);
+                //                LocalDate receiptDate = receipt.getReceipt_date().toLocalDate();
+//                if (receiptDate.isBefore(startDate.getValue()) || receiptDate.isAfter(endDate.getValue())) {
+//                    check = false;
+//                }
             }
             if (StringUtils.isNotBlank(itemFld.getValue())) {
-                check = receipt.getLine_item().getItem_name().toUpperCase().contains(itemFld.getValue().toUpperCase());
+//                check = receipt.getLine_item().getItem_name().toUpperCase().contains(itemFld.getValue().toUpperCase());
+                criterias.add(Criteria.where("line_item.item_name").regex(".*"+itemFld.getValue()+".*"));
             }
-            if (check && storeFld.getValue() != null) {
-                check = receipt.getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
+            if (storeFld.getValue() != null) {
+//                check = receipt.getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
+                criterias.add(Criteria.where("store_id").regex(".*"+storeFld.getValue().getId()+".*"));
             }
-            if (check && receiptNumberFld.getValue() != null) {
-                check = receipt.getReceipt_number().contains(receiptNumberFld.getValue());
+            if (StringUtils.isNotBlank(receiptNumberFld.getValue())) {
+//                check = receipt.getReceipt_number().contains(receiptNumberFld.getValue());
+                criterias.add(Criteria.where("receipt_number").regex("^" + Pattern.quote(receiptNumberFld.getValue()) + "-"));
             }
-            if (check && typeFld.getValue() != null && typeFld.getValue().compareTo(Type.ALL) != 0) {
-                check = receipt.getReceipt_type().equalsIgnoreCase(typeFld.getValue().name());
+            if (typeFld.getValue() != null && typeFld.getValue().compareTo(Type.ALL) != 0) {
+//                check = receipt.getReceipt_type().equalsIgnoreCase(typeFld.getValue().name());
+                criterias.add(Criteria.where("receipt_type").regex(".*"+typeFld.getValue().name()+".*" ));
             }
-            if (check && costFld.getValue() != null) {
-                check = receipt.getLine_item().getCost().compareTo(costFld.getValue()) == 0;
+            if (costFld.getValue() != null) {
+//                check = receipt.getLine_item().getCost().compareTo(costFld.getValue()) == 0;
+                criterias.add(Criteria.where("line_item.cost").is(costFld.getValue()));
             }
-            if (check && totalFld.getValue() != null) {
-                check = receipt.getLine_item().getTotal_money().compareTo(totalFld.getValue()) == 0;
+            if (totalFld.getValue() != null) {
+//                check = receipt.getLine_item().getTotal_money().compareTo(totalFld.getValue()) == 0;
+                criterias.add(Criteria.where("line_item.total_money").is(totalFld.getValue()));
             }
-            if (check && grossTotalFld.getValue() != null) {
-                check = receipt.getLine_item().getGross_total_money().compareTo(grossTotalFld.getValue()) == 0;
+            if (grossTotalFld.getValue() != null) {
+//                check = receipt.getLine_item().getGross_total_money().compareTo(grossTotalFld.getValue()) == 0;
+                criterias.add(Criteria.where("line_item.gross_total_money").is(grossTotalFld.getValue()));
             }
-            if (check && discountFld.getValue() != null) {
-                check = receipt.getLine_item().getTotal_discount().compareTo(discountFld.getValue()) == 0;
+            if (discountFld.getValue() != null) {
+//                check = receipt.getLine_item().getTotal_discount().compareTo(discountFld.getValue()) == 0;
+                criterias.add(Criteria.where("line_item.total_discount").is(discountFld.getValue()));
             }
-            if (check && user.getRoles().contains(Role.SECTION_OWNER)) {
-
-                Optional<Section> any = sections.stream().filter(l -> {
-//                    boolean containsDevice = true;
-//                    boolean containsCatregory = true;
-//                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-//                    if (containsStore) {
-//                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-//                            // check on pos device
-//                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-//                        }
+//            if (check && user.getRoles().contains(Role.SECTION_OWNER)) {
 //
-//                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                            // check on item category
-//                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-//                        }
-//                    }
-//                    return containsStore && containsDevice && containsCatregory && user.getLinkSections().contains(l.getUuId());
-                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), null, null, l);
-                }).findAny();
-                if (any.isEmpty()) {
-                    check = false;
-                }
-            }
-            if (check) {
-                Optional<String> any = sectionId.getValue().stream().filter(n -> {
-                    boolean containsDevice = true;
-                    boolean containsCatregory = true;
-                    Section l = storesController.oneStore(getBusinessId(), n);
-//                    boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-//                    if (containsStore) {
-//                        if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-//                            // check on pos device
-//                            containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-//                        }
-//
-//                        if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                            // check on item category
-//                            containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-//                        }
-//                    }
-//                    return containsStore && containsDevice && containsCatregory;
-                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(), receipt.getColor(), l);
-                }).findAny();
-                if (any.isEmpty()) {
-                    check = false;
-                }
-            }
-            return check;
+//                Optional<Section> any = sections.stream().filter(l -> {
+//                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), null, null, l);
+//                }).findAny();
+//                if (any.isEmpty()) {
+//                    check = false;
+//                }
+//            }
+//            if (check) {
+//                Optional<String> any = sectionId.getValue().stream().filter(n -> {
+//                    Section l = storesController.oneStore(getBusinessId(), n);
+//                    return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(), receipt.getColor(), l);
+//                }).findAny();
+//                if (any.isEmpty()) {
+//                    check = false;
+//                }
+//            }
+            return criterias;
         }
     }
 

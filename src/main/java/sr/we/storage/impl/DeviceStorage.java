@@ -10,26 +10,27 @@ import sr.we.storage.IDeviceStorage;
 
 import java.util.List;
 
+@Deprecated
 @Component
-public class DeviceStorage extends EclipseStoreSuperService<Device> implements IDeviceStorage {
+public class DeviceStorage extends EclipseStoreSuperService<Device> /*implements IDeviceStorage*/ {
 
     public DeviceStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, Device.class);
     }
 
-    @Override
+//    @Override
     @Read
     public Device oneStore(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public List<Device> allStores(Long businessId) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Write
     public Device saveOrUpdate(Device Device) {
 
@@ -53,7 +54,7 @@ public class DeviceStorage extends EclipseStoreSuperService<Device> implements I
         }, uuId);
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteStore(String uuId) {
         return delete(uuId);

@@ -82,7 +82,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
             storeComboBox.setWidthFull();
 
-            storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));
+            storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()).filter(Section::isDefault).map(Section::getId));
             storeComboBox.setItemLabelGenerator(m -> {
                 Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(m)).findAny();
                 return any.map(n -> StringUtils.isBlank(n.getDefault_name()) ? "!" : n.getDefault_name()).orElse(m);
@@ -113,7 +113,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
             storeComboBox.setWidthFull();
 
-            storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));
+            storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()).filter(Section::isDefault).map(Section::getId));
             storeComboBox.setItemLabelGenerator(m -> {
                 Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(m)).findAny();
                 return any.map(n -> StringUtils.isBlank(n.getDefault_name()) ? "!" : n.getDefault_name()).orElse(m);
@@ -152,16 +152,12 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_COLUMN_BORDERS);
         grid.setHeight("100%");
 
-        grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), this::check));
+        grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()));
 
     }
 
     private Long getBusinessId() {
         return 0L;
-    }
-
-    public boolean check(Section receipt) {
-        return true;
     }
 
     private void addColumnsToGrid() {
@@ -251,12 +247,12 @@ public class SectionsView extends Div implements BeforeEnterObserver {
             ComboBox<String> categoryComboBox = new ComboBox<>();
             categoryComboBox.setWidthFull();
             categoryComboBox.setReadOnly(true);
-            categoryComboBox.setItems((categoryList.stream().map(Category::getUuId).toList()));
+            categoryComboBox.setItems((categoryList.stream().map(Category::getId).toList()));
             if (!categoryList.isEmpty() && section.getCategories() != null && !section.getCategories().isEmpty()) {
                 categoryComboBox.setValue(section.getCategories().stream().findAny().get());
             }
             categoryComboBox.setItemLabelGenerator(l -> {
-                Optional<Category> any = categoryList.stream().filter(n -> n.getUuId().equalsIgnoreCase(l)).findAny();
+                Optional<Category> any = categoryList.stream().filter(n -> n.getId().equalsIgnoreCase(l)).findAny();
                 return any.map(Category::getName).orElse(l);
             });
             return categoryComboBox;
@@ -321,9 +317,9 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         deciveList = getDevices();
         categoryList = getCategories();
 
-        categoryComboBox.setItems((categoryList.stream().map(Category::getUuId).toList()));
+        categoryComboBox.setItems((categoryList.stream().map(Category::getId).toList()));
         categoryComboBox.setItemLabelGenerator(l -> {
-            Optional<Category> any = categoryList.stream().filter(n -> n.getUuId().equalsIgnoreCase(l)).findAny();
+            Optional<Category> any = categoryList.stream().filter(n -> n.getId().equalsIgnoreCase(l)).findAny();
             return any.map(Category::getName).orElse(l);
         });
 
@@ -334,7 +330,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 //        });
 
 //        storeComboBox.setItems(sections.stream().filter(Section::isDefault).map(Section::getId).toList());
-        storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), null).filter(Section::isDefault).map(Section::getId));
+        storeComboBox.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()).filter(Section::isDefault).map(Section::getId));
         storeComboBox.setItemLabelGenerator(l -> {
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(l)).findAny();
             return any.map(n -> StringUtils.isBlank(n.getDefault_name()) ? "!" : n.getDefault_name()).orElse(l);
@@ -342,10 +338,10 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private List<Category> getCategories() {
-        return categoryController.allStores(getBusinessId());
+        return categoryController.findCategories(getBusinessId());
     }
 
     private List<Device> getDevices() {
-        return devicesController.allStores(getBusinessId());
+        return devicesController.findDevices(getBusinessId());
     }
 }

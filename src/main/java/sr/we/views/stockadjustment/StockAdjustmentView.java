@@ -28,13 +28,13 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import jakarta.annotation.security.RolesAllowed;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresController;
-import sr.we.entity.Role;
-import sr.we.entity.StockAdjustment;
-import sr.we.entity.StockAdjustmentItems;
-import sr.we.entity.User;
+import sr.we.entity.*;
+import sr.we.entity.eclipsestore.tables.Item;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.StockAdjustmentItemsService;
@@ -55,13 +55,15 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private final String SA_EDIT_ROUTE_TEMPLATE = "stockadjustment/%s/edit";
     private final Grid<StockAdjustment> grid = new Grid<>(StockAdjustment.class, false);
     private final Grid<StockAdjustmentItems> items = new Grid<>(StockAdjustmentItems.class, false);
+    private ComboBox<Item> itemsCmb;
     private final Button cancel = new Button("Add new adjustment");
     private final Button adjustBtn = new Button("Adjust");
     private final BeanValidationBinder<StockAdjustment> binder;
-    private final StockAdjustmentItemsService batchItemsService;
+    private final StockAdjustmentItemsService stockAdjustmentItemsService;
     private final StoresController storesController;
     private final StockAdjustmentService batchService;
     private final AuthenticatedUser authenticatedUser;
+    private final ItemsController ItemService;
     TextArea note;
     DatePicker date;
     Select<StockAdjustment.Type> type;
@@ -71,11 +73,12 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private Set<String> linkSections;
     private VerticalLayout itemsLayout;
 
-    public StockAdjustmentView(StockAdjustmentItemsService batchItemsService, StockAdjustmentService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
-        this.batchItemsService = batchItemsService;
+    public StockAdjustmentView(ItemsController ItemService, StockAdjustmentItemsService stockAdjustmentItemsService, StockAdjustmentService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
+        this.stockAdjustmentItemsService = stockAdjustmentItemsService;
         this.batchService = batchService;
         this.authenticatedUser = authenticatedUser;
         this.storesController = storesController;
+        this.ItemService = ItemService;
 
         User user = authenticatedUser.get().get();
         linkSections = user.getLinkSections();
@@ -181,31 +184,14 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         batchIdFld.getElement().getThemeList().add("badge warning");
         sectionId = new ComboBox<>("Section");
         sectionId.setItemLabelGenerator(label -> {
-            Section section = storesController.oneStore(getBusinessId(), label);
+            Section section = storesController.oneStore(label);
             return section == null ? "Error" : section.getName();
         });
-        sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), f -> {
-            Optional<User> userOptional = authenticatedUser.get();
-            if (userOptional.isEmpty()) {
-                return false;
-            }
-            User user = userOptional.get();
-            if (user.getRoles().contains(Role.ADMIN)) {
-                return true;
-            } else {
-                // check sections uu ids
-                linkSections = user.getLinkSections();
-                if (linkSections.isEmpty()) {
-                    return false;
-                }
-                return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
-            }
-
-        }).map(Section::getUuId));
+        sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get()).map(Section::getUuId));
 
         items.setHeight("500px");
         items.addThemeVariants(GridVariant.LUMO_NO_ROW_BORDERS);
-        Grid.Column<StockAdjustmentItems> itemColumn = items.addColumn(StockAdjustmentItems::getItemId).setHeader("Item");
+        Grid.Column<StockAdjustmentItems> itemColumn = items.addColumn(StockAdjustmentItems::getItemName).setHeader("Item");
         Grid.Column<StockAdjustmentItems> inStockColumn = items.addColumn(StockAdjustmentItems::getInStock).setHeader("In Stock");
         Grid.Column<StockAdjustmentItems> adjustColumn = items.addColumn(StockAdjustmentItems::getAdjustment).setHeader("Add Stock");
         Grid.Column<StockAdjustmentItems> costColumn = items.addColumn(StockAdjustmentItems::getCost).setHeader("Cost");
@@ -215,6 +201,10 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         date = new DatePicker("Date", LocalDate.now());
         type = new Select<>("Reason", l -> {
             // change items columns
+
+            if(l.getValue() == null){
+                return;
+            }
 
             if (l.getValue().compareTo(StockAdjustment.Type.RI) == 0) {
 
@@ -251,6 +241,28 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         formLayout.setColspan(itemsLayout,2);
         formLayout.setColspan(note,2);
         itemsLayout.add(items);
+
+
+
+        itemsCmb = new ComboBox<>();
+        itemsCmb.setWidthFull();
+        FormLayout.FormItem formItem = formLayout.addFormItem(itemsCmb, "Select a item");
+        formLayout.setColspan(formItem,2);
+        itemsCmb.setPlaceholder("FOR NEW ITEM LEAVE EMPTY");
+        itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), query.getFilter()));
+        itemsCmb.setItemLabelGenerator(l -> {
+            return l.getVariant().getSku() + " - " + l.getItem_name();
+        });
+
+        itemsCmb.addValueChangeListener(v -> {
+            StockAdjustmentItems stockAdjustmentItems = new StockAdjustmentItems();
+            stockAdjustmentItems.setItemId(v.getValue().getUuId());
+            stockAdjustmentItems.setInStock(v.getValue().getStock_level());
+            stockAdjustmentItems.setItemName(v.getValue().getItem_name());
+            stockAdjustmentItems.setStockAdjustmentId(this.stockadjustment.getId());
+            StockAdjustmentItems update = stockAdjustmentItemsService.update(stockAdjustmentItems);
+            items.getDataProvider().refreshItem(update);
+        });
 
 
         editorDiv.add(formLayout);

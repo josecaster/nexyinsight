@@ -8,8 +8,9 @@ import java.math.BigDecimal;
 @Entity
 public class BatchItems extends AbstractEntity {
 
-    private String sku,code,name;
+    private String sku,code,name, description;
     private BigDecimal price,cost;
+    private boolean optional;
     private Integer quantity, realQuantity;
     private Long batchId;
     private String itemId;
@@ -17,7 +18,7 @@ public class BatchItems extends AbstractEntity {
     public BatchItems() {
     }
 
-    public BatchItems(Long batchId, String sku, String code, String name, Integer quantity, BigDecimal price, BigDecimal cost) {
+    public BatchItems(Long batchId, String sku, String code, String name, Integer quantity, BigDecimal price, BigDecimal cost, boolean optional, String description) {
         this.batchId = batchId;
         this.sku = sku;
         this.code = code;
@@ -25,6 +26,24 @@ public class BatchItems extends AbstractEntity {
         this.quantity = quantity;
         this.price = price;
         this.cost = cost;
+        this.optional = optional;
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public boolean isOptional() {
+        return optional;
+    }
+
+    public void setOptional(boolean optional) {
+        this.optional = optional;
     }
 
     public Integer getRealQuantity() {

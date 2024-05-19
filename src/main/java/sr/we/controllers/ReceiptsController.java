@@ -1,226 +1,344 @@
 package sr.we.controllers;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.bson.Document;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.MongoExpression;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.*;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestBody;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
-import sr.we.integration.LoyReceiptsController;
-import sr.we.integration.Parent;
-import sr.we.storage.impl.ReceiptStorage;
+import sr.we.storage.IReceiptsStorage;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.*;
-import java.util.function.Predicate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
+
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
+import static org.springframework.data.mongodb.core.aggregation.Fields.fields;
 
 
 @Controller
-public class ReceiptsController{
+public class ReceiptsController {
 
-    @Autowired
-    private ReceiptStorage receiptStorage;
+    private final IReceiptsStorage receiptStorage;
+    private final StoresController storesController;
+    private final MongoTemplate mongoTemplate;
 
-    @Autowired
-    private StoresController storesController;
-
-    @Autowired
-    private LoyReceiptsController loyReceiptsController;
-
-    public Receipt oneReceipt(Long businessId, String id) {
-        return receiptStorage.oneReceipt(id);
+    /**
+     * @param receiptStorage   {@link IReceiptsStorage}
+     * @param storesController {@link StoresController}
+     * @param mongoTemplate    {@link MongoTemplate}
+     */
+    public ReceiptsController(IReceiptsStorage receiptStorage, StoresController storesController, MongoTemplate mongoTemplate) {
+        this.receiptStorage = receiptStorage;
+        this.storesController = storesController;
+        this.mongoTemplate = mongoTemplate;
     }
 
     /**
-     * For now we would like to show each variant as  different Receipt
-     *
-     * @param businessId
-     * @param page
-     * @param pageSize
-     * @return
+     * @param businessId provide Business Id
+     * @param page       provide page for pagination
+     * @param pageSize   provide page size for pagination
+     * @param sections   provide section for further filtering
+     * @param predicate  provide query criteria for further filtering
+     * @return Stream Receipt
      */
-    public Stream<Receipt> allReceipts(Long businessId, Integer page, Integer pageSize, Predicate<? super Receipt> predicate) {
-        return (page == null || pageSize == null) ? receiptStorage.allReceipts(businessId).stream().filter(predicate) : receiptStorage.allReceipts(businessId).stream().filter(predicate).sorted(Comparator.comparing(Receipt::getReceipt_date).reversed()).skip((long) page * pageSize).limit(pageSize);
+    public Stream<Receipt> allReceipts(Long businessId, Integer page, Integer pageSize, Set<String> sections, Collection<Criteria> predicate) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("businessId").is(businessId));
+        Criteria criteria1 = new Criteria();
+
+        List<Criteria> ors = new ArrayList<>();
+
+        for (String n : sections) {
+            Section l = storesController.oneStore(n);
+            List<Criteria> criteria = ItemsController.linkSection(l, false);
+            Criteria criteria2 = new Criteria().andOperator(criteria);
+            ors.add(criteria2);
+        }
+        criteria1.orOperator(ors);
+
+        query.with(PageRequest.of(page, pageSize));
+        if (predicate != null) {
+            for (Criteria criteria : predicate) {
+                query.addCriteria(criteria);
+            }
+        }
+        query.addCriteria(criteria1).with(Sort.by(Sort.Direction.DESC, "receipt_date"));
+        return mongoTemplate.find(query, Receipt.class).stream();
+
     }
 
-    public Receipt addNewReceipt(@RequestBody Receipt Receipt) {
-        return receiptStorage.saveOrUpdate(Receipt);
+
+    /**
+     * @param businessId provide Business Id
+     * @param start      provide start date for filtering
+     * @param end        provide end date for filtering
+     * @param sections   provide section ids for further filtering
+     * @return list of receipts
+     */
+    public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end, Set<String> sections) {
+        Query query = new Query();
+
+
+        for (String n : sections) {
+            Section l = storesController.oneStore(n);
+            List<Criteria> criteria = ItemsController.linkSection(l, false);
+            query.addCriteria(new Criteria().andOperator(criteria));
+        }
+
+        LocalDateTime starting = LocalDateTime.of(start, LocalTime.MIN);
+        LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
+
+        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("receipt_date").gte(starting).andOperator(Criteria.where("receipt_date").lte(ending)));
+
+        return mongoTemplate.find(query, Receipt.class);
     }
 
-//    public Void sync(@RequestHeader(name = "Authorization") @PathVariable("businessId") Long businessId) {
+    /**
+     * @param businessId Provide Business Id
+     * @param start      provide start date for filtering
+     * @param end        provide end date for filtering
+     * @return list of receipts
+     */
+    public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end) {
+
+        LocalDateTime starting = LocalDateTime.of(start, LocalTime.MIN);
+        LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("receipt_date").gte(starting).andOperator(Criteria.where("receipt_date").lte(ending)));
+        return mongoTemplate.find(query, Receipt.class);
+    }
+
+    /**
+     * @param businessId provide Business Id
+     * @param start      provide start date
+     * @param end        provide end date
+     * @param sectionIds provide list of section ids
+     * @return Discount Value
+     */
+    public Value discount(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds) {
+        return sum(businessId, start, end, sectionIds, "SALE", "total_discount");
+    }
+
+    /**
+     * @param businessId provide Business Id
+     * @param start      provide start date
+     * @param end        provide end date
+     * @param sectionIds provide list of section ids
+     * @return Gross Value
+     */
+    public Value gross(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds) {
+        return sum(businessId, start, end, sectionIds, "SALE", "gross_total_money");
+    }
+
+//    /**
+//     * @param businessId provide Business Id
+//     * @param start      provide start date
+//     * @param end        provide end date
+//     * @param sectionIds provide list of section ids
+//     * @return Gross Sections Value
+//     */
+//    public List<ValueSection> grossSection(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds) {
+//        LocalDateTime starting = LocalDateTime.of(start, LocalTime.MIN);
+//        LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
 //
-//        ExecutorService executorService = Executors.newFixedThreadPool(1);
-//        ThisUser user = getUser();
-//        executorService.execute(new Runnable() {
-//            @Override
-//            public void run() {
-//
-//                List<Receipt> Receipts = ReceiptStorage.allReceipts(businessId);
-//                LocalDateTime maxTime = null;
-//                String cursor = null;
-////                if (Receipts != null && !Receipts.isEmpty()) {
-////                    maxTime = Receipts.stream().map(Receipt::getUpdated_at).max(LocalDateTime::compareTo).get();
-////                }
-//                IBusinessRepository businessRepository = ContextProvider.getBean(IBusinessRepository.class);
-//                Long id1 = user.getId();
-//                Business business = businessRepository.getBusiness(businessId, id1);
-//                LoyInventoryController inventoryController = ContextProvider.getBean(LoyInventoryController.class);
-//                boolean run = true;
-//                List<StockLevel> levels = new ArrayList<>();
-//                while (run) {
-//                    InventoryLevels listLoyReceipts = inventoryController.getListLoyReceipts(null, null, null, null, 250, cursor, business);
-//                    cursor = listLoyReceipts == null ? null : listLoyReceipts.getCursor();
-//                    run = StringUtils.isNotBlank(cursor);
-//
-//                    if (listLoyReceipts != null && listLoyReceipts.getInventory_levels() != null) {
-//                        levels.addAll(listLoyReceipts.getInventory_levels());
-//                    }
-//                }
-//
-//                run = true;
-//                cursor = null;
-//                List<Receipt> itams = new ArrayList<>();
-//                while (run) {
-//
-//                    ListLoyReceipts list = loyReceiptsController.getListLoyReceipts(null, null, null, maxTime, null, 250, cursor, business);
-//
-//                    if (list != null && list.getReceipts() != null) {
-//                        itams.addAll(list.getReceipts());
-//                    }
-//
-//                    cursor = list == null ? null : list.getCursor();
-//                    run = StringUtils.isNotBlank(cursor);
-//                    System.out.println("Receipts: " + (list == null ? 0 : (list.getReceipts() == null ? 0 : list.getReceipts().size())));
-//                }
-//
-//                extracted(itams, levels);
-//            }
-//
-//            private void extracted(List<Receipt> list, List<StockLevel> levels) {
-//                for (Receipt Receipt : list) {
-//                    String ReceiptId = Receipt.getId();
-//                    for (Variant variant : Receipt.getVariants()) {
-//
-//                        for (VariantStore store : variant.getStores()) {
-//                            String id = ReceiptId + "|" + variant.getReceipt_id() + "|" + store.getStore_id();
-//
-//                            Receipt oneReceipt = ReceiptStorage.oneReceiptByLoyId(id);
-//                            if (oneReceipt != null) {
-//                                // transfer all needed fields from oneTime to Receipt
-////                                        Receipt.setUuId(oneReceipt.getUuId());
-//                                extracted(oneReceipt, variant, store, levels, id);
-//                            } else {
-//                                if (StringUtils.isNotBlank(Receipt.getUuId())) {
-//                                    extracted(Receipt.clone(), variant, store, levels, id);
-//                                } else {
-//                                    extracted(Receipt, variant, store, levels, id);
-//                                }
-//                            }
+//        List<Criteria> criterias = new ArrayList<>();
+//        List<Criteria> orOperator = orOperators(businessId, sectionIds);
+//        criterias.add(new Criteria().orOperator(orOperator));
 //
 //
-//                        }
-//                    }
+//        MatchOperation filterStates = match(//
+//                Criteria.where("receipt_type").is("SALE")//
+//                        .andOperator(Criteria.where("businessId").is(businessId).andOperator(Criteria.where("receipt_date").gte(starting)//
+//                                .andOperator(Criteria.where("receipt_date").lte(ending).andOperator(criterias))))//
+//        );
 //
-//                }
-//            }
+//        // Define the aggregation operations
+//        AggregationOperation groupOperation = Aggregation.group("store_id","category_id","form","color","line_item.gross_total_money").sum(AggregationExpression.from(MongoExpression.create("$toDouble: '$line_item.gross_total_money'"))).as("get");
 //
-//            private void extracted(Receipt Receipt, Variant variant, VariantStore store, List<StockLevel> levels, String id) {
-//                Receipt.setStoreCountMap(new HashMap<>());
-//                if (!levels.isEmpty()) {
-//                    Optional<StockLevel> any = levels.stream().filter(l -> l.getStore_id().equalsIgnoreCase(store.getStore_id()) && l.getVariant_id().equalsIgnoreCase(variant.getVariant_id())).findAny();
-//                    any.ifPresent(stockLevel -> {
-//                        Receipt.setStock_level(stockLevel.getIn_stock());
-//                        Receipt.addStoreCount(store.getStore_id(), BigDecimal.valueOf(Receipt.getStock_level()));
-//                    });
-//                }
+//        AggregationOperation projectOperation = project("store_id","category_id","form","color","get").andExclude("_id");
 //
-//                Receipt.setVariants(null);
-//                Receipt.setVariant(variant);
-//                Receipt.setVariantStore(store);
-//                Receipt.setId(id);
-//                Receipt.setBusinessId(businessId);
-//                ReceiptStorage.saveOrUpdate(Receipt);
-//            }
-//        });
-//        return null;
+//        // Combine operations into an aggregation pipeline
+//        Aggregation aggregation = newAggregation(filterStates, groupOperation, projectOperation);
+//
+//        // Execute the aggregation
+//        AggregationResults<ValueSection> results = mongoTemplate.aggregate(aggregation, "receipt", ValueSection.class);
+//        return results.getMappedResults();
 //    }
 
-    public Receipt updateReceipt(Receipt Receipt) {
-        return receiptStorage.saveOrUpdate(Receipt);
+
+    /**
+     * @param businessId provide Business Id
+     * @param start      provide start date
+     * @param end        provide end date
+     * @param sectionIds provide list of section ids
+     * @return Refund Value
+     */
+    public Value refund(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds) {
+        return sum(businessId, start, end, sectionIds, "REFUND", "gross_total_money");
     }
 
-    public boolean deleteReceipt(String id) {
-        return receiptStorage.deleteReceipt(id);
+    /**
+     * @param businessId Provide Business Id
+     * @param year       provide Year
+     * @param sectionIds provide List of section Ids
+     * @return Bar results
+     */
+    public List<Bar> chart(Long businessId, Long year, Set<String> sectionIds) {
+
+        Criteria businessId1 = Criteria.where("businessId").is(businessId);
+        Criteria cancelledAt = Criteria.where("cancelled_at").isNull();
+
+
+        List<Criteria> criteriaList = new ArrayList<>();
+        criteriaList.add(new Criteria().andOperator(businessId1, cancelledAt));
+        List<Criteria> orOperator = orOperators(businessId, sectionIds);
+        criteriaList.add(new Criteria().orOperator(orOperator));
+
+
+        Criteria andCriteria = Criteria.where("receipt_type").is("SALE")//
+                .andOperator(criteriaList);
+
+
+        MatchOperation filterStates = match(//
+                andCriteria//
+        );
+
+
+        AggregationOperation projectionOperation = project().andExpression("year(receipt_date)").as("year").andExpression("month(receipt_date)").as("month").and("category_id").as("category").and("form").as("form").and("color").as("color").and("line_item.gross_total_money").as("get").andExclude("_id");
+
+        AggregationOperation groupOperation = Aggregation.group(fields().and("year").and("month").and("category").and("form").and("color")).sum(f -> new Document("$toDouble", "$get")).as("get");
+
+
+        Aggregation aggregation = newAggregation(filterStates, projectionOperation, groupOperation, Aggregation.project().andExclude("_id").andInclude("year", "month", "category", "form", "color", "get"));
+
+        // Execute the aggregation
+        AggregationResults<Bar> results = mongoTemplate.aggregate(aggregation, "receipt", Bar.class);
+
+        return results.getMappedResults();
     }
 
-
-    public List<Receipt> receipts(Long businessId, Set<String> sections) {
-        return receiptStorage.allReceipts(businessId).stream().filter(receipt -> {
-            boolean check = true;
-
-            Optional<String> any = sections.stream().filter(n -> {
-                boolean containsDevice = true;
-                boolean containsCatregory = true;
-                Section l = storesController.oneStore(businessId, n);
-//                boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-//                if (containsStore) {
-////                    if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-////                        // check on pos device
-////                        containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-////                    }
-//
-//                    if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                        // check on item category
-//                        containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-//                    }
-//                }
-//                return containsStore && containsDevice && containsCatregory;
-                return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(),receipt.getColor(), l);
-            }).findAny();
-            if (any.isEmpty()) {
-                check = false;
-            }
-            return check;
-        }).toList();
+    /**
+     * Receipt count
+     *
+     * @param businessId provide Business Id
+     * @param start      provide start date
+     * @param end        provide end date
+     * @param sectionIds provide list of section ids
+     * @return Count Value
+     */
+    public Value count(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds) {
+        return countInner(businessId, start, end, sectionIds);
     }
 
-    public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end, Set<String> sections) {
-        return receiptStorage.allReceipts(businessId).stream().filter(r -> (r.getReceipt_date().toLocalDate().isEqual(start) || r.getReceipt_date().toLocalDate().isAfter(start)) //
-                        && (r.getReceipt_date().toLocalDate().isEqual(end) || r.getReceipt_date().toLocalDate().isBefore(end)))
+    private Value countInner(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds) {
 
-                .filter(receipt -> {
-                    boolean check = true;
 
-                    Optional<String> any = sections.stream().filter(n -> {
-                        boolean containsDevice = true;
-                        boolean containsCatregory = true;
-                        Section l = storesController.oneStore(businessId, n);
-//                        boolean containsStore = l.getId().equalsIgnoreCase(receipt.getStore_id());
-//                        if (containsStore) {
-//                            if (l.getDevices() != null && !l.getDevices().isEmpty()) {
-//                                // check on pos device
-//                                containsDevice = l.getDevices().contains(receipt.getPos_device_id());
-//                            }
-//
-//                            if (containsDevice && l.getCategories() != null && !l.getCategories().isEmpty()) {
-//                                // check on item category
-//                                containsCatregory = l.getCategories().contains(receipt.getCategory_id());
-//                            }
-//                        }
-//                        return containsStore && containsDevice && containsCatregory;
-                        return ItemsController.linkSection(l.getId(), receipt.getCategory_id(), receipt.getForm(),receipt.getColor(), l);
-                    }).findAny();
-                    if (any.isEmpty()) {
-                        check = false;
-                    }
-                    return check;
-                }).toList();
+        LocalDateTime starting = LocalDateTime.of(start, LocalTime.MIN);
+        LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
+
+        List<Criteria> criterias = new ArrayList<>();
+        List<Criteria> orOperator = orOperators(businessId, sectionIds);
+        criterias.add(new Criteria().orOperator(orOperator));
+
+
+        MatchOperation filterStates = match(//
+                Criteria.where("receipt_type").is("SALE")//
+                        .andOperator(Criteria.where("businessId").is(businessId).andOperator(Criteria.where("receipt_date").gte(starting)//
+                                .andOperator(Criteria.where("receipt_date").lte(ending).andOperator(criterias))))//
+        );
+
+        ProjectionOperation projectionOperation = project("receipt_number").and(StringOperators.valueOf("receipt_number").regexFind("^([^-]+-[^-]+)")).as("receipt_number_prefix");
+
+        GroupOperation groupOperation = group("receipt_number_prefix").count().as("get");
+        ProjectionOperation projectionOperation1 = project("get").andExclude("_id");
+        GroupOperation groupOperation1 = group().count().as("get");
+
+        // Combine operations into an aggregation pipeline
+        Aggregation aggregation = newAggregation(filterStates, projectionOperation, groupOperation, projectionOperation1, groupOperation1);
+
+        // Execute the aggregation
+        AggregationResults<Value> results = mongoTemplate.aggregate(aggregation, "receipt", Value.class);
+
+
+        Value uniqueMappedResult = results.getUniqueMappedResult();
+        if (uniqueMappedResult == null || uniqueMappedResult.get() == null) {
+            return new Value(0d);
+        }
+        return uniqueMappedResult;
     }
 
-    public List<Receipt> receipts(Long businessId, LocalDate start, LocalDate end) {
-        return receiptStorage.allReceipts(businessId).stream().filter(r -> (r.getReceipt_date().toLocalDate().isEqual(start) || r.getReceipt_date().toLocalDate().isAfter(start)) //
-                        && (r.getReceipt_date().toLocalDate().isEqual(end) || r.getReceipt_date().toLocalDate().isBefore(end)))
+    private List<Criteria> orOperators(Long businessId, Set<String> sectionIds) {
+        List<Criteria> orOperator = new ArrayList<>();
+        for (String n : sectionIds) {
+            Section l = storesController.oneStore(n);
+//            if (!l.isDefault()) {
+                List<Criteria> criteria1 = ItemsController.linkSection(l, false);
+                orOperator.add(new Criteria().andOperator(criteria1.toArray(new Criteria[0])));
+//            }
+        }
+        return orOperator;
+    }
 
-                .toList();
+    private Value sum(Long businessId, LocalDate start, LocalDate end, Set<String> sectionIds, String receiptType, String field) {
+
+
+        LocalDateTime starting = LocalDateTime.of(start, LocalTime.MIN);
+        LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
+
+        List<Criteria> criterias = new ArrayList<>();
+        List<Criteria> orOperator = orOperators(businessId, sectionIds);
+        criterias.add(new Criteria().orOperator(orOperator));
+
+
+        MatchOperation filterStates = match(//
+                Criteria.where("receipt_type").is(receiptType)//
+                        .andOperator(Criteria.where("businessId").is(businessId).andOperator(Criteria.where("receipt_date").gte(starting)//
+                                .andOperator(Criteria.where("receipt_date").lte(ending).andOperator(criterias))))//
+        );
+
+        // Define the aggregation operations
+        AggregationOperation groupOperation = Aggregation.group().sum(AggregationExpression.from(MongoExpression.create("$toDouble: '$line_item." + field + "'"))).as("get");
+
+        AggregationOperation projectOperation = project("get").andExclude("_id");
+
+        // Combine operations into an aggregation pipeline
+        Aggregation aggregation = newAggregation(filterStates, groupOperation, projectOperation);
+
+        // Execute the aggregation
+        AggregationResults<Value> results = mongoTemplate.aggregate(aggregation, "receipt", Value.class);
+
+
+        Value uniqueMappedResult = results.getUniqueMappedResult();
+        if (uniqueMappedResult == null || uniqueMappedResult.get() == null) {
+            return new Value(0d);
+        }
+        return uniqueMappedResult;
+    }
+
+    public record Bar(Long year, Long month, String category, String form, String color, BigDecimal get) {
+
+    }
+
+    public record ValueSection(Double get, String store_id, String category_id, String form, String color) {
+
+    }
+
+    public record Value(Double get) {
+
     }
 }

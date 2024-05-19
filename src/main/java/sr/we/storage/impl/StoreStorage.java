@@ -12,26 +12,27 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+@Deprecated
 @Component
-public class StoreStorage extends EclipseStoreSuperService<Section> implements IStoreStorage {
+public class StoreStorage extends EclipseStoreSuperService<Section> /*implements IStoreStorage*/ {
 
     public StoreStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, Section.class);
     }
 
-    @Override
+//    @Override
     @Read
     public Section oneStore(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public List<Section> allStores(Long businessId) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Write
     public Section saveOrUpdate(Section section) {
 
@@ -64,13 +65,13 @@ public class StoreStorage extends EclipseStoreSuperService<Section> implements I
         }, uuId);
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteStore(String uuId) {
         return delete(uuId);
     }
 
-    @Override
+//    @Override
     public Optional<Section> findSection(Long businessId, String storeId, String categoryId, String posDeviceId, Section.Color color, Section.Form form, boolean door) {
         Stream<Section> sectionStream = allStores(businessId).stream().filter(f -> f.getId().equalsIgnoreCase(storeId));
         if (StringUtils.isNotBlank(categoryId)) {

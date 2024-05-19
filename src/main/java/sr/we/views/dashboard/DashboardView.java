@@ -210,27 +210,10 @@ public class DashboardView extends Main implements BeforeEnterObserver  {
 
 
             sectionId.setItemLabelGenerator(label -> {
-                Section section = storesController.oneStore(getBusinessId(), label);
+                Section section = storesController.oneStore(label);
                 return section == null ? "Error" : section.getName();
             });
-            List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, f -> {
-                Optional<User> userOptional = authenticatedUser.get();
-                if (userOptional.isEmpty()) {
-                    return false;
-                }
-                User user = userOptional.get();
-                if (user.getRoles().contains(Role.ADMIN)) {
-                    return true;
-                } else {
-                    // check sections uu ids
-                    linkSections = user.getLinkSections();
-                    if (linkSections.isEmpty()) {
-                        return false;
-                    }
-                    return linkSections.stream().anyMatch(n -> n.equalsIgnoreCase(f.getUuId()));
-                }
-
-            }).map(Section::getUuId).toList();
+            List<String> sects = storesController.allSections(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get()).map(Section::getUuId).toList();
             sectionId.setItems(sects);
             sectionId.setValue(sects);
 

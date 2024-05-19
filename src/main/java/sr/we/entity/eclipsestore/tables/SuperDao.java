@@ -1,10 +1,13 @@
 package sr.we.entity.eclipsestore.tables;
 
+import org.springframework.data.annotation.Id;
+
 import java.io.Serializable;
 import java.util.Objects;
 
 public class SuperDao implements Serializable {
 
+    @Id
     String uuId;
 
     protected SuperDao() {

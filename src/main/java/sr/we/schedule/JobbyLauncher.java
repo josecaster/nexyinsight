@@ -541,7 +541,7 @@ public class JobbyLauncher implements Runnable {
             BigDecimal inventoryValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal retailValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariantStore().getPrice() != 0 ? BigDecimal.valueOf(item.getVariantStore().getPrice()).multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal profit = retailValue.subtract(inventoryValue);
-            BigDecimal divide = inventoryValue.divide(retailValue, 8, RoundingMode.HALF_UP);
+            BigDecimal divide = inventoryValue.divide(((retailValue == null || retailValue.compareTo(BigDecimal.ZERO) == 0) ? (inventoryValue.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ONE : inventoryValue) : retailValue), 8, RoundingMode.HALF_UP);
             BigDecimal margin = BigDecimal.valueOf(100).subtract(divide.multiply(BigDecimal.valueOf(100)));
             inventoryValuation.setRetailValue(retailValue);
             inventoryValuation.setInventoryValue(inventoryValue);

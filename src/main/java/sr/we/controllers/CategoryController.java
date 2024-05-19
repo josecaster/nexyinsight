@@ -3,22 +3,32 @@ package sr.we.controllers;
 import org.eclipse.store.storage.embedded.types.EmbeddedStorageManager;
 import org.springframework.stereotype.Controller;
 import sr.we.entity.eclipsestore.tables.Category;
-import sr.we.integration.Parent;
-import sr.we.storage.impl.CategoryStorage;
+import sr.we.storage.ICategoryStorage;
 
 import java.util.List;
+
 
 @Controller
 public class CategoryController {
     EmbeddedStorageManager storageManager;
-    CategoryStorage categoryStorage;
+    ICategoryStorage categoryStorage;
 
-    public CategoryController(EmbeddedStorageManager storageManager, CategoryStorage categoryStorage) {
+    /**
+     *
+     * @param storageManager {@link EmbeddedStorageManager}
+     * @param categoryStorage {@link ICategoryStorage}
+     */
+    public CategoryController(EmbeddedStorageManager storageManager, ICategoryStorage categoryStorage) {
         this.storageManager = storageManager;
         this.categoryStorage = categoryStorage;
     }
 
-    public List<Category> allStores(Long businessId) {
+    /**
+     * Get all categories
+     * @param businessId Fill in business ID
+     * @return Returns a list of categories
+     */
+    public List<Category> findCategories(Long businessId) {
         return categoryStorage.allStores(businessId);
     }
 

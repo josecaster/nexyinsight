@@ -5,16 +5,17 @@ import org.eclipse.serializer.collections.lazy.LazyCollection;
 import org.eclipse.serializer.collections.lazy.LazyHashMap;
 import org.eclipse.serializer.reference.Lazy;
 import org.eclipse.store.storage.embedded.types.EmbeddedStorageManager;
-import org.eclipse.store.storage.types.StorageConnection;
 import sr.we.entity.eclipsestore.Database;
 import sr.we.entity.eclipsestore.tables.Grid;
 import sr.we.entity.eclipsestore.tables.SuperDao;
+import sr.we.storage.InterExecutable;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+@Deprecated
 public abstract class EclipseStoreSuperService<T extends SuperDao> {
 
     protected final EmbeddedStorageManager storageManager;

@@ -9,31 +9,32 @@ import sr.we.storage.IReceiptsStorage;
 
 import java.util.List;
 
+@Deprecated
 @Component
-public class ReceiptStorage extends EclipseStoreSuperService<Receipt> implements IReceiptsStorage {
+public class ReceiptStorage extends EclipseStoreSuperService<Receipt> /*implements IReceiptsStorage*/ {
 
     public ReceiptStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, Receipt.class);
     }
 
-    @Override
+//    @Override
     @Read
     public Receipt oneReceipt(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     public Receipt oneReceiptNumber(String receiptNumber) {
         return stream().filter(receipt -> receipt.getReceipt_number().equalsIgnoreCase(receiptNumber)).findAny().orElse(null);
     }
 
-    @Override
+//    @Override
     @Read
     public List<Receipt> allReceipts(Long businessId) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Write
     public Receipt saveOrUpdate(Receipt receipt) {
 
@@ -69,7 +70,7 @@ public class ReceiptStorage extends EclipseStoreSuperService<Receipt> implements
         });
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteReceipt(String uuId) {
         return delete(uuId);

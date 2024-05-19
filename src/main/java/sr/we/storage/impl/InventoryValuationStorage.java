@@ -15,33 +15,34 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+@Deprecated
 @Component
-public class InventoryValuationStorage extends EclipseStoreSuperService<InventoryValuation> implements IInventoryValuationStorage {
+public class InventoryValuationStorage extends EclipseStoreSuperService<InventoryValuation> /*implements IInventoryValuationStorage*/ {
 
     public InventoryValuationStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, InventoryValuation.class);
     }
 
-    @Override
+//    @Override
     @Read
     public InventoryValuation oneInventoryValuation(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public List<InventoryValuation> allInventoryValuations(Long businessId) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Read
     public Optional<InventoryValuation> getInventoryValuation(Long businessId, LocalDate localDate) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0 && store.getLocalDate().isEqual(localDate)).findAny();
     }
 
-    @Override
-    @Write
+//    @Override
+//    @Write
     public InventoryValuation saveOrUpdate(InventoryValuation InventoryValuation) {
 
         return update(InventoryValuation, f -> {
@@ -56,13 +57,13 @@ public class InventoryValuationStorage extends EclipseStoreSuperService<Inventor
         });
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteInventoryValuation(String uuId) {
         return delete(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public Stream<InventoryValuation> allInventoryValuations(Long businessId, Integer page, Integer pageSize, Predicate<? super InventoryValuation> predicate) {
         return (page == null || pageSize == null) ? (predicate != null ? allInventoryValuations(businessId).stream().filter(predicate) : allInventoryValuations(businessId).stream()) : (predicate != null ? allInventoryValuations(businessId).stream().filter(predicate).sorted(Comparator.comparing(InventoryValuation::getLocalDate).reversed()).skip((long) page * pageSize).limit(pageSize) : allInventoryValuations(businessId).stream().sorted(Comparator.comparing(InventoryValuation::getLocalDate).reversed()).skip((long) page * pageSize).limit(pageSize));

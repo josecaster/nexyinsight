@@ -10,26 +10,27 @@ import sr.we.storage.IItemStorage;
 
 import java.util.List;
 
+@Deprecated
 @Component
-public class ItemStorage extends EclipseStoreSuperService<Item> implements IItemStorage {
+public class ItemStorage extends EclipseStoreSuperService<Item>/* implements IItemStorage*/ {
 
     public ItemStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, Item.class);
     }
 
-    @Override
+//    @Override
     @Read
     public Item oneItem(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public List<Item> allItems(Long businessId) {
         return stream().filter(Item -> Item.getBusinessId() != null && Item.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Write
     public Item saveOrUpdate(Item item) {
         return update(item, f-> {
@@ -62,13 +63,13 @@ public class ItemStorage extends EclipseStoreSuperService<Item> implements IItem
         });
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteItem(String uuId) {
         return delete(uuId);
     }
 
-    @Override
+//    @Override
     public Item oneItemByLoyId(String id) {
         return stream().filter(l -> StringUtils.isNotBlank(l.getId()) && l.getId().equalsIgnoreCase(id)).findAny().orElse(null);
     }

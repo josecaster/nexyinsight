@@ -10,26 +10,27 @@ import sr.we.storage.ICategoryStorage;
 
 import java.util.List;
 
+@Deprecated
 @Component
-public class CategoryStorage extends EclipseStoreSuperService<Category> implements ICategoryStorage {
+public class CategoryStorage extends EclipseStoreSuperService<Category> /*implements ICategoryStorage*/ {
 
     public CategoryStorage(EmbeddedStorageManager storageManager) {
         super(storageManager, Category.class);
     }
 
-    @Override
+//    @Override
     @Read
     public Category oneStore(String uuId) {
         return get(uuId);
     }
 
-    @Override
+//    @Override
     @Read
     public List<Category> allStores(Long businessId) {
         return stream().filter(store -> store.getBusinessId() != null && store.getBusinessId().compareTo(businessId) == 0).toList();
     }
 
-    @Override
+//    @Override
     @Write
     public Category saveOrUpdate(Category Category) {
 
@@ -53,7 +54,7 @@ public class CategoryStorage extends EclipseStoreSuperService<Category> implemen
         }, uuId);
     }
 
-    @Override
+//    @Override
     @Write
     public boolean deleteStore(String uuId) {
         return delete(uuId);

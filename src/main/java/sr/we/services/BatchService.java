@@ -54,7 +54,7 @@ public class BatchService {
 
         if (entity.getId() != null) {
 
-            Section section = storesController.oneStore(businessId, entity.getSectionId());
+            Section section = storesController.oneStore(entity.getSectionId());
 
             Optional<Batch> batch = get(entity.getId());
             if (batch.isPresent() && batch.get().getStatus().compareTo(Batch.Status.APPROVED) != 0 && entity.getStatus().compareTo(Batch.Status.APPROVED) == 0) {
@@ -63,7 +63,7 @@ public class BatchService {
                 for (BatchItems batchItems : byBatchId) {
                     Item item = null;
                     if (StringUtils.isNotBlank(batchItems.getItemId())) {
-                        item = ItemService.oneItem(businessId, batchItems.getItemId());
+                        item = ItemService.oneItem(batchItems.getItemId());
                     }
                     if (item == null) {
                         item = new Item();
@@ -76,21 +76,24 @@ public class BatchService {
                     if (section.getCategories() != null && !section.getCategories().isEmpty()) {
                         item.setCategory_id(section.getCategories().stream().findFirst().get());
                     }
-                    if(section.getForm() != null){
+                    if (section.getForm() != null) {
                         item.setForm(section.getForm().name());
                     }
-                    if(section.getColor() != null){
+                    if (section.getColor() != null) {
                         item.setColor(section.getColor().name());
                     }
                     Variant variant = new Variant();
 //                    variant.setSku(batchItems.getSku());
                     variant.setBarcode(batchItems.getCode());
                     variant.setCost(batchItems.getCost());
-                    variant.setDefault_price(batchItems.getPrice());
-                    variant.setDefault_pricing_type("FIXED");
+                    variant.setDefault_price(batchItems.isOptional() ? null : batchItems.getPrice());
+                    variant.setDefault_pricing_type(batchItems.isOptional() ? "VARIABLE" : "FIXED");
 
                     item.setVariants(List.of(variant));
                     Item add = loyItemsController.add(loyverseToken, item);
+                    batchItems.setSku(add.getVariant().getSku());
+                    batchItems.setItemId(add.getId());
+                    batchItemsRepository.save(batchItems);
 
                     if (add != null && add.getVariants() != null && !add.getVariants().isEmpty() && batchItems.getRealQuantity() != null) {
                         Variant variant1 = add.getVariants().get(0);
