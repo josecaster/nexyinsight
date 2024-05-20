@@ -1,5 +1,7 @@
 package sr.we.entity.eclipsestore.tables;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Lob;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDateTime;
@@ -72,6 +74,10 @@ public class Section extends SuperDao implements ISection {
     private Form form;
     private Color color;
 
+    @Lob
+    @Column(length = 1000000)
+    private byte[] profilePicture;
+
     public enum Color {
         GREY,RED,PINK,ORANGE,YELLOW,GREEN,BLUE,PURPLE
     }
@@ -93,6 +99,14 @@ public class Section extends SuperDao implements ISection {
         this.createdAt = LocalDateTime.now();
         this.updatedAtt = this.createdAt;
         this.deletedAt = null;
+    }
+
+    public byte[] getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(byte[] profilePicture) {
+        this.profilePicture = profilePicture;
     }
 
     public Form getForm() {

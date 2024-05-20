@@ -1,38 +1,51 @@
 package sr.we.views.sections;
 
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
+import com.vaadin.flow.component.contextmenu.MenuItem;
+import com.vaadin.flow.component.contextmenu.SubMenu;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.menubar.MenuBar;
+import com.vaadin.flow.component.menubar.MenuBarVariant;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import sr.we.controllers.CategoryController;
 import sr.we.controllers.DevicesController;
 import sr.we.controllers.StoresController;
+import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Category;
 import sr.we.entity.eclipsestore.tables.Device;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.MainLayout;
 import sr.we.views.components.MyLineAwesome;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -165,6 +178,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         grid.getEditor().setBinder(binder);
         grid.getEditor().setBuffered(true);
 
+        createPictureColumn();
         createStoreNameColumn();
         createLinkStoreColumn();
 //        createDeviceColumn();
@@ -199,6 +213,45 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
     private Section updateStore(Section item) {
         return sectionService.updateStore(item);
+    }
+
+    private void createPictureColumn() {
+        grid.addComponentColumn(n -> {
+            Avatar avatar = new Avatar(n.getName());
+            StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(n.getProfilePicture()));
+            avatar.setImageResource(resource);
+            avatar.getElement().setAttribute("tabindex", "-1");
+
+            MenuBar menuBar = new MenuBar();
+            menuBar.addThemeVariants(MenuBarVariant.LUMO_TERTIARY_INLINE);
+
+            MenuItem menuItem = menuBar.addItem(avatar);
+            SubMenu subMenu = menuItem.getSubMenu();
+            subMenu.addItem("Set Icon", l -> {
+                Upload upload = new Upload();
+                upload.setDropAllowed(true);
+                Dialog dialog = new Dialog(upload);
+                dialog.open();
+                upload.setAcceptedFileTypes("image/jpeg", "image/png");
+                MemoryBuffer receiver = new MemoryBuffer();
+                upload.setReceiver(receiver);
+                int maxFileSizeInBytes = 5 * 1024 * 1024; // 5.0 MB
+                upload.setMaxFileSize(maxFileSizeInBytes);
+                upload.addSucceededListener(s -> {
+                    if (receiver.getInputStream() != null) {
+                        try {
+                            n.setProfilePicture(receiver.getInputStream().readAllBytes());
+                        } catch (IOException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
+                    updateStore(n);
+                    grid.getDataProvider().refreshItem(n);
+                    dialog.close();
+                });
+            });
+            return menuBar;
+        }).setHeader("Icon");
     }
 
     private void createStoreNameColumn() {

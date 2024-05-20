@@ -47,6 +47,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.addons.joelpop.changepassword.ChangePassword;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordDialog;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordRule;
+import software.xdev.vaadin.daterange_picker.business.DateRangeModel;
+import software.xdev.vaadin.daterange_picker.business.SimpleDateRange;
+import software.xdev.vaadin.daterange_picker.business.SimpleDateRanges;
+import software.xdev.vaadin.daterange_picker.ui.DateRangePicker;
 import sr.we.entity.*;
 import sr.we.integration.AuthController;
 import sr.we.repository.IntegrationRepository;
@@ -73,10 +77,8 @@ import sr.we.views.users.UsersView;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.util.*;
 
 /**
  * The main view is a top-level placeholder for other views.
@@ -106,6 +108,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private Integration integration;
     private H2 viewTitle;
     private SvgIcon infoButton;
+    private DateRangePicker<SimpleDateRange> rangePicker;
     private Onboarding onboarding;
     private Header header;
     private VerticalLayout headerLayout;
@@ -145,6 +148,16 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         viewTitle = new H2();
         viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
 
+        rangePicker = new DateRangePicker<SimpleDateRange>(() -> new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.TODAY), DATERANGE_VALUES);
+//        rangePicker.setWidthFull();
+
+        rangePicker.addValueChangeListener(l -> {
+            DateRangeModel<SimpleDateRange> value = l.getValue();
+            if(value.getStart() != null && value.getEnd() != null){
+//                UI.getCurrent().
+            }
+        });
+
         infoButton = MyLineAwesome.INFO_CIRCLE_SOLID.create();
         infoButton.setColor("var(--lumo-primary-text-color)");
         infoButton.getElement().getStyle().set("margin-right", "var(--lumo-space-s)");
@@ -153,6 +166,8 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         infoButton.addClickListener(c -> onboarding.start());
         addToNavbar(true, toggle, viewTitle, infoButton);
     }
+
+    protected static final List<SimpleDateRange> DATERANGE_VALUES = Arrays.asList(SimpleDateRanges.allValues());
 
     private void addDrawerContent() {
         H1 appName = new H1("Nexyinsight");

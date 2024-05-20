@@ -15,6 +15,7 @@ import com.github.appreciated.apexcharts.config.theme.Mode;
 import com.github.appreciated.apexcharts.helper.Series;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.charts.model.DataSeriesItem;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
@@ -28,6 +29,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
+import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.servlet.http.Cookie;
 import org.apache.commons.lang3.tuple.Pair;
@@ -41,6 +43,7 @@ import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.CookieUtil;
 
+import java.io.ByteArrayInputStream;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -306,13 +309,14 @@ public class SalesBoard implements Serializable {
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.setAllRowsVisible(true);
 
-        grid.addColumn(new ComponentRenderer<Span, ServiceHealth>(serviceHealth -> {
-            Span status = new Span();
-            String statusText = getStatusDisplayName(serviceHealth);
-            status.getElement().setAttribute("aria-label", "Status: " + statusText);
-            status.getElement().setAttribute("title", "Status: " + statusText);
-            status.getElement().getThemeList().add(getStatusTheme(serviceHealth));
-            return status;
+        grid.addColumn(new ComponentRenderer<Avatar, ServiceHealth>(serviceHealth -> {
+            Avatar avatar = new Avatar(serviceHealth.getCity());
+            if (serviceHealth.getProfilePicture() != null) {
+                StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(serviceHealth.getProfilePicture()));
+                avatar.setImageResource(resource);
+            }
+            avatar.getElement().setAttribute("tabindex", "-1");
+            return avatar;
         })).setHeader("").setFlexGrow(0).setAutoWidth(true);
         grid.addColumn(ServiceHealth::getCity).setHeader("Section").setFlexGrow(1);
         grid.addColumn(ServiceHealth::getInput).setHeader("Gross sales").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
@@ -324,9 +328,10 @@ public class SalesBoard implements Serializable {
                 ReceiptsController.Value gross = receiptsController.gross(getBusinessId(), start, end, new HashSet<>(List.of(sectionId)));
                 Section section = storesController.oneStore(sectionId);
 //                if (!section.isDefault()) {
-                    String name = section.getName();
-                    ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, BigDecimal.valueOf(gross.get()), 0);
-                    list.add(munster);
+                String name = section.getName();
+                ServiceHealth munster = new ServiceHealth(ServiceHealth.Status.FAILING, name, BigDecimal.valueOf(gross.get()), 0);
+                munster.setProfilePicture(section.getProfilePicture());
+                list.add(munster);
 //                }
             }
             list = list.stream().sorted(Comparator.comparing(ServiceHealth::getInput).reversed()).toList();
@@ -371,10 +376,10 @@ public class SalesBoard implements Serializable {
                 Double count = val2.get();
                 Section section = storesController.oneStore(sectionId);
 //                if (!section.isDefault()) {
-                    left = left - count;
-                    String name = section.getName();
-                    DataSeriesItem munster = new DataSeriesItem(name, count);
-                    list.add(munster);
+                left = left - count;
+                String name = section.getName();
+                DataSeriesItem munster = new DataSeriesItem(name, count);
+                list.add(munster);
 //                }
             }
 

@@ -7,6 +7,8 @@ import java.math.BigDecimal;
  */
 public class ServiceHealth {
 
+    private byte[] profilePicture;
+
     private Status status;
 
     private String city;
@@ -30,6 +32,14 @@ public class ServiceHealth {
         this.city = city;
         this.input = input;
         this.output = output;
+    }
+
+    public byte[] getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(byte[] profilePicture) {
+        this.profilePicture = profilePicture;
     }
 
     public Status getStatus() {
