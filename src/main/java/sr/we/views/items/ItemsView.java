@@ -134,6 +134,8 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
 
 //        stockLevelDate = grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
+        itemNameColumn = grid.addColumn(i -> i.getVariant().getSku()).setHeader("SKU").setFlexGrow(0).setResizable(true);
+        itemNameColumn = grid.addColumn(i -> i.getVariant().getBarcode()).setHeader("Code").setFlexGrow(0).setResizable(true);
         itemNameColumn = grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
         stockLevelColumn = grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         costColumn = grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);

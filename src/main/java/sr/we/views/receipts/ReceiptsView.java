@@ -145,7 +145,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             String[] number = r.getReceipt_number().split("-");
             return number[0] + "-" + number[1];
         });
-        receiptNumberColumn.setHeader("Receipt #").setAutoWidth(true).setResizable(true);
+        receiptNumberColumn.setHeader("Receipt #").setFrozen(true).setAutoWidth(true).setResizable(true);
         typeColumn = grid.addColumn(Receipt::getReceipt_type).setHeader("Type").setAutoWidth(true);
         storeColumn = grid.addColumn(l -> {
             String storeId = l.getStore_id();
