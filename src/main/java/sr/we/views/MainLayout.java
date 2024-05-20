@@ -2,7 +2,6 @@ package sr.we.views;
 
 import com.vaadin.componentfactory.ToggleButton;
 import com.vaadin.componentfactory.onboarding.Onboarding;
-import com.vaadin.componentfactory.onboarding.OnboardingStep;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
@@ -10,16 +9,18 @@ import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.MenuItem;
+import com.vaadin.flow.component.contextmenu.SubMenu;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.SvgIcon;
 import com.vaadin.flow.component.menubar.MenuBar;
+import com.vaadin.flow.component.menubar.MenuBarVariant;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -28,6 +29,8 @@ import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.dom.ThemeList;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -104,6 +107,8 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private H2 viewTitle;
     private SvgIcon infoButton;
     private Onboarding onboarding;
+    private Header header;
+    private VerticalLayout headerLayout;
 
     public MainLayout(WebhookRepository webhookRepository, WebhookService webhookService, AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
         this.webhookRepository = webhookRepository;
@@ -142,7 +147,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
         infoButton = MyLineAwesome.INFO_CIRCLE_SOLID.create();
         infoButton.setColor("var(--lumo-primary-text-color)");
-        infoButton.getElement().getStyle().set("margin-right","var(--lumo-space-s)");
+        infoButton.getElement().getStyle().set("margin-right", "var(--lumo-space-s)");
         infoButton.getElement().getStyle().set("margin-left", "auto");
         infoButton.setVisible(false);
         infoButton.addClickListener(c -> onboarding.start());
@@ -151,12 +156,58 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private void addDrawerContent() {
         H1 appName = new H1("Nexyinsight");
-        appName.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
-        Header header = new Header(appName);
+//        appName.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
+
+
+        headerLayout = new VerticalLayout(appName);
+        headerLayout.setPadding(false);
+        headerLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        Header header = new Header(headerLayout);
 
         Scroller scroller = new Scroller(createNavigation());
 
         addToDrawer(header, scroller, createFooter());
+
+        if (user != null) {
+            Avatar avatar = new Avatar(user.getName());
+            StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(user.getProfilePicture()));
+            avatar.setImageResource(resource);
+            avatar.setThemeName("xlarge");
+            avatar.getElement().setAttribute("tabindex", "-1");
+
+            MenuBar menuBar = new MenuBar();
+            headerLayout.add(menuBar, new Hr());
+            menuBar.addThemeVariants(MenuBarVariant.LUMO_TERTIARY_INLINE);
+
+            MenuItem menuItem = menuBar.addItem(avatar);
+            menuItem.getElement().getStyle().setHeight("200px");
+            SubMenu subMenu = menuItem.getSubMenu();
+            subMenu.addItem("Upload profile", l -> {
+                Upload upload = new Upload();
+                upload.setDropAllowed(true);
+                Dialog dialog = new Dialog(upload);
+                dialog.open();
+                upload.setAcceptedFileTypes("image/jpeg", "image/png");
+                MemoryBuffer receiver = new MemoryBuffer();
+                upload.setReceiver(receiver);
+                int maxFileSizeInBytes = 5 * 1024 * 1024; // 5.0 MB
+                upload.setMaxFileSize(maxFileSizeInBytes);
+                upload.addSucceededListener(s -> {
+                    Optional<User> user1 = authenticatedUser.get();
+                    user1.ifPresent(value -> user = value);
+                    if (receiver.getInputStream() != null) {
+                        try {
+                            user.setProfilePicture(receiver.getInputStream().readAllBytes());
+                        } catch (IOException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
+                    userService.update(user);
+                    UI.getCurrent().getPage().reload();
+                });
+            });
+
+        }
     }
 
     @Override
@@ -233,18 +284,19 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         if (maybeUser.isPresent()) {
             user = maybeUser.get();
 
+
+            Div div = new Div();
             Avatar avatar = new Avatar(user.getName());
             StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(user.getProfilePicture()));
             avatar.setImageResource(resource);
             avatar.setThemeName("xsmall");
             avatar.getElement().setAttribute("tabindex", "-1");
+            div.add(avatar);
 
             MenuBar userMenu = new MenuBar();
             userMenu.setThemeName("tertiary-inline contrast");
 
             MenuItem userName = userMenu.addItem("");
-            Div div = new Div();
-            div.add(avatar);
             div.add(user.getName());
             div.add(new Icon("lumo", "dropdown"));
             div.getElement().getStyle().set("display", "flex");
@@ -252,7 +304,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
             userName.add(div);
             account(userName);
-            if(user.getRoles().contains(Role.ADMIN)) {
+            if (user.getRoles().contains(Role.ADMIN)) {
                 changePassword(userName);
                 loyverseIntegration(userName);
                 synchronize(userName);
@@ -393,6 +445,16 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
             formLayout.addFormItem(nameFld, "Name");
             formLayout.addFormItem(emailFld, "Email");
+            VerticalLayout field = new VerticalLayout();
+            Upload upload = new Upload();
+            upload.setAcceptedFileTypes("image/jpeg", "image/png");
+            MemoryBuffer receiver = new MemoryBuffer();
+            upload.setReceiver(receiver);
+            int maxFileSizeInBytes = 5 * 1024 * 1024; // 5.0 MB
+            upload.setMaxFileSize(maxFileSizeInBytes);
+            field.add(upload);
+            FormLayout.FormItem formItem = formLayout.addFormItem(field, "Profile picture");
+            formLayout.setColspan(formItem, 2);
 //                formLayout.addFormItem(newPswFld, "New password");
 //                formLayout.addFormItem(conPswFld, "Confirm password");
             dialog.setWidth("50%");
@@ -402,6 +464,13 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                 user.setName(nameFld.getValue());
                 user.setEmail(emailFld.getValue());
 //                    user.setHashedPassword(passwordEncoder.encode(conPswFld.getValue()));
+                if (receiver.getInputStream() != null) {
+                    try {
+                        user.setProfilePicture(receiver.getInputStream().readAllBytes());
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
                 userService.update(user);
                 dialog.close();
             }));
