@@ -148,7 +148,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
             }
             return span;
         }).setHeader("Inventory value").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-        priceColumn = grid.addColumn(l -> l.getVariant().getDefault_price()).setHeader("Price").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+        priceColumn = grid.addColumn(l -> l.getVariantStore().getPrice()).setHeader("Price").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         storeColumn = grid.addColumn(l -> {
             String storeId = l.getVariantStore().getStore_id();
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(storeId)).findAny();
