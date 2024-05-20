@@ -144,6 +144,13 @@ public class UploadItemsView extends VerticalLayout {
             });
             return integerField;
         }).setHeader("COUNTED").setAutoWidth(true);
+        Grid.Column<BatchItems> uploadColumn = grid.addComponentColumn(l -> {
+            ToggleButton integerField = new ToggleButton(l.isUpload());
+            integerField.addValueChangeListener(v -> {
+                l.setUpload(v.getValue());
+            });
+            return integerField;
+        }).setHeader("UPLOAD").setTooltipGenerator(l -> "Upload will be turned off after already been uploaded. If you turn it on again it will retry the upload").setAutoWidth(true);
 
 
         grid.setItems(batchItemsService.findByBatchId(batchId));
@@ -208,37 +215,41 @@ public class UploadItemsView extends VerticalLayout {
         cancel.setTooltipText("For faster use, use Arrow Down Key");
 
         save.addClickListener(e -> {
-            try {
+            save(batchItemsService);
+        });
+    }
 
-                BinderValidationStatus<BatchItems> validate = binder.validate();
-                if (validate.isOk()) {
+    private void save(BatchItemsService batchItemsService) {
+        try {
 
-                    if (this.batchItems == null) {
-                        this.batchItems = new BatchItems();
-                        this.batchItems.setBatchId(batchId);
-                    }
-                    binder.writeBean(this.batchItems);
-                    this.batchItems.setOptional(variableBtn.getValue());
-                    if (this.batchItems.isOptional()) {
-                        this.batchItems.setPrice(null);
-                    }
-                    BatchItems update = batchItemsService.update(this.batchItems);
-                    clearForm();
-                    refreshGrid();
-                    populateForm(update);
-                    Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            BinderValidationStatus<BatchItems> validate = binder.validate();
+            if (validate.isOk()) {
 
-                } else {
-                    Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+                if (this.batchItems == null) {
+                    this.batchItems = new BatchItems();
+                    this.batchItems.setBatchId(batchId);
                 }
-            } catch (ObjectOptimisticLockingFailureException exception) {
-                Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
-                n.setPosition(Position.MIDDLE);
-                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-            } catch (ValidationException validationException) {
+                binder.writeBean(this.batchItems);
+                this.batchItems.setOptional(variableBtn.getValue());
+                if (this.batchItems.isOptional()) {
+                    this.batchItems.setPrice(null);
+                }
+                BatchItems update = batchItemsService.update(this.batchItems);
+                clearForm();
+                refreshGrid();
+                populateForm(update);
+                Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+            } else {
                 Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
             }
-        });
+        } catch (ObjectOptimisticLockingFailureException exception) {
+            Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
+            n.setPosition(Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+        } catch (ValidationException validationException) {
+            Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+        }
     }
 
     private void doForUploadSucceed(MemoryBuffer receiver, Grid<BatchItems> itemImportGrid) {

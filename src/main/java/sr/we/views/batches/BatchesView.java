@@ -112,168 +112,14 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
             span.setWidthFull();
             return span;
         }).setHeader("Section").setAutoWidth(true);
-//        grid.addColumn(new LocalDateRenderer<>(Batch::getStartDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("Start date").setAutoWidth(true);
-//        grid.addColumn(new LocalDateRenderer<>(Batch::getEndDate, () -> DateTimeFormatter.ofPattern("M/d/yyyy"))).setHeader("End date").setAutoWidth(true);
         grid.addComponentColumn(bat -> {
-            Span span = new Span(bat.getStatus().name());
-            span.getElement().getThemeList().add("badge");
-            span.setWidthFull();
-
-            switch (bat.getStatus()) {
-                case NEW -> {
-                    span.getElement().getThemeList().add("warning");
-                }
-                case UPLOAD_ITEMS -> {
-                    span.getElement().getThemeList().add("contrast");
-                }
-                case VALIDATE_ITEMS -> {
-                    span.getElement().getThemeList().add("primary");
-                }
-                case APPROVED -> {
-                    span.getElement().getThemeList().add("success");
-                }
-                case REJECTED, CANCEL -> {
-                    span.getElement().getThemeList().add("error");
-                }
-            }
-
-            return span;
+            return getSpan(bat);
         }).setAutoWidth(true);
 
 
         Set<Role> roles = authenticatedUser.get().get().getRoles();
         grid.addComponentColumn(c -> {
-            HorizontalLayout horizontalLayout = new HorizontalLayout();
-
-            Button listBtn = new Button("", click -> {
-                populateForm(c);
-                doForUploadBtn(Batch.Status.UPLOAD_ITEMS);
-            });
-            listBtn.setIcon(MyLineAwesome.LIST_ALT.create());
-
-            Button checkBtn = new Button("", click -> {
-                List<BatchItems> byBatchId = batchItemsService.findByBatchId(c.getId());
-                if (!byBatchId.isEmpty()) {
-                    populateForm(c);
-                    doForUploadBtn(Batch.Status.VALIDATE_ITEMS);
-                } else {
-                    Notification n = Notification.show("Cannot validate yet! Please add some batch Items first");
-                    n.setPosition(Position.MIDDLE);
-                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                }
-            });
-            checkBtn.setIcon(MyLineAwesome.CLIPBOARD_CHECK_SOLID.create());
-
-            Button approveBtn = new Button("", click -> {
-
-                List<BatchItems> byBatchId = batchItemsService.findByBatchId(c.getId());
-                if (!byBatchId.isEmpty() && byBatchId.stream().anyMatch(f -> f.getRealQuantity() != null && f.getRealQuantity() != 0)) {
-                    ConfirmDialog confirm = new ConfirmDialog("APPROVE BATCH", "Are you sure you want to approve this batch", "Yes", approved -> {
-                        c.setStatus(Batch.Status.APPROVED);
-                        try {
-                            Batch update = batchService.update(c);
-                            refreshGrid();
-                            populateForm(update);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-                    confirm.open();
-                } else {
-                    Notification n = Notification.show("Cannot approve yet! Please add counted values first!");
-                    n.setPosition(Position.MIDDLE);
-                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                }
-
-
-            });
-            approveBtn.setIcon(MyLineAwesome.THUMBS_UP_SOLID.create());
-            approveBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
-
-            Button rejectBtn = new Button("", click -> {
-
-                ConfirmDialog confirm = new ConfirmDialog("REJECT BATCH", "Are you sure you want to reject this batch", "Yes", approved -> {
-                    c.setStatus(Batch.Status.REJECTED);
-                    try {
-                        Batch update = batchService.update(c);
-                        refreshGrid();
-                        populateForm(update);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-                confirm.open();
-            });
-            rejectBtn.setIcon(MyLineAwesome.THUMBS_DOWN_SOLID.create());
-            rejectBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
-
-            Button trashBtn = new Button("", click -> {
-
-                ConfirmDialog confirm = new ConfirmDialog("CANCEL BATCH", "Are you sure you want to cancel this batch", "Yes", approved -> {
-                    c.setStatus(Batch.Status.CANCEL);
-                    try {
-                        Batch update = batchService.update(c);
-                        refreshGrid();
-                        populateForm(update);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-                confirm.open();
-
-
-            });
-            trashBtn.setIcon(MyLineAwesome.TRASH_ALT.create());
-
-
-            horizontalLayout.add(listBtn, checkBtn, approveBtn, rejectBtn, trashBtn);
-            switch (c.getStatus()) {
-                case NEW -> {
-                    listBtn.setVisible(true);
-                    checkBtn.setVisible(false);
-                    approveBtn.setVisible(false);
-                    rejectBtn.setVisible(false);
-                    trashBtn.setVisible(true);
-                }
-                case UPLOAD_ITEMS -> {
-                    if (roles.contains(Role.ADMIN)) {
-                        listBtn.setVisible(true);
-                        checkBtn.setVisible(true);
-                        approveBtn.setVisible(false);
-                        rejectBtn.setVisible(false);
-                        trashBtn.setVisible(true);
-                    } else {
-                        listBtn.setVisible(true);
-                        checkBtn.setVisible(false);
-                        approveBtn.setVisible(false);
-                        rejectBtn.setVisible(false);
-                        trashBtn.setVisible(true);
-                    }
-                }
-                case VALIDATE_ITEMS -> {
-                    if (roles.contains(Role.ADMIN)) {
-                        listBtn.setVisible(false);
-                        checkBtn.setVisible(true);
-                        approveBtn.setVisible(true);
-                        rejectBtn.setVisible(true);
-                        trashBtn.setVisible(false);
-                    } else {
-                        listBtn.setVisible(false);
-                        checkBtn.setVisible(false);
-                        approveBtn.setVisible(false);
-                        rejectBtn.setVisible(false);
-                        trashBtn.setVisible(false);
-                    }
-                }
-                case APPROVED, REJECTED, CANCEL -> {
-                    listBtn.setVisible(false);
-                    checkBtn.setVisible(false);
-                    approveBtn.setVisible(false);
-                    rejectBtn.setVisible(false);
-                    trashBtn.setVisible(false);
-                }
-            }
-            return horizontalLayout;
+            return getHorizontalLayout(batchItemsService, batchService, c, roles);
         });
 
         grid.setItems(query -> {
@@ -313,32 +159,196 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
         });
 
         save.addClickListener(e -> {
-            BinderValidationStatus<Batch> validate = binder.validate();
-            if(validate.isOk()) {
-                try {
-                    if (this.batch == null) {
-                        this.batch = new Batch();
-                    }
-                    binder.writeBean(this.batch);
-                    Batch update = batchService.update(this.batch);
-                    clearForm();
-                    refreshGrid();
-                    populateForm(update);
-                    Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                    UI.getCurrent().navigate(BatchesView.class);
-                } catch (ObjectOptimisticLockingFailureException exception) {
-                    Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
-                    n.setPosition(Position.MIDDLE);
-                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                } catch (ValidationException validationException) {
-                    Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
-                } catch (IOException ex) {
-                    Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+            save(batchService);
+        });
+    }
+
+    private void save(BatchService batchService) {
+        BinderValidationStatus<Batch> validate = binder.validate();
+        if(validate.isOk()) {
+            try {
+                if (this.batch == null) {
+                    this.batch = new Batch();
                 }
-            } else {
+                binder.writeBean(this.batch);
+                Batch update = batchService.update(this.batch);
+                clearForm();
+                refreshGrid();
+                populateForm(update);
+                Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                UI.getCurrent().navigate(BatchesView.class);
+            } catch (ObjectOptimisticLockingFailureException exception) {
+                Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
+                n.setPosition(Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            } catch (ValidationException validationException) {
                 Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+            } catch (IOException ex) {
+                Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+            }
+        } else {
+            Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+        }
+    }
+
+    private HorizontalLayout getHorizontalLayout(BatchItemsService batchItemsService, BatchService batchService, Batch c, Set<Role> roles) {
+        HorizontalLayout horizontalLayout = new HorizontalLayout();
+
+        Button listBtn = new Button("", click -> {
+            populateForm(c);
+            doForUploadBtn(Batch.Status.UPLOAD_ITEMS);
+        });
+        listBtn.setIcon(MyLineAwesome.LIST_ALT.create());
+
+        Button checkBtn = new Button("", click -> {
+            List<BatchItems> byBatchId = batchItemsService.findByBatchId(c.getId());
+            if (!byBatchId.isEmpty()) {
+                populateForm(c);
+                doForUploadBtn(Batch.Status.VALIDATE_ITEMS);
+            } else {
+                Notification n = Notification.show("Cannot validate yet! Please add some batch Items first");
+                n.setPosition(Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
+        checkBtn.setIcon(MyLineAwesome.CLIPBOARD_CHECK_SOLID.create());
+
+        Button approveBtn = new Button("", click -> {
+
+            List<BatchItems> byBatchId = batchItemsService.findByBatchId(c.getId());
+            if (!byBatchId.isEmpty() && byBatchId.stream().anyMatch(f -> f.isUpload() && f.getRealQuantity() != null && f.getRealQuantity() != 0)) {
+                ConfirmDialog confirm = new ConfirmDialog("APPROVE BATCH", "Are you sure you want to approve this batch", "Yes", approved -> {
+                    c.setStatus(Batch.Status.APPROVED);
+                    try {
+                        Batch update = batchService.update(c);
+                        refreshGrid();
+                        populateForm(update);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                confirm.open();
+            } else {
+                Notification n = Notification.show("Cannot approve yet! Please add counted values first!");
+                n.setPosition(Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+
+
+        });
+        approveBtn.setIcon(MyLineAwesome.THUMBS_UP_SOLID.create());
+        approveBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+
+        Button rejectBtn = new Button("", click -> {
+
+            ConfirmDialog confirm = new ConfirmDialog("REJECT BATCH", "Are you sure you want to reject this batch", "Yes", approved -> {
+                c.setStatus(Batch.Status.REJECTED);
+                try {
+                    Batch update = batchService.update(c);
+                    refreshGrid();
+                    populateForm(update);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            confirm.open();
+        });
+        rejectBtn.setIcon(MyLineAwesome.THUMBS_DOWN_SOLID.create());
+        rejectBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
+
+        Button trashBtn = new Button("", click -> {
+
+            ConfirmDialog confirm = new ConfirmDialog("CANCEL BATCH", "Are you sure you want to cancel this batch", "Yes", approved -> {
+                c.setStatus(Batch.Status.CANCEL);
+                try {
+                    Batch update = batchService.update(c);
+                    refreshGrid();
+                    populateForm(update);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            confirm.open();
+
+
+        });
+        trashBtn.setIcon(MyLineAwesome.TRASH_ALT.create());
+
+
+        horizontalLayout.add(listBtn, checkBtn, approveBtn, rejectBtn, trashBtn);
+        switch (c.getStatus()) {
+            case NEW -> {
+                listBtn.setVisible(true);
+                checkBtn.setVisible(false);
+                approveBtn.setVisible(false);
+                rejectBtn.setVisible(false);
+                trashBtn.setVisible(true);
+            }
+            case UPLOAD_ITEMS -> {
+                if (roles.contains(Role.ADMIN)) {
+                    listBtn.setVisible(true);
+                    checkBtn.setVisible(true);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(true);
+                } else {
+                    listBtn.setVisible(true);
+                    checkBtn.setVisible(false);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(true);
+                }
+            }
+            case VALIDATE_ITEMS -> {
+                if (roles.contains(Role.ADMIN)) {
+                    listBtn.setVisible(false);
+                    checkBtn.setVisible(true);
+                    approveBtn.setVisible(true);
+                    rejectBtn.setVisible(true);
+                    trashBtn.setVisible(false);
+                } else {
+                    listBtn.setVisible(false);
+                    checkBtn.setVisible(false);
+                    approveBtn.setVisible(false);
+                    rejectBtn.setVisible(false);
+                    trashBtn.setVisible(false);
+                }
+            }
+            case APPROVED, REJECTED, CANCEL -> {
+                listBtn.setVisible(false);
+                checkBtn.setVisible(false);
+                approveBtn.setVisible(false);
+                rejectBtn.setVisible(false);
+                trashBtn.setVisible(false);
+            }
+        }
+        return horizontalLayout;
+    }
+
+    private static Span getSpan(Batch bat) {
+        Span span = new Span(bat.getStatus().name());
+        span.getElement().getThemeList().add("badge");
+        span.setWidthFull();
+
+        switch (bat.getStatus()) {
+            case NEW -> {
+                span.getElement().getThemeList().add("warning");
+            }
+            case UPLOAD_ITEMS -> {
+                span.getElement().getThemeList().add("contrast");
+            }
+            case VALIDATE_ITEMS -> {
+                span.getElement().getThemeList().add("primary");
+            }
+            case APPROVED -> {
+                span.getElement().getThemeList().add("success");
+            }
+            case REJECTED, CANCEL -> {
+                span.getElement().getThemeList().add("error");
+            }
+        }
+
+        return span;
     }
 
     private String getSection(Batch r) {

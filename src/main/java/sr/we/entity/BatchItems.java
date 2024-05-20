@@ -14,6 +14,7 @@ public class BatchItems extends AbstractEntity {
     private Integer quantity, realQuantity;
     private Long batchId;
     private String itemId;
+    private Boolean upload;
 
     public BatchItems() {
     }
@@ -116,5 +117,17 @@ public class BatchItems extends AbstractEntity {
 
     public void setItemId(String itemId) {
         this.itemId = itemId;
+    }
+
+    public Boolean getUpload() {
+        return upload;
+    }
+
+    public void setUpload(Boolean upload) {
+        this.upload = upload;
+    }
+
+    public boolean isUpload() {
+        return upload == null || upload;
     }
 }
