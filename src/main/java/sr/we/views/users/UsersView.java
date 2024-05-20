@@ -26,6 +26,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -43,6 +44,7 @@ import sr.we.security.AuthenticatedUser;
 import sr.we.services.UserService;
 import sr.we.views.MainLayout;
 
+import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -97,8 +99,10 @@ public class UsersView extends Div implements BeforeEnterObserver {
             HorizontalLayout hl = new HorizontalLayout();
             hl.setAlignItems(FlexComponent.Alignment.CENTER);
             Avatar avatar = new Avatar(client.getName());
-//            StreamResource resource = new StreamResource("profile-pic", () -> null/*new ByteArrayInputStream(client.getProfilePicture())*/);
-//            avatar.setImageResource(resource);
+            if (client.getProfilePicture() != null) {
+                StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(client.getProfilePicture()));
+                avatar.setImageResource(resource);
+            }
             avatar.setThemeName("xsmall");
             avatar.getElement().setAttribute("tabindex", "-1");
             Span span = new Span();
