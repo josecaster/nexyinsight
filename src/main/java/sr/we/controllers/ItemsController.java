@@ -67,7 +67,7 @@ public class ItemsController {
     public static List<Criteria> linkSection(Section section, boolean item) {
         List<Criteria> criteriaList = new ArrayList<>();
         Criteria e = Criteria.where(!item ? "store_id" : "variantStore.store_id").is(section.getId());
-        if(section.isDefault()){
+        if (section.isDefault()) {
             e = e.andOperator(Criteria.where("category_id").isNull());
         } else {
             if (section.getCategories() != null && !section.getCategories().isEmpty()) {
@@ -96,7 +96,7 @@ public class ItemsController {
      * @param businessId provide Business Id
      * @param page       provide pagination page
      * @param pageSize   provide pagination page size
-     * @param sections       provide sectionIds for further validation
+     * @param sections   provide sectionIds for further validation
      * @param predicate  provide collection of Criterias to further filter data
      * @return Stream of Item
      */
@@ -121,9 +121,9 @@ public class ItemsController {
         for (String n : sections) {
             Section l = storesController.oneStore(n);
 //            if(!l.isDefault()) {
-                List<Criteria> criteria = ItemsController.linkSection(l, true);
-                Criteria criteria2 = new Criteria().andOperator(criteria);
-                ors.add(criteria2);
+            List<Criteria> criteria = ItemsController.linkSection(l, true);
+            Criteria criteria2 = new Criteria().andOperator(criteria);
+            ors.add(criteria2);
 //            }
         }
         Criteria criteria1 = new Criteria();
@@ -159,7 +159,6 @@ public class ItemsController {
         }
 
 
-
         Query query = new Query();
         query.addCriteria(Criteria.where("businessId").is(businessId));
         if (page != null && pageSize != null) {
@@ -172,10 +171,10 @@ public class ItemsController {
 
         for (Section l : sections) {
 //            if(!l.isDefault()) {
-                List<Criteria> sectionCriteria = ItemsController.linkSection(l, true);
-                if (!sectionCriteria.isEmpty()) {
-                    orSectionCriteria.add(new Criteria().andOperator(sectionCriteria.toArray(new Criteria[0])));
-                }
+            List<Criteria> sectionCriteria = ItemsController.linkSection(l, true);
+            if (!sectionCriteria.isEmpty()) {
+                orSectionCriteria.add(new Criteria().andOperator(sectionCriteria.toArray(new Criteria[0])));
+            }
 //            }
         }
 
@@ -188,13 +187,13 @@ public class ItemsController {
         }
 
         if (filter.isPresent()) {
-            List<Criteria> orFilterCriteria  = new ArrayList<>();
+            List<Criteria> orFilterCriteria = new ArrayList<>();
             String s = filter.get().toUpperCase();
-            if(StringUtils.isNotBlank(s)) {
-                orFilterCriteria .add(Criteria.where("item_name").regex(s,"i"));
-                orFilterCriteria .add(Criteria.where("variant.sku").regex(s,"i"));
-                orFilterCriteria .add(Criteria.where("variant.barcode").regex(s,"i"));
-                orFilterCriteria .add(Criteria.where("description").regex(s,"i"));
+            if (StringUtils.isNotBlank(s)) {
+                orFilterCriteria.add(Criteria.where("item_name").regex(s, "i"));
+                orFilterCriteria.add(Criteria.where("variant.sku").regex(s, "i"));
+                orFilterCriteria.add(Criteria.where("variant.barcode").regex(s, "i"));
+                orFilterCriteria.add(Criteria.where("description").regex(s, "i"));
                 // Add filter criteria to the query
                 finalCriteria = finalCriteria.andOperator(new Criteria().orOperator(orFilterCriteria.toArray(new Criteria[0])));
             }
@@ -204,12 +203,78 @@ public class ItemsController {
         query.addCriteria(finalCriteria);
 
 
-
-
         query.with(Sort.by(Sort.Direction.ASC, "item_name"));
         return mongoTemplate.find(query, Item.class).stream();
 
     }
 
 
+    public String sku(String sku, String sectionId) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("businessId").is(0L));
+
+        Criteria criteria = new Criteria();
+
+        List<Criteria> orSectionCriteria = new ArrayList<>();
+
+        Section l = storesController.oneStore(sectionId);
+        List<Criteria> sectionCriteria = ItemsController.linkSection(l, true);
+        if (!sectionCriteria.isEmpty()) {
+            orSectionCriteria.add(new Criteria().andOperator(sectionCriteria.toArray(new Criteria[0])));
+        }
+
+        // Combine section OR conditions
+        Criteria finalCriteria = new Criteria();
+        if (!orSectionCriteria.isEmpty()) {
+            finalCriteria = finalCriteria.orOperator(orSectionCriteria.toArray(new Criteria[0]));
+        }
+        List<Criteria> orFilterCriteria = new ArrayList<>();
+        orFilterCriteria.add(Criteria.where("variant.sku").is(sku));
+        // Add filter criteria to the query
+        finalCriteria = finalCriteria.andOperator(new Criteria().orOperator(orFilterCriteria.toArray(new Criteria[0])));
+
+        // Add final combined criteria to the query
+        query.addCriteria(finalCriteria);
+
+
+        List<Item> items = mongoTemplate.find(query, Item.class);
+        if(items.size() != 1){
+            return null;
+        } else {
+            return items.get(0).getId();
+        }
+    }
+
+    public Item id(String id) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("businessId").is(0L));
+
+        Criteria criteria = new Criteria();
+
+//        List<Criteria> orSectionCriteria = new ArrayList<>();
+//
+//        Section l = storesController.oneStore(sectionId);
+//        List<Criteria> sectionCriteria = ItemsController.linkSection(l, true);
+//        if (!sectionCriteria.isEmpty()) {
+//            orSectionCriteria.add(new Criteria().andOperator(sectionCriteria.toArray(new Criteria[0])));
+//        }
+
+        // Combine section OR conditions
+        Criteria finalCriteria = new Criteria();
+        List<Criteria> orFilterCriteria = new ArrayList<>();
+        orFilterCriteria.add(Criteria.where("id").is(id));
+        // Add filter criteria to the query
+        finalCriteria = finalCriteria.andOperator(new Criteria().orOperator(orFilterCriteria.toArray(new Criteria[0])));
+
+        // Add final combined criteria to the query
+        query.addCriteria(finalCriteria);
+
+
+        List<Item> items = mongoTemplate.find(query, Item.class);
+        if(items.size() != 1){
+            return null;
+        } else {
+            return items.get(0);
+        }
+    }
 }

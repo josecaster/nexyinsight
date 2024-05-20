@@ -93,11 +93,12 @@ public class BatchService {
                         item.setVariants(List.of(variant));
                         Item add = loyItemsController.add(loyverseToken, item);
                         if(add != null) {
-                            batchItems.setItemId(add.getId());
-                            batchItems.setUpload(false);
-                            batchItems = batchItemsRepository.save(batchItems);
                             if(add.getVariants() != null && !add.getVariants().isEmpty()) {
-                                batchItems.setSku(add.getVariants().get(0).getSku());
+                                Variant variant1 = add.getVariants().get(0);
+                                batchItems.setSku(variant1.getSku());
+                                String id = add.getId() + "|" + variant1.getVariant_id() + "|" + (variant1.getStores().isEmpty() ? "" : variant1.getStores().get(0).getStore_id());
+                                batchItems.setItemId(id);
+                                batchItems.setUpload(false);
                                 batchItems = batchItemsRepository.save(batchItems);
 
                                 if (batchItems.getRealQuantity() != null) {

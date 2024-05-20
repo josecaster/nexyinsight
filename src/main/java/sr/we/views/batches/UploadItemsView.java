@@ -178,7 +178,7 @@ public class UploadItemsView extends VerticalLayout {
 //        binder.forField(sku).withValidator(v -> StringUtils.isNotBlank(sku.getValue()), "SKU is Required").bind(BatchItems::getSku, BatchItems::setSku);
         binder.forField(code).withValidator(v -> StringUtils.isNotBlank(code.getValue()), "CODE is Required").bind(BatchItems::getCode, BatchItems::setCode);
         binder.forField(name).withValidator(v -> StringUtils.isNotBlank(name.getValue()), "NAME is Required").bind(BatchItems::getName, BatchItems::setName);
-        binder.forField(price).withValidator(v -> price.getValue() != null, "PRICE is Required").bind(BatchItems::getPrice, BatchItems::setPrice);
+        binder.forField(price).withValidator(v -> variableBtn.getValue() || (!variableBtn.getValue() && price.getValue() != null), "PRICE is Required").bind(BatchItems::getPrice, BatchItems::setPrice);
         binder.forField(quantity).withValidator(v -> quantity.getValue() != null, "QUANTITY is Required").bind(BatchItems::getQuantity, BatchItems::setQuantity);
 //        binder.bindInstanceFields(this);
 
@@ -279,7 +279,12 @@ public class UploadItemsView extends VerticalLayout {
                 BigDecimal cost1 = StringUtils.isBlank(cost) ? null : BigDecimal.valueOf(Double.parseDouble(cost));
                 boolean optional1 = !StringUtils.isBlank(optional) && Boolean.parseBoolean(optional);
 
-                list.add(new BatchItems(UploadItemsView.this.batchId, sku, code, name, quantity1, price1, cost1, optional1, description));
+                BatchItems e = new BatchItems(UploadItemsView.this.batchId, sku, code, name, quantity1, price1, cost1, optional1, description);
+                if(StringUtils.isNotBlank(sku)) {
+                    String itemId = ItemService.sku(sku, batch.getSectionId());
+                    e.setItemId(itemId);
+                }
+                list.add(e);
             }
             itemImportGrid.setItems(list);
         } catch (IOException e) {
@@ -342,7 +347,7 @@ public class UploadItemsView extends VerticalLayout {
                 this.batchItems.setBatchId(batchId);
             }
             if (value != null) {
-                this.batchItems.setItemId(value.getUuId());
+                this.batchItems.setItemId(value.getId());
 //                sku.setValue(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getSku() : "");
                 description.setValue(StringUtils.isNotBlank(value.getDescription()) ? value.getDescription() : "");
                 variableBtn.setValue(!value.getVariant().getDefault_pricing_type().equalsIgnoreCase("FIXED"));
@@ -431,7 +436,7 @@ public class UploadItemsView extends VerticalLayout {
                 }
             }
             if (StringUtils.isNotBlank(value.getItemId())) {
-                itemsCmb.setValue(ItemService.oneItem(value.getItemId()));
+                itemsCmb.setValue(ItemService.id(value.getItemId()));
             }
             variableBtn.setValue(value.isOptional());
         } else {
