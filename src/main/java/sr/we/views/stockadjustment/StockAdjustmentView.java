@@ -49,6 +49,7 @@ import sr.we.views.MainLayout;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @PageTitle("StockAdjustments")
 @Route(value = "stockadjustment/:stockAdjustmentId?/:action?(edit)", layout = MainLayout.class)
@@ -127,7 +128,14 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             }
             return span;
         }).setHeader("Reason").setAutoWidth(true);
-        grid.addColumn(StockAdjustment::getSectionId).setHeader("Section").setAutoWidth(true);
+        grid.addComponentColumn(r -> {
+            String collect1 = getSection(r);
+            Span span = new Span(collect1);
+            span.getStyle().set("white-space", "pre-line");
+            span.getElement().getThemeList().add("badge warning");
+            span.setWidthFull();
+            return span;
+        }).setHeader("Section").setAutoWidth(true);
 
         grid.setItems(query -> {
             PageRequest pageable = PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query));
@@ -195,8 +203,23 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         });
     }
 
+    private String getSection(StockAdjustment r) {
+        List<Section> collect = sections.stream().filter(l -> {
+            return StringUtils.isNotBlank(r.getSectionId()) && r.getSectionId().equalsIgnoreCase(l.getUuId());
+        }).toList();
+        if (collect.size() > 1) {
+            collect = collect.stream().filter(l -> !l.isDefault()).toList();
+        }
+//            sectionMultiSelectComboBox.setValue(collect);
+        String collect1 = collect.stream().map(Section::getName).collect(Collectors.joining("\n"));
+        return collect1;
+    }
+
+    private List<Section> sections;
+
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        sections = storesController.allStores(getBusinessId());
         Optional<Long> stockAdjustmentId = event.getRouteParameters().get(SA_ID).map(Long::parseLong);
         if (stockAdjustmentId.isPresent()) {
             Optional<StockAdjustment> batchFromBackend = batchService.get(stockAdjustmentId.get());
