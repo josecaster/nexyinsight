@@ -1,6 +1,7 @@
 package sr.we;
 
 import com.vaadin.flow.component.page.AppShellConfigurator;
+import com.vaadin.flow.server.PWA;
 import com.vaadin.flow.theme.Theme;
 
 import javax.sql.DataSource;
@@ -34,6 +35,7 @@ import sr.we.repository.SamplePersonRepository;
 //)
 @EntityScan(basePackages = {"sr.we.entity"})
 @Import(EclipseStoreSpringBoot.class)
+@PWA(name = "NexyInsight", shortName = "NexyInsight")
 public class Application implements AppShellConfigurator {
 
     public static void main(String[] args) {
