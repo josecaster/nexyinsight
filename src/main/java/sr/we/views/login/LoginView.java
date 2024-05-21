@@ -23,7 +23,7 @@ import sr.we.views.dashboard.DashboardView;
 @AnonymousAllowed
 @PageTitle("Login")
 @Route(value = "login")
-@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
+//@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
 public class LoginView extends LoginOverlay implements BeforeEnterObserver {
 
     private final AuthenticatedUser authenticatedUser;

@@ -84,7 +84,7 @@ import java.util.*;
 /**
  * The main view is a top-level placeholder for other views.
  */
-@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
+//@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
 
 public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
