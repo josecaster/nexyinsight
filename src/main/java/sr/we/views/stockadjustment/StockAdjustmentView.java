@@ -121,6 +121,9 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                 case IC -> {
                     span.getElement().getThemeList().add("success");
                 }
+                case RT -> {
+                    span.getElement().getThemeList().add("constrast");
+                }
             }
             return span;
         }).setHeader("Reason").setAutoWidth(true);
@@ -157,7 +160,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         adjustBtn.addClickListener(e -> {
             ConfirmDialog confirmDialog = new ConfirmDialog();
             confirmDialog.setHeader("Adjust stock");
-            Button adjust = new Button("Adjust",f -> {
+            Button adjust = new Button("Adjust", f -> {
 
 
                 try {
@@ -251,7 +254,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
 
                 if (type.getValue() != null) {
                     switch (type.getValue()) {
-                        case DM, LS -> {
+                        case DM, LS, RT -> {
                             int stockAfter = l.getInStock() - l.getAdjustment();
                             if (l.getStockAfter() == null || stockAfter != l.getStockAfter()) {
                                 l.setStockAfter(stockAfter);
@@ -285,7 +288,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                     }
                     if (type.getValue() != null) {
                         switch (type.getValue()) {
-                            case DM, LS -> {
+                            case DM, LS, RT -> {
                                 l.setStockAfter(l.getInStock() - l.getAdjustment());
                             }
                             case RI -> {
@@ -331,7 +334,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                 costColumn.setVisible(false);
                 stockAfterColumn.setVisible(false);
 
-            } else if (l.getValue().compareTo(StockAdjustment.Type.LS) == 0 || l.getValue().compareTo(StockAdjustment.Type.DM) == 0) {
+            } else if (l.getValue().compareTo(StockAdjustment.Type.LS) == 0 || l.getValue().compareTo(StockAdjustment.Type.DM) == 0 || l.getValue().compareTo(StockAdjustment.Type.RT) == 0) {
 
                 inStockColumn.setHeader("In Stock");
                 adjustColumn.setHeader("Remove Stock");
@@ -375,7 +378,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             Item value = v.getValue();
             if (value != null) {
 
-                if(itemList.stream().anyMatch(f -> f.getItemId().equalsIgnoreCase(value.getUuId()))){
+                if (itemList.stream().anyMatch(f -> f.getItemId().equalsIgnoreCase(value.getUuId()))) {
                     Notification n = Notification.show("This Item has already been selected");
                     n.setPosition(Position.MIDDLE);
                     n.addThemeVariants(NotificationVariant.LUMO_WARNING);

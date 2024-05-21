@@ -18,7 +18,7 @@ public class StockAdjustment extends AbstractEntity {
     private transient List<StockAdjustmentItems> items;
 
     public enum Type {
-        RI("Receive items"),IC("Inventory count"),LS("Loss"),DM("Damage");
+        RI("Receive items"),IC("Inventory count"),LS("Loss"),DM("Damage"), RT("Return");
         private String caption;
 
         Type(String caption) {
