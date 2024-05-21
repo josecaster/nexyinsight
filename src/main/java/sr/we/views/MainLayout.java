@@ -24,6 +24,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.page.Viewport;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.component.textfield.EmailField;
@@ -83,6 +84,8 @@ import java.util.*;
 /**
  * The main view is a top-level placeholder for other views.
  */
+@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
+
 public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private final AuthenticatedUser authenticatedUser;

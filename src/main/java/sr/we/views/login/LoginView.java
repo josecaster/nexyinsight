@@ -3,6 +3,7 @@ package sr.we.views.login;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.login.LoginOverlay;
+import com.vaadin.flow.component.page.Viewport;
 import com.vaadin.flow.dom.ThemeList;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -22,6 +23,7 @@ import sr.we.views.dashboard.DashboardView;
 @AnonymousAllowed
 @PageTitle("Login")
 @Route(value = "login")
+@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
 public class LoginView extends LoginOverlay implements BeforeEnterObserver {
 
     private final AuthenticatedUser authenticatedUser;
