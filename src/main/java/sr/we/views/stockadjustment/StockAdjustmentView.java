@@ -4,6 +4,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -18,10 +19,14 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.textfield.BigDecimalField;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.data.provider.SortDirection;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -43,8 +48,7 @@ import sr.we.views.MainLayout;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @PageTitle("StockAdjustments")
 @Route(value = "stockadjustment/:stockAdjustmentId?/:action?(edit)", layout = MainLayout.class)
@@ -55,7 +59,6 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private final String SA_EDIT_ROUTE_TEMPLATE = "stockadjustment/%s/edit";
     private final Grid<StockAdjustment> grid = new Grid<>(StockAdjustment.class, false);
     private final Grid<StockAdjustmentItems> items = new Grid<>(StockAdjustmentItems.class, false);
-    private ComboBox<Item> itemsCmb;
     private final Button cancel = new Button("Add new adjustment");
     private final Button adjustBtn = new Button("Adjust");
     private final BeanValidationBinder<StockAdjustment> binder;
@@ -64,13 +67,15 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private final StockAdjustmentService batchService;
     private final AuthenticatedUser authenticatedUser;
     private final ItemsController ItemService;
+    private final Set<String> linkSections;
+    private final List<StockAdjustmentItems> itemList = new ArrayList<>();
     TextArea note;
     DatePicker date;
     Select<StockAdjustment.Type> type;
     ComboBox<String> sectionId;
+    private ComboBox<Item> itemsCmb;
     private Span batchIdFld;
     private StockAdjustment stockadjustment;
-    private Set<String> linkSections;
     private VerticalLayout itemsLayout;
 
     public StockAdjustmentView(ItemsController ItemService, StockAdjustmentItemsService stockAdjustmentItemsService, StockAdjustmentService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
@@ -96,9 +101,29 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         add(splitLayout);
 
         // Configure Grid
-        grid.addColumn(stockadjustment -> "Adjustment #" + stockadjustment.getId()).setHeader("#").setAutoWidth(true);
+        grid.addColumn(stockadjustment -> "Adjustment #" + stockadjustment.getId()).setHeader("#").setAutoWidth(true).getSortOrder(SortDirection.DESCENDING);
         grid.addColumn(StockAdjustment::getDate).setHeader("Date").setAutoWidth(true);
-        grid.addColumn(StockAdjustment::getType).setHeader("Reason").setAutoWidth(true);
+        grid.addComponentColumn(f -> {
+            Span span = new Span(f.getType().getCaption());
+            span.getElement().getThemeList().add("badge");
+            span.setWidthFull();
+
+            switch (f.getType()) {
+                case DM -> {
+                    span.getElement().getThemeList().add("warning");
+                }
+                case LS -> {
+                    span.getElement().getThemeList().add("error");
+                }
+                case RI -> {
+                    span.getElement().getThemeList().add("primary");
+                }
+                case IC -> {
+                    span.getElement().getThemeList().add("success");
+                }
+            }
+            return span;
+        }).setHeader("Reason").setAutoWidth(true);
         grid.addColumn(StockAdjustment::getSectionId).setHeader("Section").setAutoWidth(true);
 
         grid.setItems(query -> {
@@ -130,27 +155,40 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         });
 
         adjustBtn.addClickListener(e -> {
-            try {
-                if (this.stockadjustment == null) {
-                    this.stockadjustment = new StockAdjustment();
+            ConfirmDialog confirmDialog = new ConfirmDialog();
+            confirmDialog.setHeader("Adjust stock");
+            Button adjust = new Button("Adjust",f -> {
+
+
+                try {
+                    if (this.stockadjustment == null) {
+                        this.stockadjustment = new StockAdjustment();
+                    }
+                    binder.writeBean(this.stockadjustment);
+                    this.stockadjustment.setItems(items.getDataProvider().fetch(new Query<>()).toList());
+                    StockAdjustment update = batchService.update(this.stockadjustment);
+                    clearForm();
+                    refreshGrid();
+                    populateForm(update);
+                    Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    UI.getCurrent().navigate(StockAdjustmentView.class);
+                } catch (ObjectOptimisticLockingFailureException exception) {
+                    Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
+                    n.setPosition(Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                } catch (ValidationException validationException) {
+                    Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
+                } catch (IOException ex) {
+                    Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
                 }
-                binder.writeBean(this.stockadjustment);
-                this.stockadjustment.setItems(items.getDataProvider().fetch(new Query<>()).toList());
-                StockAdjustment update = batchService.update(this.stockadjustment);
-                clearForm();
-                refreshGrid();
-                populateForm(update);
-                Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                UI.getCurrent().navigate(StockAdjustmentView.class);
-            } catch (ObjectOptimisticLockingFailureException exception) {
-                Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you were making changes.");
-                n.setPosition(Position.MIDDLE);
-                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-            } catch (ValidationException validationException) {
-                Notification.show("Failed to update the data. Check again that all values are valid", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
-            } catch (IOException ex) {
-                Notification.show("Error updating data", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
-            }
+            });
+            adjust.setEnabled(false);
+            confirmDialog.setConfirmButton(adjust);
+            TextField textField = new TextField("Are you ready to adjust the stock?", m -> adjust.setEnabled(m.getValue().equalsIgnoreCase("ready")));
+            textField.setWidthFull();
+            textField.setHelperText("type in \"ready\" to be able to proceed");
+            confirmDialog.add(textField);
+            confirmDialog.open();
         });
     }
 
@@ -188,12 +226,84 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             return section == null ? "Error" : section.getName();
         });
         sectionId.setItems(query -> storesController.allSections(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get()).map(Section::getUuId));
+        sectionId.addValueChangeListener(l -> {
+            itemList.clear();
+            items.getDataProvider().refreshAll();
+            itemsCmb.getDataProvider().refreshAll();
+            workingVisibility();
 
-        items.setHeight("500px");
-        items.addThemeVariants(GridVariant.LUMO_NO_ROW_BORDERS);
+        });
+        items.setHeight("400px");
+        items.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COLUMN_BORDERS);
         Grid.Column<StockAdjustmentItems> itemColumn = items.addColumn(StockAdjustmentItems::getItemName).setHeader("Item");
         Grid.Column<StockAdjustmentItems> inStockColumn = items.addColumn(StockAdjustmentItems::getInStock).setHeader("In Stock");
-        Grid.Column<StockAdjustmentItems> adjustColumn = items.addColumn(StockAdjustmentItems::getAdjustment).setHeader("Add Stock");
+        Grid.Column<StockAdjustmentItems> adjustColumn = items.addComponentColumn(l -> {
+            IntegerField integerField = new IntegerField();
+            if (l.getId() == null) {
+                if (l.getAdjustment() == null) {
+                    l.setAdjustment(0);
+                }
+                integerField.setValue(l.getAdjustment());
+
+                if (l.getInStock() == null) {
+                    l.setInStock(0);
+                }
+
+                if (type.getValue() != null) {
+                    switch (type.getValue()) {
+                        case DM, LS -> {
+                            int stockAfter = l.getInStock() - l.getAdjustment();
+                            if (l.getStockAfter() == null || stockAfter != l.getStockAfter()) {
+                                l.setStockAfter(stockAfter);
+                                items.getDataProvider().refreshItem(l);
+                            }
+                        }
+                        case RI -> {
+                            int stockAfter = l.getInStock() + l.getAdjustment();
+                            if (l.getStockAfter() == null || stockAfter != l.getStockAfter()) {
+                                l.setStockAfter(stockAfter);
+                                items.getDataProvider().refreshItem(l);
+                            }
+                        }
+                        case IC -> {
+                            Integer adjustment = l.getAdjustment();
+                            if (l.getStockAfter() == null || adjustment != l.getStockAfter()) {
+                                l.setStockAfter(adjustment);
+                                items.getDataProvider().refreshItem(l);
+                            }
+                        }
+                    }
+                }
+
+                integerField.setWidthFull();
+                integerField.setStepButtonsVisible(true);
+                integerField.setMin(0);
+                integerField.addValueChangeListener(n -> {
+                    l.setAdjustment(n.getValue() == null ? 0 : n.getValue());
+                    if (l.getInStock() == null) {
+                        l.setInStock(0);
+                    }
+                    if (type.getValue() != null) {
+                        switch (type.getValue()) {
+                            case DM, LS -> {
+                                l.setStockAfter(l.getInStock() - l.getAdjustment());
+                            }
+                            case RI -> {
+                                l.setStockAfter(l.getInStock() + l.getAdjustment());
+                            }
+                            case IC -> {
+                                l.setStockAfter(l.getAdjustment());
+                            }
+                        }
+                    }
+                    items.getDataProvider().refreshItem(l);
+                });
+            } else {
+                integerField.setReadOnly(true);
+                integerField.setValue(l.getAdjustment());
+            }
+            return integerField;
+        }).setHeader("Add Stock");
         Grid.Column<StockAdjustmentItems> costColumn = items.addColumn(StockAdjustmentItems::getCost).setHeader("Cost");
         Grid.Column<StockAdjustmentItems> stockAfterColumn = items.addColumn(StockAdjustmentItems::getStockAfter).setHeader("Stock after");
 
@@ -202,7 +312,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         type = new Select<>("Reason", l -> {
             // change items columns
 
-            if(l.getValue() == null){
+            if (l.getValue() == null) {
                 return;
             }
 
@@ -230,38 +340,60 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                 stockAfterColumn.setVisible(true);
 
             }
+            items.getDataProvider().refreshAll();
+            workingVisibility();
         });
         type.setItems(StockAdjustment.Type.values());
         type.setItemLabelGenerator(StockAdjustment.Type::getCaption);
         date.setVisible(false);
         formLayout.add(batchIdFld, type, sectionId, note);
 
-        formLayout.add(itemsLayout = new VerticalLayout(new H3("Items")));
-        formLayout.setColspan(batchIdFld,2);
-        formLayout.setColspan(itemsLayout,2);
-        formLayout.setColspan(note,2);
-        itemsLayout.add(items);
+        itemsLayout = new VerticalLayout();
+        itemsLayout.setPadding(false);
 
+        formLayout.setColspan(batchIdFld, 2);
+
+        formLayout.setColspan(note, 2);
+        itemsLayout.add(items);
 
 
         itemsCmb = new ComboBox<>();
         itemsCmb.setWidthFull();
         FormLayout.FormItem formItem = formLayout.addFormItem(itemsCmb, "Select a item");
-        formLayout.setColspan(formItem,2);
-        itemsCmb.setPlaceholder("FOR NEW ITEM LEAVE EMPTY");
-        itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), query.getFilter()));
+        formLayout.setColspan(formItem, 2);
+
+        formLayout.add(itemsLayout);
+        formLayout.setColspan(itemsLayout, 2);
+
+        itemsCmb.setPlaceholder("Select item to use");
+        itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), Collections.singleton(sectionId.getValue()), query.getFilter()));
         itemsCmb.setItemLabelGenerator(l -> {
             return l.getVariant().getSku() + " - " + l.getItem_name();
         });
 
         itemsCmb.addValueChangeListener(v -> {
-            StockAdjustmentItems stockAdjustmentItems = new StockAdjustmentItems();
-            stockAdjustmentItems.setItemId(v.getValue().getUuId());
-            stockAdjustmentItems.setInStock(v.getValue().getStock_level());
-            stockAdjustmentItems.setItemName(v.getValue().getItem_name());
-            stockAdjustmentItems.setStockAdjustmentId(this.stockadjustment.getId());
-            StockAdjustmentItems update = stockAdjustmentItemsService.update(stockAdjustmentItems);
-            items.getDataProvider().refreshItem(update);
+            Item value = v.getValue();
+            if (value != null) {
+
+                if(itemList.stream().anyMatch(f -> f.getItemId().equalsIgnoreCase(value.getUuId()))){
+                    Notification n = Notification.show("This Item has already been selected");
+                    n.setPosition(Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_WARNING);
+                } else {
+
+                    StockAdjustmentItems stockAdjustmentItems = new StockAdjustmentItems();
+                    stockAdjustmentItems.setItemId(value.getUuId());
+                    stockAdjustmentItems.setInStock(value.getStock_level());
+                    stockAdjustmentItems.setItemName(value.getItem_name());
+                    stockAdjustmentItems.setCost(value.getVariant() == null ? null : value.getVariant().getCost());
+                    stockAdjustmentItems.setStockAfter(value.getStock_level());
+//            stockAdjustmentItems.setStockAdjustmentId(this.stockadjustment.getId());
+//            StockAdjustmentItems update = stockAdjustmentItemsService.update(stockAdjustmentItems);
+                    itemList.add(stockAdjustmentItems);
+                    items.setItems(itemList);
+                    itemsCmb.clear();
+                }
+            }
         });
 
 
@@ -270,6 +402,14 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
 
         splitLayout.addToSecondary(editorLayoutDiv);
 
+        workingVisibility();
+
+    }
+
+    private void workingVisibility() {
+        adjustBtn.setVisible(stockadjustment == null && StringUtils.isNotBlank(sectionId.getValue()) && type.getValue() != null);
+        items.setVisible(stockadjustment == null && StringUtils.isNotBlank(sectionId.getValue()) && type.getValue() != null);
+        itemsCmb.setVisible(stockadjustment == null && StringUtils.isNotBlank(sectionId.getValue()) && type.getValue() != null);
     }
 
     private Long getBusinessId() {
@@ -304,6 +444,10 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private void populateForm(StockAdjustment value) {
         this.stockadjustment = value;
         binder.readBean(this.stockadjustment);
+        itemList.clear();
+        itemsCmb.getDataProvider().refreshAll();
+        items.getDataProvider().refreshAll();
+        itemsCmb.clear();
         if (value != null) {
             // stockadjustment Id
             batchIdFld.getElement().getThemeList().remove("warning");
@@ -315,6 +459,11 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             note.setReadOnly(true);
             sectionId.setReadOnly(true);
             adjustBtn.setVisible(false);
+            itemsCmb.setReadOnly(true);
+            items.setItems(stockAdjustmentItemsService.findByStockAdjustmentId(value.getId()));
+
+            items.setVisible(true);
+            itemsCmb.setVisible(true);
         } else {
             // stockadjustment Id
             batchIdFld.setText("!!!NEW!!!");
@@ -327,7 +476,10 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             type.setReadOnly(false);
             note.setReadOnly(false);
             sectionId.setReadOnly(false);
+            itemsCmb.setReadOnly(false);
             adjustBtn.setVisible(true);
+            items.setItems(new ArrayList<>());
+            workingVisibility();
         }
     }
 }

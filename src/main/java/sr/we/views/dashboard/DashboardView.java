@@ -199,6 +199,7 @@ public class DashboardView extends Main implements BeforeEnterObserver  {
             dashTypeSelect.addThemeVariants(SelectVariant.LUMO_SMALL);
 
             sectionId = new MultiSelectComboBox<>("Section");
+            sectionId.setClearButtonVisible(true);
             sectionId.setWidthFull();
             sectionId.getElement().getStyle().set("padding","0px");
 

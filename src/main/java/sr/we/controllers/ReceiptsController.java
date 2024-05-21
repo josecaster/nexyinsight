@@ -66,7 +66,11 @@ public class ReceiptsController {
             Criteria criteria2 = new Criteria().andOperator(criteria);
             ors.add(criteria2);
         }
-        criteria1.orOperator(ors);
+        if(!ors.isEmpty()) {
+            criteria1.orOperator(ors);
+        } else {
+            return Stream.empty();
+        }
 
         query.with(PageRequest.of(page, pageSize));
         if (predicate != null) {

@@ -163,7 +163,6 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         grid = new Grid<>();
         grid.setSelectionMode(SelectionMode.MULTI);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_COLUMN_BORDERS);
-        grid.setHeight("100%");
 
         grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()));
 
@@ -218,8 +217,10 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     private void createPictureColumn() {
         grid.addComponentColumn(n -> {
             Avatar avatar = new Avatar(n.getName());
-            StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(n.getProfilePicture()));
-            avatar.setImageResource(resource);
+            if (n.getProfilePicture() != null) {
+                StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(n.getProfilePicture()));
+                avatar.setImageResource(resource);
+            }
             avatar.getElement().setAttribute("tabindex", "-1");
 
             MenuBar menuBar = new MenuBar();

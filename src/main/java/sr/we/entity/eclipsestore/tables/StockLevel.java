@@ -9,6 +9,15 @@ public class StockLevel {
     private int in_stock, stock_after;
     private LocalDateTime updated_at;
 
+    public StockLevel(String variant_id, String store_id, int stock_after) {
+        this.variant_id = variant_id;
+        this.store_id = store_id;
+        this.stock_after = stock_after;
+    }
+
+    public StockLevel() {
+    }
+
     public String getVariant_id() {
         return variant_id;
     }

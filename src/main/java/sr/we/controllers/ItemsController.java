@@ -107,37 +107,95 @@ public class ItemsController {
         if (page != null && pageSize != null) {
             query.with(PageRequest.of(page, pageSize));
         }
-//        List<Criteria> ors = new ArrayList<>();
-//        for (String sectionId : sectionIds) {
-//            Section section = storesController.oneStore(sectionId);
-//            List<Criteria> criteria = linkSection(section);
-//            Criteria criteriaDefinition = new Criteria().andOperator(criteria);
-//            ors.add(criteriaDefinition);
-//        }
-
 
         List<Criteria> ors = new ArrayList<>();
 
         for (String n : sections) {
             Section l = storesController.oneStore(n);
-//            if(!l.isDefault()) {
             List<Criteria> criteria = ItemsController.linkSection(l, true);
             Criteria criteria2 = new Criteria().andOperator(criteria);
             ors.add(criteria2);
-//            }
         }
         Criteria criteria1 = new Criteria();
-        criteria1.orOperator(ors);
+        if(!ors.isEmpty()) {
+            criteria1.orOperator(ors);
+        } else {
+            return Stream.empty();
+        }
 
-//        if(!ors.isEmpty()){
-//            criteria1.orOperator(ors);
-//        }
         if (predicate != null) {
             for (Criteria criteria : predicate) {
                 query.addCriteria(criteria);
             }
         }
         query.addCriteria(criteria1).with(Sort.by(Sort.Direction.ASC, "item_name"));
+        return mongoTemplate.find(query, Item.class).stream();
+    }
+
+    /**
+     * @param businessId provide Business Id
+     * @param page       provide pagination page
+     * @param pageSize   provide pagination page size
+     * @param sections   provide sectionIds for further validation
+     * @param filter     provide filter string to query some base fields
+     * @return Stream of Item
+     */
+    public Stream<Item> allItems(Long businessId, Integer page, Integer pageSize, Set<String> sections, Optional<String> filter) {
+
+
+
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where("businessId").is(businessId));
+        if (page != null && pageSize != null) {
+            query.with(PageRequest.of(page, pageSize));
+        }
+
+        Criteria criteria = new Criteria();
+
+        List<Criteria> orSectionCriteria = new ArrayList<>();
+
+        for (String n : sections) {
+            if(StringUtils.isBlank(n)){
+                continue;
+            }
+            Section l = storesController.oneStore(n);
+            if(l == null){
+                continue;
+            }
+            List<Criteria> criterias = ItemsController.linkSection(l, true);
+            Criteria criteria2 = new Criteria().andOperator(criterias);
+            orSectionCriteria.add(criteria2);
+        }
+
+//        query.addCriteria(new Criteria().orOperator(orSectionCriteria.toArray(new Criteria[0])));
+
+        // Combine section OR conditions
+        Criteria finalCriteria = new Criteria();
+        if (!orSectionCriteria.isEmpty()) {
+            finalCriteria = finalCriteria.orOperator(orSectionCriteria.toArray(new Criteria[0]));
+        } else {
+            return Stream.empty();
+        }
+
+        if (filter.isPresent()) {
+            List<Criteria> orFilterCriteria = new ArrayList<>();
+            String s = filter.get().toUpperCase();
+            if (StringUtils.isNotBlank(s)) {
+                orFilterCriteria.add(Criteria.where("item_name").regex(s, "i"));
+                orFilterCriteria.add(Criteria.where("variant.sku").regex(s, "i"));
+                orFilterCriteria.add(Criteria.where("variant.barcode").regex(s, "i"));
+                orFilterCriteria.add(Criteria.where("description").regex(s, "i"));
+                // Add filter criteria to the query
+                finalCriteria = finalCriteria.andOperator(new Criteria().orOperator(orFilterCriteria.toArray(new Criteria[0])));
+            }
+        }
+
+        // Add final combined criteria to the query
+        query.addCriteria(finalCriteria);
+
+
+        query.with(Sort.by(Sort.Direction.ASC, "item_name"));
         return mongoTemplate.find(query, Item.class).stream();
     }
 
