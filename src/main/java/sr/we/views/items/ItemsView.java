@@ -3,6 +3,7 @@ package sr.we.views.items;
 import com.flowingcode.vaadin.addons.gridexporter.GridExporter;
 import com.vaadin.componentfactory.onboarding.Onboarding;
 import com.vaadin.componentfactory.onboarding.OnboardingStep;
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.Text;
@@ -43,6 +44,8 @@ import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
+import sr.we.views.MobileSupport;
+import sr.we.views.users.CardView;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
@@ -57,7 +60,7 @@ import java.util.stream.Collectors;
 @Route(value = "items", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction {
+public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction, MobileSupport {
 
     private final ItemsController ItemService;
     private final Filters filters;
@@ -65,6 +68,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
     private final AuthenticatedUser authenticatedUser;
     private final StoresController storesController;
     private final Set<String> linkSections;
+    private final VerticalLayout layout;
     private Grid<Item> grid;
     private Grid.Column<Item> storeColumn;
     private Grid.Column<Item> priceColumn;
@@ -82,7 +86,11 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
     private List<Section> sections;
     private Grid.Column<Item> sectionColumn;
     private MultiSelectComboBox<String> sectionId;
-//    private Grid.Column<Item> stockLevelDate;
+    private Grid.Column<Item> itemsMobileColumn;
+    private GridExporter<Item> exporter;
+    private Grid.Column<Item> skuColumn;
+    private Grid.Column<Item> codeColumn;
+    //    private Grid.Column<Item> stockLevelDate;
 
     public ItemsView(ItemsController ItemService, StoresController sectionService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.ItemService = ItemService;
@@ -95,7 +103,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
         linkSections = authenticatedUser.get().get().getLinkSections();
 
         filters = new Filters(() -> refreshGrid());
-        VerticalLayout layout = new VerticalLayout(createMobileFilters(), filters, createGrid());
+        layout = new VerticalLayout(/*createMobileFilters(),*/ filters, createGrid());
         layout.setSizeFull();
         layout.setPadding(false);
         layout.setSpacing(false);
@@ -131,11 +139,10 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
 
     private Component createGrid() {
         grid = new Grid<>(Item.class, false);
-        grid.setSelectionMode(Grid.SelectionMode.MULTI);
 
 //        stockLevelDate = grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
-        itemNameColumn = grid.addColumn(i -> i.getVariant().getSku()).setHeader("SKU").setFlexGrow(0).setResizable(true);
-        itemNameColumn = grid.addColumn(i -> i.getVariant().getBarcode()).setHeader("Code").setFlexGrow(0).setResizable(true);
+        skuColumn = grid.addColumn(i -> i.getVariant().getSku()).setHeader("SKU").setFlexGrow(0).setResizable(true);
+        codeColumn = grid.addColumn(i -> i.getVariant().getBarcode()).setHeader("Code").setFlexGrow(0).setResizable(true);
         itemNameColumn = grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
         stockLevelColumn = grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         costColumn = grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
@@ -163,13 +170,18 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
             return span;
         }).setHeader("Section").setAutoWidth(true);
 
+        itemsMobileColumn = grid.addComponentColumn(i -> {
+            return CardView.createCard(null,i.getItem_name(), i.getStock_level()+" in stock", BigDecimal.valueOf(i.getVariantStore().getPrice()).toString());
+        }).setHeader("List of items");
+        itemsMobileColumn.setVisible(false);
+
 
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
 
         createGridFilter();
 
-        GridExporter<Item> exporter = GridExporter.createFor(grid);
+        exporter = GridExporter.createFor(grid);
         exporter.setCsvExportEnabled(false);
         exporter.setDocxExportEnabled(false);
         exporter.setPdfExportEnabled(false);
@@ -187,6 +199,50 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction 
         exporter.setCustomHeader(sectionColumn, "Section");
 
         return grid;
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        boolean isMobile = CardView.isMobileDevice();
+//        editHeader.setVisible(isMobile);
+        if(isMobile){
+//            if(user == null){
+//                splitLayout.setSplitterPosition(100);
+//            } else {
+//                splitLayout.setSplitterPosition(0);
+//            }
+
+            layout.addClassName("card-view");
+            skuColumn.setVisible(false);
+            codeColumn.setVisible(false);
+            costColumn.setVisible(false);
+            itemNameColumn.setVisible(false);
+            priceColumn.setVisible(false);
+            sectionColumn.setVisible(false);
+            inventoryValueColumn.setVisible(false);
+            stockLevelColumn.setVisible(false);
+            storeColumn.setVisible(false);
+            itemsMobileColumn.setVisible(true);
+
+            filters.setVisible(false);
+            exporter.setExcelExportEnabled(false);
+        } else {
+            layout.removeClassName("card-view");
+            skuColumn.setVisible(true);
+            codeColumn.setVisible(true);
+            costColumn.setVisible(true);
+            itemNameColumn.setVisible(true);
+            priceColumn.setVisible(true);
+            sectionColumn.setVisible(true);
+            inventoryValueColumn.setVisible(true);
+            stockLevelColumn.setVisible(true);
+            storeColumn.setVisible(true);
+            itemsMobileColumn.setVisible(false);
+
+            filters.setVisible(true);
+            exporter.setExcelExportEnabled(true);
+        }
     }
 
     private String getSection(Item r) {

@@ -1,6 +1,6 @@
 package sr.we.views.sections;
 
-import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -11,12 +11,10 @@ import com.vaadin.flow.component.contextmenu.MenuItem;
 import com.vaadin.flow.component.contextmenu.SubMenu;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Header;
-import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.menubar.MenuBarVariant;
@@ -38,12 +36,13 @@ import org.apache.commons.lang3.StringUtils;
 import sr.we.controllers.CategoryController;
 import sr.we.controllers.DevicesController;
 import sr.we.controllers.StoresController;
-import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Category;
 import sr.we.entity.eclipsestore.tables.Device;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.views.MainLayout;
+import sr.we.views.MobileSupport;
 import sr.we.views.components.MyLineAwesome;
+import sr.we.views.users.CardView;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -54,11 +53,12 @@ import java.util.Optional;
 @PageTitle("Sections")
 @Route(value = "sections", layout = MainLayout.class)
 @RolesAllowed("ADMIN")
-public class SectionsView extends Div implements BeforeEnterObserver {
+public class SectionsView extends Div implements BeforeEnterObserver, MobileSupport {
 
     private final StoresController sectionService;
     private final CategoryController categoryController;
     private final DevicesController devicesController;
+    private final HorizontalLayout layout;
     private Button newButton;
     private Grid<Section> grid;
     private Binder<Section> binder;
@@ -67,7 +67,14 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     private ComboBox<String> storeComboBox;
     private Grid.Column<Section> myStoreNameColumn;
     private ComboBox<String> categoryComboBox;
-//    private MultiSelectComboBox<String> deviceComboBox;
+    private Grid.Column<Section> sectionsMobileColumn;
+    private Grid.Column<Section> linkStoreColumn;
+    private Grid.Column<Section> categoryColumn;
+    private Grid.Column<Section> sectionColumn;
+    private Grid.Column<Section> editColumn;
+    private Grid.Column<Section> iconColumn;
+    private Grid.Column<Section> defaultColumn;
+    //    private MultiSelectComboBox<String> deviceComboBox;
 
     public SectionsView(StoresController sectionService, CategoryController categoryController, DevicesController devicesController) {
         this.sectionService = sectionService;
@@ -90,7 +97,8 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         horizontalLayout.setPadding(true);
         horizontalLayout.setWidthFull();
         Header header = new Header(horizontalLayout);
-        add(header, grid);
+        layout = new HorizontalLayout(grid);
+        add(header, layout);
 
         settings.addClickListener(c -> {
             Dialog dialog = new Dialog("Synchronize sections & categories");
@@ -164,7 +172,6 @@ public class SectionsView extends Div implements BeforeEnterObserver {
 
     private void createGridComponent() {
         grid = new Grid<>();
-        grid.setSelectionMode(SelectionMode.MULTI);
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_COLUMN_BORDERS);
 
         grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()));
@@ -183,10 +190,13 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         createPictureColumn();
         createStoreNameColumn();
         createLinkStoreColumn();
-//        createDeviceColumn();
         createCategoryColumn();
         createDefaultColumn();
         createEditColumn();
+        sectionsMobileColumn = grid.addComponentColumn(r -> {
+            return CardView.createCard(r.getProfilePicture(),r.getName(),"","");
+        }).setHeader("List of sections");
+        sectionsMobileColumn.setVisible(false);
 
 
         grid.getEditor().addOpenListener(l -> {
@@ -209,6 +219,50 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         });
     }
 
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        boolean isMobile = CardView.isMobileDevice();
+//        editHeader.setVisible(isMobile);
+        if(isMobile){
+//            if(user == null){
+//                splitLayout.setSplitterPosition(100);
+//            } else {
+//                splitLayout.setSplitterPosition(0);
+//            }
+
+            layout.addClassName("card-view");
+            iconColumn.setVisible(false);
+            linkStoreColumn.setVisible(false);
+            myStoreNameColumn.setVisible(false);
+            categoryColumn.setVisible(false);
+            editColumn.setVisible(false);
+            defaultColumn.setVisible(false);
+            sectionsMobileColumn.setVisible(true);
+//            createPictureColumn();
+//            createStoreNameColumn();
+//            createLinkStoreColumn();
+//            createCategoryColumn();
+//            createDefaultColumn();
+//            createEditColumn();
+
+//            filters.setVisible(false);
+//            exporter.setExcelExportEnabled(false);
+        } else {
+            layout.removeClassName("card-view");
+            iconColumn.setVisible(true);
+            linkStoreColumn.setVisible(true);
+            myStoreNameColumn.setVisible(true);
+            categoryColumn.setVisible(true);
+            editColumn.setVisible(true);
+            defaultColumn.setVisible(true);
+            sectionsMobileColumn.setVisible(false);
+
+//            filters.setVisible(true);
+//            exporter.setExcelExportEnabled(true);
+        }
+    }
+
     private Section addNewStore(Section item) {
         return sectionService.addNewStore(item);
     }
@@ -218,7 +272,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private void createPictureColumn() {
-        grid.addComponentColumn(n -> {
+        iconColumn = grid.addComponentColumn(n -> {
             Avatar avatar = new Avatar(n.getName());
             if (n.getProfilePicture() != null) {
                 StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(n.getProfilePicture()));
@@ -267,7 +321,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private void createLinkStoreColumn() {
-        Grid.Column<Section> linkStoreColumn = grid.addColumn(l -> {
+        linkStoreColumn = grid.addColumn(l -> {
             Optional<Section> any = sectionService.allStores(getBusinessId()).stream().filter(Section::isDefault).filter(n -> n.getId().equalsIgnoreCase(l.getId())).findAny();
             return any.map(Section::getDefault_name).orElse(l.getId());
         }).setHeader("Link store");
@@ -300,7 +354,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private void createCategoryColumn() {
-        Grid.Column<Section> categoryColumn = grid.addComponentColumn(section -> {
+        categoryColumn = grid.addComponentColumn(section -> {
             ComboBox<String> categoryComboBox = new ComboBox<>();
             categoryComboBox.setWidthFull();
             categoryComboBox.setReadOnly(true);
@@ -328,7 +382,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private void createDefaultColumn() {
-        grid.addComponentColumn(store -> {
+        defaultColumn = grid.addComponentColumn(store -> {
             Checkbox checkbox = new Checkbox(store.isDefault());
             checkbox.setReadOnly(true);
             return checkbox;
@@ -336,7 +390,7 @@ public class SectionsView extends Div implements BeforeEnterObserver {
     }
 
     private void createEditColumn() {
-        Grid.Column<Section> editColumn = grid.addComponentColumn(store -> {
+        editColumn = grid.addComponentColumn(store -> {
             Button editButton = new Button("Edit");
             editButton.addClickListener(e -> {
                 if (grid.getEditor().isOpen()) grid.getEditor().cancel();

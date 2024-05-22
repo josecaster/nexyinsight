@@ -15,6 +15,8 @@ import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.VaadinSession;
+import com.vaadin.flow.server.WebBrowser;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.io.ByteArrayInputStream;
@@ -33,8 +35,7 @@ public class CardView {
     }
 
 
-
-    static HorizontalLayout createCard(byte[] pic, String nam, String dat, String pos) {
+    public static HorizontalLayout createCard(byte[] pic, String nam, String dat, String pos) {
         HorizontalLayout card = new HorizontalLayout();
         card.addClassName("card");
         card.setSpacing(false);
@@ -89,6 +90,63 @@ public class CardView {
         description.add(header, post/*, actions*/);
         card.add(avatar, description);
         return card;
+    }
+
+    public static HorizontalLayout createCard(String nam, String dat, String pos, String like, String type) {
+        HorizontalLayout card = new HorizontalLayout();
+        card.addClassName("card");
+        card.setSpacing(false);
+        card.getThemeList().add("spacing-s");
+
+
+        VerticalLayout description = new VerticalLayout();
+        description.addClassName("description");
+        description.setSpacing(false);
+        description.setPadding(false);
+
+        HorizontalLayout header = new HorizontalLayout();
+        header.addClassName("header");
+        header.setSpacing(false);
+        header.getThemeList().add("spacing-s");
+
+        Span name = new Span(nam);
+        name.addClassName("name");
+        Span date = new Span(dat);
+        date.addClassName("date");
+        header.add(name, date);
+
+        Span post = new Span(pos);
+        post.addClassName("post");
+
+        HorizontalLayout actions = new HorizontalLayout();
+        actions.addClassName("actions");
+        actions.setSpacing(false);
+        actions.getThemeList().add("spacing-s");
+
+        Icon likeIcon = VaadinIcon.CALENDAR_CLOCK.create();
+        likeIcon.addClassName("icon");
+        Span likes = new Span(like);
+        likes.addClassName("likes");
+//        Icon commentIcon = VaadinIcon.COMMENT.create();
+//        commentIcon.addClassName("icon");
+        Span comments = new Span(type);
+        comments.addClassName("comments");
+        comments.getElement().getThemeList().add(type.equalsIgnoreCase("SALE") ? "badge success": "badge error");
+//        Icon shareIcon = VaadinIcon.CONNECT.create();
+//        shareIcon.addClassName("icon");
+//        Span shares = new Span(person.getShares());
+//        shares.addClassName("shares");
+
+        actions.add(likeIcon, likes, /*commentIcon,*/ comments/*, shareIcon, shares*/);
+
+        description.add(header, post, actions);
+        card.add(description);
+        return card;
+    }
+
+    public static boolean isMobileDevice() {
+        WebBrowser webBrowser = VaadinSession.getCurrent().getBrowser();
+        return webBrowser.isAndroid() || webBrowser.isIPhone() || webBrowser.isWindowsPhone();
     }
 
 }

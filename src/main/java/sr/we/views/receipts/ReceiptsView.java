@@ -3,6 +3,7 @@ package sr.we.views.receipts;
 import com.flowingcode.vaadin.addons.gridexporter.GridExporter;
 import com.vaadin.componentfactory.onboarding.Onboarding;
 import com.vaadin.componentfactory.onboarding.OnboardingStep;
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.Text;
@@ -43,6 +44,8 @@ import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
+import sr.we.views.MobileSupport;
+import sr.we.views.users.CardView;
 
 import java.text.SimpleDateFormat;
 import java.time.*;
@@ -55,7 +58,7 @@ import java.util.stream.Collectors;
 @Route(value = "receipts", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFunction {
+public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFunction , MobileSupport {
 
     private static List<Section> sections;
     private static User user;
@@ -64,6 +67,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     private final AuthenticatedUser authenticatedUser;
     private final Filters filters;
     private final StoresController storesController;
+    private final VerticalLayout layout;
     private Grid<Receipt> grid;
     private TextField receiptNumberFld;
     private BigDecimalField costFld;
@@ -85,6 +89,9 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     private Grid.Column<Receipt> grossTotalColumn;
     private Grid.Column<Receipt> createDateColumn;
     private ComboBox<Section> storeFld;
+    private Grid.Column<Receipt> receiptMobileColumn;
+    private boolean isMobile;
+    private GridExporter<Receipt> exporter;
 
     public ReceiptsView(StoresController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.receiptService = ReceiptService;
@@ -95,7 +102,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         addClassNames("items-view");
 
         filters = new Filters(this::refreshGrid);
-        VerticalLayout layout = new VerticalLayout(createMobileFilters(), filters, createGrid());
+        layout = new VerticalLayout(/*createMobileFilters(), */filters, createGrid());
         layout.setSizeFull();
         layout.setPadding(false);
         layout.setSpacing(false);
@@ -145,7 +152,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             String[] number = r.getReceipt_number().split("-");
             return number[0] + "-" + number[1];
         });
-        receiptNumberColumn.setHeader("Receipt #").setFrozen(true).setAutoWidth(true).setResizable(true);
+        receiptNumberColumn.setHeader("Receipt #").setAutoWidth(true).setResizable(true);
         typeColumn = grid.addColumn(Receipt::getReceipt_type).setHeader("Type").setAutoWidth(true);
         storeColumn = grid.addColumn(l -> {
             String storeId = l.getStore_id();
@@ -167,6 +174,11 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         totalColumn = grid.addColumn(r -> r.getLine_item().getTotal_money()).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         grossTotalColumn = grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
+        receiptMobileColumn = grid.addComponentColumn(r -> {
+            String[] number = r.getReceipt_number().split("-");
+            return CardView.createCard(r.getLine_item().getGross_total_money().toString(), (number[0] + "-" + number[1]), r.getLine_item().getItem_name(), r.getReceipt_date().toString(), r.getReceipt_type());
+        }).setHeader("List of receipts");
+        receiptMobileColumn.setVisible(false);
 
 //        sections = sectionService.allStores(getBusinessId());
         Optional<User> userOptional = authenticatedUser.get();
@@ -177,7 +189,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
 
         createGridFilter();
 
-        GridExporter<Receipt> exporter = GridExporter.createFor(grid);
+        exporter = GridExporter.createFor(grid);
         exporter.setCsvExportEnabled(false);
         exporter.setDocxExportEnabled(false);
         exporter.setPdfExportEnabled(false);
@@ -207,6 +219,52 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         exporter.setFileName("GridExportReceipts" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
 
         return grid;
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        isMobile = CardView.isMobileDevice();
+//        editHeader.setVisible(isMobile);
+        if(isMobile){
+//            if(user == null){
+//                splitLayout.setSplitterPosition(100);
+//            } else {
+//                splitLayout.setSplitterPosition(0);
+//            }
+
+            layout.addClassName("card-view");
+            costColumn.setVisible(false);
+            createDateColumn.setVisible(false);
+            discountColumn.setVisible(false);
+            receiptNumberColumn.setVisible(false);
+            grossTotalColumn.setVisible(false);
+            itemColumn.setVisible(false);
+            sectionColumn.setVisible(false);
+            totalColumn.setVisible(false);
+            typeColumn.setVisible(false);
+            storeColumn.setVisible(false);
+            receiptMobileColumn.setVisible(true);
+
+            filters.setVisible(false);
+            exporter.setExcelExportEnabled(false);
+        } else {
+            layout.removeClassName("card-view");
+            costColumn.setVisible(true);
+            createDateColumn.setVisible(true);
+            discountColumn.setVisible(true);
+            receiptNumberColumn.setVisible(true);
+            grossTotalColumn.setVisible(true);
+            itemColumn.setVisible(true);
+            sectionColumn.setVisible(true);
+            totalColumn.setVisible(true);
+            typeColumn.setVisible(true);
+            storeColumn.setVisible(true);
+            receiptMobileColumn.setVisible(false);
+
+            filters.setVisible(true);
+            exporter.setExcelExportEnabled(true);
+        }
     }
 
     @Override
@@ -474,7 +532,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
 //                    check = false;
 //                }
 //            }
-            return criterias;
+            return new ArrayList<>();
         }
     }
 

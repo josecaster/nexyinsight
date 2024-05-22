@@ -30,6 +30,7 @@ import sr.we.entity.User;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.MainLayout;
+import sr.we.views.MobileSupport;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -44,7 +45,7 @@ import java.util.concurrent.Future;
 @Route(value = "dashboard", layout = MainLayout.class)
 @RouteAlias(value = "", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
-public class DashboardView extends Main implements BeforeEnterObserver  {
+public class DashboardView extends Main implements BeforeEnterObserver , MobileSupport {
 
     private final AuthenticatedUser authenticatedUser;
     private final UI ui;

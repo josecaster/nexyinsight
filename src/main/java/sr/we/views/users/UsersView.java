@@ -48,6 +48,7 @@ import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.UserService;
 import sr.we.views.MainLayout;
+import sr.we.views.MobileSupport;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ import java.util.Optional;
 @Route(value = "users/:usersId?/:action?(edit)", layout = MainLayout.class)
 @PermitAll
 @RolesAllowed("ADMIN")
-public class UsersView extends Div implements BeforeEnterObserver {
+public class UsersView extends Div implements BeforeEnterObserver, MobileSupport {
 
     final String IV_ID = "usersId";
     private final String IV_EDIT_ROUTE_TEMPLATE = "users/%s/edit";
@@ -130,7 +131,7 @@ public class UsersView extends Div implements BeforeEnterObserver {
         usernameColumn = grid.addColumn(User::getUsername).setHeader("Username").setAutoWidth(true);
         emailColumn = grid.addColumn(User::getEmail).setHeader("Email").setAutoWidth(true);
         userMobileColumn = grid.addComponentColumn(u -> CardView.createCard(u.getProfilePicture(), u.getName(), u.getUsername(), u.getEmail())).setHeader("List of users");
-        userColumn.setVisible(false);
+        userMobileColumn.setVisible(false);
 
 
         grid.setItems(query -> userService.list(PageRequest.of(query.getPage(), query.getPageSize())).get());
@@ -184,15 +185,12 @@ public class UsersView extends Div implements BeforeEnterObserver {
         });
     }
 
-    public  boolean isMobileDevice() {
-        WebBrowser webBrowser = VaadinSession.getCurrent().getBrowser();
-        return webBrowser.isAndroid() || webBrowser.isIPhone() || webBrowser.isWindowsPhone();
-    }
+
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        isMobile = isMobileDevice();
+        isMobile = CardView.isMobileDevice();
         editHeader.setVisible(isMobile);
         if(isMobile){
             if(user == null){

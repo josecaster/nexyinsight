@@ -2,6 +2,7 @@ package sr.we.views;
 
 import com.vaadin.componentfactory.ToggleButton;
 import com.vaadin.componentfactory.onboarding.Onboarding;
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
@@ -24,7 +25,6 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.page.Viewport;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.component.textfield.EmailField;
@@ -73,6 +73,7 @@ import sr.we.views.items.ItemsView;
 import sr.we.views.receipts.ReceiptsView;
 import sr.we.views.sections.SectionsView;
 import sr.we.views.stockadjustment.StockAdjustmentView;
+import sr.we.views.users.CardView;
 import sr.we.views.users.UsersView;
 
 import java.io.ByteArrayInputStream;
@@ -88,6 +89,7 @@ import java.util.*;
 
 public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
+    protected static final List<SimpleDateRange> DATERANGE_VALUES = Arrays.asList(SimpleDateRanges.allValues());
     private final AuthenticatedUser authenticatedUser;
     private final AccessAnnotationChecker accessChecker;
     private final UserService userService;
@@ -101,6 +103,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private final AuthController authController;
     private final WebhookRepository webhookRepository;
     private final WebhookService webhookService;
+    List<SideNavItem> webNavs;
     private User user;
     private ToggleButton toggleButton;
     private Task byTypeAndBusinessId;
@@ -156,7 +159,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
         rangePicker.addValueChangeListener(l -> {
             DateRangeModel<SimpleDateRange> value = l.getValue();
-            if(value.getStart() != null && value.getEnd() != null){
+            if (value.getStart() != null && value.getEnd() != null) {
 //                UI.getCurrent().
             }
         });
@@ -169,8 +172,6 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         infoButton.addClickListener(c -> onboarding.start());
         addToNavbar(true, toggle, viewTitle, infoButton);
     }
-
-    protected static final List<SimpleDateRange> DATERANGE_VALUES = Arrays.asList(SimpleDateRanges.allValues());
 
     private void addDrawerContent() {
         H1 appName = new H1("Nexyinsight");
@@ -190,7 +191,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             Avatar avatar = new Avatar(user.getName());
             StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(user.getProfilePicture()));
             avatar.setImageResource(resource);
-            avatar.setThemeName("xlarge");
+            avatar.setThemeName("xxxlarge");
             avatar.getElement().setAttribute("tabindex", "-1");
 
             MenuBar menuBar = new MenuBar();
@@ -198,7 +199,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             menuBar.addThemeVariants(MenuBarVariant.LUMO_TERTIARY_INLINE);
 
             MenuItem menuItem = menuBar.addItem(avatar);
-            menuItem.getElement().getStyle().setHeight("200px");
+            menuItem.getElement().getStyle().setHeight("150px");
             SubMenu subMenu = menuItem.getSubMenu();
             subMenu.addItem("Upload profile", l -> {
                 Upload upload = new Upload();
@@ -337,13 +338,27 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         return new Footer(footer);
     }
 
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        boolean isMobile = CardView.isMobileDevice();
+        if(isMobile){
+            for(SideNavItem sideNavItem : webNavs){
+                sideNavItem.setVisible(false);
+            }
+        }
+    }
+
     private SideNav createNavigation() {
         SideNav nav = new SideNav();
-
+        webNavs = new ArrayList<>();
         for (MenuItemInfo menuItem : createMenuItems()) {
             if (accessChecker.hasAccess(menuItem.getView())) {
-//                list.add(menuItem);
-                nav.addItem(new SideNavItem(menuItem.getMenuTitle(), menuItem.getView(), menuItem.getIcon()));
+                SideNavItem sideNavItem = new SideNavItem(menuItem.getMenuTitle(), menuItem.getView(), menuItem.getIcon());
+                if (!MobileSupport.class.isAssignableFrom(menuItem.getView())) {
+                    webNavs.add(sideNavItem);
+                }
+                nav.addItem(sideNavItem);
             }
 
         }

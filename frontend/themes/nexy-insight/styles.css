@@ -85,9 +85,17 @@ html {
 
     }
 
-    [theme~="xlarge"] {
-        --vaadin-avatar-size: 200px;
+    [theme~="xxlarge"] {
+        --vaadin-avatar-size: 100px;
     }
+
+    [theme~="xxxlarge"] {
+            --vaadin-avatar-size: 150px;
+        }
+
+        [theme~="xxxxlarge"] {
+                    --vaadin-avatar-size: 200px;
+                }
 
 
 .myborderstyle bs-column {
