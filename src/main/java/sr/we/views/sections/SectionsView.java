@@ -15,6 +15,7 @@ import com.vaadin.flow.component.grid.Grid.SelectionMode;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Header;
 import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.menubar.MenuBar;
@@ -86,8 +87,10 @@ public class SectionsView extends Div implements BeforeEnterObserver {
         newButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         HorizontalLayout horizontalLayout = new HorizontalLayout(newButton, settings);
+        horizontalLayout.setPadding(true);
         horizontalLayout.setWidthFull();
-        add(horizontalLayout, grid);
+        Header header = new Header(horizontalLayout);
+        add(header, grid);
 
         settings.addClickListener(c -> {
             Dialog dialog = new Dialog("Synchronize sections & categories");

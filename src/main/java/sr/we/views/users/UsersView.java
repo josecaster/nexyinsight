@@ -1,5 +1,6 @@
 package sr.we.views.users;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
@@ -10,12 +11,14 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Header;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.Notification.Position;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.page.Page;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -27,6 +30,8 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.VaadinSession;
+import com.vaadin.flow.server.WebBrowser;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -65,6 +70,12 @@ public class UsersView extends Div implements BeforeEnterObserver {
     private final AuthenticatedUser authenticatedUser;
     private final StoresController storesController;
     private final PasswordEncoder passwordEncoder;
+    private final SplitLayout splitLayout;
+    private final Grid.Column<User> userMobileColumn;
+    private final Grid.Column<User> emailColumn;
+    private final Grid.Column<User> usernameColumn;
+    private final Grid.Column<User> userColumn;
+    private boolean isMobile;
     private TextField username;
     private TextField name;
     //    private PasswordField hashedPassword;
@@ -76,8 +87,12 @@ public class UsersView extends Div implements BeforeEnterObserver {
     private Checkbox enabled;
     private User user;
     private Button changePwdBtn;
+    private Header editHeader;
+    private Div wrapper;
+
 
     public UsersView(UserService userService, AuthenticatedUser authenticatedUser, StoresController storesController, PasswordEncoder passwordEncoder) {
+
 
         this.userService = userService;
         this.authenticatedUser = authenticatedUser;
@@ -87,15 +102,16 @@ public class UsersView extends Div implements BeforeEnterObserver {
         addClassNames("batches-view");
 
         // Create UI
-        SplitLayout splitLayout = new SplitLayout();
+        splitLayout = new SplitLayout();
 
         createGridLayout(splitLayout);
         createEditorLayout(splitLayout);
 
+
         add(splitLayout);
 
         // Configure Grid
-        grid.addColumn(new ComponentRenderer<>(client -> {
+        userColumn = grid.addColumn(new ComponentRenderer<>(client -> {
             HorizontalLayout hl = new HorizontalLayout();
             hl.setAlignItems(FlexComponent.Alignment.CENTER);
             Avatar avatar = new Avatar(client.getName());
@@ -111,8 +127,12 @@ public class UsersView extends Div implements BeforeEnterObserver {
             hl.add(avatar, span);
             return hl;
         })).setComparator(User::getName).setHeader("User");
-        grid.addColumn(User::getUsername).setHeader("Username").setAutoWidth(true);
-        grid.addColumn(User::getEmail).setHeader("Email").setAutoWidth(true);
+        usernameColumn = grid.addColumn(User::getUsername).setHeader("Username").setAutoWidth(true);
+        emailColumn = grid.addColumn(User::getEmail).setHeader("Email").setAutoWidth(true);
+        userMobileColumn = grid.addComponentColumn(u -> CardView.createCard(u.getProfilePicture(), u.getName(), u.getUsername(), u.getEmail())).setHeader("List of users");
+        userColumn.setVisible(false);
+
+
         grid.setItems(query -> userService.list(PageRequest.of(query.getPage(), query.getPageSize())).get());
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 
@@ -136,6 +156,9 @@ public class UsersView extends Div implements BeforeEnterObserver {
         cancel.addClickListener(e -> {
             clearForm();
             refreshGrid();
+            if(isMobile){
+                splitLayout.setSplitterPosition(0);
+            }
         });
 
         save.addClickListener(e -> {
@@ -161,6 +184,37 @@ public class UsersView extends Div implements BeforeEnterObserver {
         });
     }
 
+    public  boolean isMobileDevice() {
+        WebBrowser webBrowser = VaadinSession.getCurrent().getBrowser();
+        return webBrowser.isAndroid() || webBrowser.isIPhone() || webBrowser.isWindowsPhone();
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        isMobile = isMobileDevice();
+        editHeader.setVisible(isMobile);
+        if(isMobile){
+            if(user == null){
+                splitLayout.setSplitterPosition(100);
+            } else {
+                splitLayout.setSplitterPosition(0);
+            }
+
+            wrapper.addClassName("card-view");
+            emailColumn.setVisible(false);
+            userColumn.setVisible(false);
+            usernameColumn.setVisible(false);
+            userMobileColumn.setVisible(true);
+        } else {
+            wrapper.removeClassName("card-view");
+            emailColumn.setVisible(true);
+            userColumn.setVisible(true);
+            usernameColumn.setVisible(true);
+            userMobileColumn.setVisible(false);
+        }
+    }
+
     private Long getBusinessId() {
         return 0L;
     }
@@ -172,6 +226,9 @@ public class UsersView extends Div implements BeforeEnterObserver {
             Optional<User> optionalUser = userService.get(Long.valueOf(usersId.get()));
             if (optionalUser.isPresent()) {
                 populateForm(optionalUser.get());
+                if(isMobile){
+                    splitLayout.setSplitterPosition(0);
+                }
             } else {
                 Notification.show(String.format("The requested user was not found, ID = %s", usersId.get()), 10000, Position.BOTTOM_START).addThemeVariants(NotificationVariant.LUMO_WARNING);
                 // when a row is selected but the data is no longer available,
@@ -179,11 +236,25 @@ public class UsersView extends Div implements BeforeEnterObserver {
                 refreshGrid();
                 event.forwardTo(UsersView.class);
             }
+        } else {
+            if(isMobile){
+                splitLayout.setSplitterPosition(100);
+            }
         }
+
     }
 
     private void createEditorLayout(SplitLayout splitLayout) {
-        Div editorLayoutDiv = new Div();
+        HorizontalLayout horizontalLayout = new HorizontalLayout(new Button("View all", l -> {
+            if (isMobile) {
+                splitLayout.setSplitterPosition(100);
+            }
+        }));
+        horizontalLayout.setClassName("button-layout");
+        horizontalLayout.setPadding(true);
+        editHeader = new Header(horizontalLayout);
+        editHeader.setVisible(false);
+        Div editorLayoutDiv = new Div(editHeader);
         editorLayoutDiv.setClassName("editor-layout");
 
         Div editorDiv = new Div();
@@ -260,15 +331,21 @@ public class UsersView extends Div implements BeforeEnterObserver {
     private void createButtonLayout(Div editorLayoutDiv) {
         HorizontalLayout buttonLayout = new HorizontalLayout();
         buttonLayout.setClassName("button-layout");
-        cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+//        cancel.addThemeVariants(ButtonVariant.);
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        buttonLayout.add(save, cancel);
+        buttonLayout.add(save);
         editorLayoutDiv.add(buttonLayout);
     }
 
     private void createGridLayout(SplitLayout splitLayout) {
-        Div wrapper = new Div();
+        wrapper = new Div();
         wrapper.setClassName("grid-wrapper");
+
+
+        HorizontalLayout horizontalLayout = new HorizontalLayout(cancel);
+        horizontalLayout.setPadding(true);
+        wrapper.add(new Header(horizontalLayout));
+
         splitLayout.addToPrimary(wrapper);
         wrapper.add(grid);
     }
