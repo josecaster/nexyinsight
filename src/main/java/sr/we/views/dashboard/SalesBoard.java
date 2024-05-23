@@ -1,5 +1,6 @@
 package sr.we.views.dashboard;
 
+import com.github.appreciated.apexcharts.ApexCharts;
 import com.github.appreciated.apexcharts.ApexChartsBuilder;
 import com.github.appreciated.apexcharts.config.NoData;
 import com.github.appreciated.apexcharts.config.Theme;
@@ -11,6 +12,7 @@ import com.github.appreciated.apexcharts.config.grid.builder.RowBuilder;
 import com.github.appreciated.apexcharts.config.legend.Position;
 import com.github.appreciated.apexcharts.config.responsive.builder.OptionsBuilder;
 import com.github.appreciated.apexcharts.config.series.SeriesType;
+import com.github.appreciated.apexcharts.config.stroke.Curve;
 import com.github.appreciated.apexcharts.config.theme.Mode;
 import com.github.appreciated.apexcharts.helper.Series;
 import com.vaadin.flow.component.Component;
@@ -150,8 +152,8 @@ public class SalesBoard implements Serializable {
                     }).start();
                     return null;
                 })).withSize(BsColumn.Size.XS)));
-        board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
-        board.addRow(new BsRow(new BsColumn(createServiceHealth(start, end)).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes(start, end)).withSize(BsColumn.Size.XS)));
+//        board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS)));
+        board.addRow(new BsRow(new BsColumn(createViewEvents()).withSize(BsColumn.Size.XS),new BsColumn(createServiceHealth(start, end)).withSize(BsColumn.Size.XS), new BsColumn(createResponseTimes(start, end)).withSize(BsColumn.Size.XS)));
     }
 
     private Component createHighlight(String title, BuildParameter<Object, Span> buildParameter) {
@@ -185,7 +187,7 @@ public class SalesBoard implements Serializable {
 //        badge.getElement().getThemeList().add(theme);
 
         VerticalLayout layout = new VerticalLayout(h2, span);
-        layout.addClassName(LumoUtility.Padding.LARGE);
+//        layout.addClassName(LumoUtility.Padding.LARGE);
         layout.setPadding(false);
         layout.setSpacing(false);
         return layout;
@@ -213,8 +215,8 @@ public class SalesBoard implements Serializable {
         } else {
             theme.setMode(Mode.LIGHT);
         }
-        chart.withChart(ChartBuilder.get().withHeight("400px").withZoom(ZoomBuilder.get().withEnabled(true).build()).build())//
-//                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
+        chart.withChart(ChartBuilder.get().withZoom(ZoomBuilder.get().withEnabled(false).build()).build())//
+                .withStroke(StrokeBuilder.get().withCurve(Curve.SMOOTH).build())//
                 .withTheme(theme).withNoData(noData)//e
                 .withGrid(GridBuilder.get().withRow(RowBuilder.get().build()).build());//
 
@@ -224,8 +226,9 @@ public class SalesBoard implements Serializable {
 
 
         // Add it all together
-        viewEvents = new VerticalLayout(header, chart.build());
-        viewEvents.addClassName(LumoUtility.Padding.LARGE);
+        ApexCharts build = chart.build();
+        viewEvents = new VerticalLayout(header, build);
+//        viewEvents.addClassName(LumoUtility.Padding.LARGE);
         viewEvents.setPadding(false);
         viewEvents.setSpacing(false);
         viewEvents.getElement().getThemeList().add("spacing-l");
@@ -356,7 +359,7 @@ public class SalesBoard implements Serializable {
 
         // Add it all together
         VerticalLayout serviceHealth = new VerticalLayout(header, grid);
-        serviceHealth.addClassName(LumoUtility.Padding.LARGE);
+//        serviceHealth.addClassName(LumoUtility.Padding.LARGE);
         serviceHealth.setPadding(false);
         serviceHealth.setSpacing(false);
         serviceHealth.getElement().getThemeList().add("spacing-l");
@@ -404,7 +407,7 @@ public class SalesBoard implements Serializable {
 
         // Add it all together
 
-        serviceHealth.addClassName(LumoUtility.Padding.LARGE);
+//        serviceHealth.addClassName(LumoUtility.Padding.LARGE);
         serviceHealth.setPadding(false);
         serviceHealth.setSpacing(false);
         serviceHealth.getElement().getThemeList().add("spacing-l");

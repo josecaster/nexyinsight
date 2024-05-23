@@ -102,5 +102,6 @@ html {
         border: 1px solid;
         margin: 5px;
         border-radius: var(--lumo-border-radius-l);
+        padding-top: 5px;
 
 }
