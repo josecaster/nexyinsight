@@ -142,6 +142,9 @@ public class UploadItemsView extends VerticalLayout {
             integerField.addValueChangeListener(v -> {
                 l.setRealQuantity(v.getValue());
             });
+            if(!integerField.isReadOnly()){
+                integerField.setReadOnly(!enabled);
+            }
             return integerField;
         }).setHeader("COUNTED").setAutoWidth(true);
         Grid.Column<BatchItems> uploadColumn = grid.addComponentColumn(l -> {
@@ -149,6 +152,9 @@ public class UploadItemsView extends VerticalLayout {
             integerField.addValueChangeListener(v -> {
                 l.setUpload(v.getValue());
             });
+            if(!integerField.isReadOnly()){
+                integerField.setReadOnly(!enabled);
+            }
             return integerField;
         }).setHeader("UPLOAD").setTooltipGenerator(l -> "Upload will be turned off after already been uploaded. If you turn it on again it will retry the upload").setAutoWidth(true);
 
@@ -451,5 +457,15 @@ public class UploadItemsView extends VerticalLayout {
 
     public Grid<BatchItems> getGrid() {
         return grid;
+    }
+
+    private boolean enabled = true;
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        refreshGrid();
+        save.setEnabled(enabled);
+        save.setVisible(enabled);
     }
 }
