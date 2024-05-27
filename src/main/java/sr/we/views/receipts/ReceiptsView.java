@@ -47,6 +47,7 @@ import sr.we.views.MainLayout;
 import sr.we.views.MobileSupport;
 import sr.we.views.users.CardView;
 
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;
@@ -169,14 +170,14 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             span.setWidthFull();
             return span;
         }).setHeader("Section").setAutoWidth(true);
-        costColumn = grid.addColumn(r -> r.getLine_item().getCost_total()).setHeader("Cost").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        discountColumn = grid.addColumn(r -> r.getLine_item().getTotal_discount()).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        totalColumn = grid.addColumn(r -> r.getLine_item().getTotal_money()).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-        grossTotalColumn = grid.addColumn(r -> r.getLine_item().getGross_total_money()).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        costColumn = grid.addColumn(r -> r.getLine_item().getCost_total() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getCost_total())).setHeader("Cost").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        discountColumn = grid.addColumn(r -> r.getLine_item().getTotal_discount() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getTotal_discount())).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        totalColumn = grid.addColumn(r -> r.getLine_item().getTotal_money() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getTotal_money())).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
+        grossTotalColumn = grid.addColumn(r -> r.getLine_item().getGross_total_money() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getGross_total_money())).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
 
         receiptMobileColumn = grid.addComponentColumn(r -> {
             String[] number = r.getReceipt_number().split("-");
-            return CardView.createCard(r.getLine_item().getGross_total_money().toString(), (number[0] + "-" + number[1]), r.getLine_item().getItem_name(), r.getReceipt_date().toString(), r.getReceipt_type());
+            return CardView.createCard((r.getLine_item().getGross_total_money()  == null ? "N.A." : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getGross_total_money())), (number[0] + "-" + number[1]), r.getLine_item().getItem_name(), r.getReceipt_date().toString(), r.getReceipt_type());
         }).setHeader("List of receipts");
         receiptMobileColumn.setVisible(false);
 
@@ -532,7 +533,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
 //                    check = false;
 //                }
 //            }
-            return new ArrayList<>();
+            return criterias;
         }
     }
 

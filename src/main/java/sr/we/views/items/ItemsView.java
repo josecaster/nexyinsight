@@ -76,6 +76,9 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
     private Grid.Column<Item> costColumn;
     private Grid.Column<Item> stockLevelColumn;
     private Grid.Column<Item> itemNameColumn;
+
+    private TextField skuFld;
+    private TextField barCodeFld;
     private TextField itemNameFld;
     private IntegerField stockLevelFld;
     private BigDecimalField costFld;
@@ -259,6 +262,8 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         HeaderRow headerRow = grid.appendHeaderRow();
 
         itemNameFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
+        skuFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
+        barCodeFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
         stockLevelFld = new IntegerField("", null, l -> grid.getDataProvider().refreshAll());
         costFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
         inventoryValueFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
@@ -278,6 +283,8 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
 
         sectionId.setPlaceholder("Filter");
         itemNameFld.setPlaceholder("Filter");
+        skuFld.setPlaceholder("Filter");
+        barCodeFld.setPlaceholder("Filter");
         stockLevelFld.setPlaceholder("Filter");
         costFld.setPlaceholder("Filter");
         inventoryValueFld.setPlaceholder("Filter");
@@ -286,6 +293,8 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
 
         sectionId.setWidthFull();
         itemNameFld.setWidthFull();
+        skuFld.setWidthFull();
+        barCodeFld.setWidthFull();
         stockLevelFld.setWidthFull();
         costFld.setWidthFull();
         inventoryValueFld.setWidthFull();
@@ -294,6 +303,8 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
 
         sectionId.setClearButtonVisible(true);
         itemNameFld.setClearButtonVisible(true);
+        skuFld.setClearButtonVisible(true);
+        barCodeFld.setClearButtonVisible(true);
         stockLevelFld.setClearButtonVisible(true);
         costFld.setClearButtonVisible(true);
         inventoryValueFld.setClearButtonVisible(true);
@@ -303,6 +314,8 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         stockLevelFld.setStepButtonsVisible(true);
 
         headerRow.getCell(itemNameColumn).setComponent(itemNameFld);
+        headerRow.getCell(skuColumn).setComponent(skuFld);
+        headerRow.getCell(codeColumn).setComponent(barCodeFld);
         headerRow.getCell(stockLevelColumn).setComponent(stockLevelFld);
         headerRow.getCell(costColumn).setComponent(costFld);
         headerRow.getCell(inventoryValueColumn).setComponent(inventoryValueFld);
@@ -331,6 +344,12 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         if (StringUtils.isNotBlank(itemNameFld.getValue())) {
 //            check = item.getItem_name().toUpperCase().contains(itemNameFld.getValue().toUpperCase());
             criterias.add(Criteria.where("item_name").regex(".*"+itemNameFld.getValue()+".*"));
+        }
+        if (StringUtils.isNotBlank(skuFld.getValue())) {
+            criterias.add(Criteria.where("variant.sku").regex(".*"+skuFld.getValue()+".*"));
+        }
+        if (StringUtils.isNotBlank(barCodeFld.getValue())) {
+            criterias.add(Criteria.where("variant.barcode").regex(".*"+barCodeFld.getValue()+".*"));
         }
         if (storeFld.getValue() != null) {
 //            check = item.getVariantStore().getStore_id().equalsIgnoreCase(storeFld.getValue().getId());

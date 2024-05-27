@@ -55,7 +55,7 @@ public class ReceiptsController {
      */
     public Stream<Receipt> allReceipts(Long businessId, Integer page, Integer pageSize, Set<String> sections, Collection<Criteria> predicate) {
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("businessId").is(businessId).and("cancelled_at").isNull());
         Criteria criteria1 = new Criteria();
 
         List<Criteria> ors = new ArrayList<>();
@@ -104,7 +104,7 @@ public class ReceiptsController {
         LocalDateTime starting = LocalDateTime.of(start, LocalTime.MIN);
         LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
 
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("businessId").is(businessId).and("cancelled_at").isNull());
         query.addCriteria(Criteria.where("receipt_date").gte(starting).andOperator(Criteria.where("receipt_date").lte(ending)));
 
         return mongoTemplate.find(query, Receipt.class);
@@ -122,7 +122,7 @@ public class ReceiptsController {
         LocalDateTime ending = LocalDateTime.of(end, LocalTime.MAX);
 
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("businessId").is(businessId).and("cancelled_at").isNull());
         query.addCriteria(Criteria.where("receipt_date").gte(starting).andOperator(Criteria.where("receipt_date").lte(ending)));
         return mongoTemplate.find(query, Receipt.class);
     }
@@ -204,7 +204,7 @@ public class ReceiptsController {
      */
     public List<Bar> chart(Long businessId, Long year, Set<String> sectionIds) {
 
-        Criteria businessId1 = Criteria.where("businessId").is(businessId);
+        Criteria businessId1 = Criteria.where("businessId").is(businessId).and("cancelled_at").isNull();
         Criteria cancelledAt = Criteria.where("cancelled_at").isNull();
 
 
@@ -262,7 +262,7 @@ public class ReceiptsController {
 
         MatchOperation filterStates = match(//
                 Criteria.where("receipt_type").is("SALE")//
-                        .andOperator(Criteria.where("businessId").is(businessId).andOperator(Criteria.where("receipt_date").gte(starting)//
+                        .andOperator(Criteria.where("businessId").is(businessId).and("cancelled_at").isNull().andOperator(Criteria.where("receipt_date").gte(starting)//
                                 .andOperator(Criteria.where("receipt_date").lte(ending).andOperator(criterias))))//
         );
 
@@ -311,7 +311,7 @@ public class ReceiptsController {
 
         MatchOperation filterStates = match(//
                 Criteria.where("receipt_type").is(receiptType)//
-                        .andOperator(Criteria.where("businessId").is(businessId).andOperator(Criteria.where("receipt_date").gte(starting)//
+                        .andOperator(Criteria.where("businessId").is(businessId).and("cancelled_at").isNull().andOperator(Criteria.where("receipt_date").gte(starting)//
                                 .andOperator(Criteria.where("receipt_date").lte(ending).andOperator(criterias))))//
         );
 

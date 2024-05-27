@@ -45,15 +45,17 @@ import sr.we.security.AuthenticatedUser;
 import sr.we.services.StockAdjustmentItemsService;
 import sr.we.services.StockAdjustmentService;
 import sr.we.views.MainLayout;
+import sr.we.views.components.MyLineAwesome;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @PageTitle("StockAdjustments")
 @Route(value = "stockadjustment/:stockAdjustmentId?/:action?(edit)", layout = MainLayout.class)
-@RolesAllowed({"ADMIN"})
+@RolesAllowed({"ADMIN","SECTION_OWNER"})
 public class StockAdjustmentView extends Div implements BeforeEnterObserver {
 
     final String SA_ID = "stockAdjustmentId";
@@ -78,6 +80,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private Span batchIdFld;
     private StockAdjustment stockadjustment;
     private VerticalLayout itemsLayout;
+    private Button addAllBtn;
 
     public StockAdjustmentView(ItemsController ItemService, StockAdjustmentItemsService stockAdjustmentItemsService, StockAdjustmentService batchService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.stockAdjustmentItemsService = stockAdjustmentItemsService;
@@ -221,6 +224,15 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     public void beforeEnter(BeforeEnterEvent event) {
         sections = storesController.allStores(getBusinessId());
         Optional<Long> stockAdjustmentId = event.getRouteParameters().get(SA_ID).map(Long::parseLong);
+        Optional<User> user = authenticatedUser.get();
+        boolean present = user.isPresent();
+        if(present){
+            boolean sectionOwner = !user.get().getRoles().contains(Role.ADMIN);
+            if(sectionOwner){
+                cancel.setVisible(false);
+                adjustBtn.setVisible(false);
+            }
+        }
         if (stockAdjustmentId.isPresent()) {
             Optional<StockAdjustment> batchFromBackend = batchService.get(stockAdjustmentId.get());
             if (batchFromBackend.isPresent()) {
@@ -385,7 +397,40 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
 
         itemsCmb = new ComboBox<>();
         itemsCmb.setWidthFull();
-        FormLayout.FormItem formItem = formLayout.addFormItem(itemsCmb, "Select a item");
+        addAllBtn = new Button();
+        addAllBtn.setTooltipText("Add all items");
+        addAllBtn.setIcon(MyLineAwesome.SYNC_ALT_SOLID.create());
+        addAllBtn.addClickListener(d -> {
+            Stream<Item> itemStream = ItemService.allItems(getBusinessId(), 0, Integer.MAX_VALUE, Collections.singleton(sectionId.getValue()), Optional.empty());
+//            itemList.clear();
+            if(itemsCmb.getValue() != null) {
+                itemsCmb.clear();
+            }
+            itemStream.forEach(value -> {
+                if (value != null) {
+                    if (itemList.stream().noneMatch(f -> f.getItemId().equalsIgnoreCase(value.getUuId()))) {
+
+                        StockAdjustmentItems stockAdjustmentItems = new StockAdjustmentItems();
+                        stockAdjustmentItems.setItemId(value.getUuId());
+                        stockAdjustmentItems.setInStock(value.getStock_level());
+                        stockAdjustmentItems.setItemName(value.getItem_name());
+                        stockAdjustmentItems.setCost(value.getVariant() == null ? null : value.getVariant().getCost());
+                        stockAdjustmentItems.setStockAfter(value.getStock_level());
+                        itemList.add(stockAdjustmentItems);
+
+                    }
+                }
+            });
+            if(!itemList.isEmpty()) {
+                items.setItems(itemList);
+            } else {
+                Notification n = Notification.show("No items to add");
+                n.setPosition(Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_WARNING);
+            }
+        });
+        itemsCmb.setPrefixComponent(addAllBtn);
+        FormLayout.FormItem formItem = formLayout.addFormItem(itemsCmb, "Select an item");
         formLayout.setColspan(formItem, 2);
 
         formLayout.add(itemsLayout);
@@ -486,6 +531,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             sectionId.setReadOnly(true);
             adjustBtn.setVisible(false);
             itemsCmb.setReadOnly(true);
+            addAllBtn.setEnabled(false);
             items.setItems(stockAdjustmentItemsService.findByStockAdjustmentId(value.getId()));
 
             items.setVisible(true);
@@ -503,6 +549,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             note.setReadOnly(false);
             sectionId.setReadOnly(false);
             itemsCmb.setReadOnly(false);
+            addAllBtn.setEnabled(true);
             adjustBtn.setVisible(true);
             items.setItems(new ArrayList<>());
             workingVisibility();

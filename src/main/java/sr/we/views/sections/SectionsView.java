@@ -98,6 +98,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
         horizontalLayout.setWidthFull();
         Header header = new Header(horizontalLayout);
         layout = new HorizontalLayout(grid);
+        layout.setHeightFull();
         add(header, layout);
 
         settings.addClickListener(c -> {

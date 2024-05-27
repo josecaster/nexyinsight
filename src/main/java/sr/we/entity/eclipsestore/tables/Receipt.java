@@ -24,7 +24,7 @@ public class Receipt extends SuperDao implements Cloneable{
     private BigDecimal points_earned;
     private BigDecimal points_deducted;
     private BigDecimal points_balance;
-    private Object customer_id;
+    private String customer_id;
     private BigDecimal total_discount;
     private String employee_id;
     private String store_id;
@@ -167,11 +167,11 @@ public class Receipt extends SuperDao implements Cloneable{
         this.points_balance = points_balance;
     }
 
-    public Object getCustomer_id() {
+    public String getCustomer_id() {
         return customer_id;
     }
 
-    public void setCustomer_id(Object customer_id) {
+    public void setCustomer_id(String customer_id) {
         this.customer_id = customer_id;
     }
 

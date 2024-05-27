@@ -1,6 +1,7 @@
 package sr.we.controllers;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -75,7 +76,7 @@ public class StoresController {
     public Stream<Section> allSections(Long businessId, Integer page, Integer pageSize) {
         Query query = new Query();
         query.addCriteria(Criteria.where("businessId").is(businessId));
-        query.with(PageRequest.of(page, pageSize));
+        query.with(PageRequest.of(page, pageSize)).with(Sort.by(Sort.Direction.ASC, "name"));
         return mongoTemplate.find(query, Section.class).stream();
     }
 
@@ -106,6 +107,7 @@ public class StoresController {
             }
         }
 
+        query.with(Sort.by(Sort.Direction.ASC, "name"));
         return mongoTemplate.find(query, Section.class).stream();
     }
 

@@ -24,7 +24,7 @@ public abstract class EclipseStoreSuperService<T extends SuperDao> {
     public EclipseStoreSuperService(EmbeddedStorageManager storageManager, Class<T> typeParameterClass) {
         this.storageManager = storageManager;
         this.typeParameterClass = typeParameterClass;
-        this.storageManager.storeRoot();
+//        this.storageManager.storeRoot();
     }
 
 
