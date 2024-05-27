@@ -146,7 +146,19 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
 //        stockLevelDate = grid.addColumn(Item::getLastUpdateStockLevel).setHeader("Stock Level date").setFrozen(true).setFlexGrow(1).setResizable(true);
         skuColumn = grid.addColumn(i -> i.getVariant().getSku()).setHeader("SKU").setFlexGrow(0).setResizable(true);
         codeColumn = grid.addColumn(i -> i.getVariant().getBarcode()).setHeader("Code").setFlexGrow(0).setResizable(true);
-        itemNameColumn = grid.addColumn(Item::getItem_name).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
+        itemNameColumn = grid.addColumn(f -> {
+            String name = f.getItem_name();
+            if (f.getVariant() != null) {
+                if (StringUtils.isNotBlank(f.getVariant().getOption1_value())) {
+                    name += " " + f.getOption1_name() + " (" + f.getVariant().getOption1_value() + ")";
+                } else if (StringUtils.isNotBlank(f.getVariant().getOption2_value())) {
+                    name += " " + f.getOption2_name() + " (" + f.getVariant().getOption2_value() + ")";
+                } else if (StringUtils.isNotBlank(f.getVariant().getOption3_value())) {
+                    name += " " + f.getOption3_name() + " (" + f.getVariant().getOption3_value() + ")";
+                }
+            }
+            return name;
+        }).setHeader("Item name").setFrozen(true).setFlexGrow(1).setResizable(true);
         stockLevelColumn = grid.addColumn(Item::getStock_level).setHeader("Stock level").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         costColumn = grid.addColumn(l -> l.getVariant().getCost()).setHeader("Cost").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         inventoryValueColumn = grid.addComponentColumn(l -> {
@@ -174,7 +186,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         }).setHeader("Section").setAutoWidth(true);
 
         itemsMobileColumn = grid.addComponentColumn(i -> {
-            return CardView.createCard(null,i.getItem_name(), i.getStock_level()+" in stock", BigDecimal.valueOf(i.getVariantStore().getPrice()).toString());
+            return CardView.createCard(null, i.getItem_name(), i.getStock_level() + " in stock", BigDecimal.valueOf(i.getVariantStore().getPrice()).toString());
         }).setHeader("List of items");
         itemsMobileColumn.setVisible(false);
 
@@ -209,7 +221,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         super.onAttach(attachEvent);
         boolean isMobile = CardView.isMobileDevice();
 //        editHeader.setVisible(isMobile);
-        if(isMobile){
+        if (isMobile) {
 //            if(user == null){
 //                splitLayout.setSplitterPosition(100);
 //            } else {
@@ -343,13 +355,13 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
 //        boolean check = true;
         if (StringUtils.isNotBlank(itemNameFld.getValue())) {
 //            check = item.getItem_name().toUpperCase().contains(itemNameFld.getValue().toUpperCase());
-            criterias.add(Criteria.where("item_name").regex(".*"+itemNameFld.getValue()+".*"));
+            criterias.add(Criteria.where("item_name").regex(".*" + itemNameFld.getValue() + ".*"));
         }
         if (StringUtils.isNotBlank(skuFld.getValue())) {
-            criterias.add(Criteria.where("variant.sku").regex(".*"+skuFld.getValue()+".*"));
+            criterias.add(Criteria.where("variant.sku").regex(".*" + skuFld.getValue() + ".*"));
         }
         if (StringUtils.isNotBlank(barCodeFld.getValue())) {
-            criterias.add(Criteria.where("variant.barcode").regex(".*"+barCodeFld.getValue()+".*"));
+            criterias.add(Criteria.where("variant.barcode").regex(".*" + barCodeFld.getValue() + ".*"));
         }
         if (storeFld.getValue() != null) {
 //            check = item.getVariantStore().getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
