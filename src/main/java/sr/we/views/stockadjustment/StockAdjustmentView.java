@@ -438,8 +438,18 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
 
         itemsCmb.setPlaceholder("Select item to use");
         itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), Collections.singleton(sectionId.getValue()), query.getFilter()));
-        itemsCmb.setItemLabelGenerator(l -> {
-            return l.getVariant().getSku() + " - " + l.getItem_name();
+        itemsCmb.setItemLabelGenerator(f -> {
+            String name = f.getVariant().getSku() + " - " + f.getItem_name();
+            if (f.getVariant() != null) {
+                if (StringUtils.isNotBlank(f.getVariant().getOption1_value())) {
+                    name += " " + f.getOption1_name() + " (" + f.getVariant().getOption1_value() + ")";
+                } else if (StringUtils.isNotBlank(f.getVariant().getOption2_value())) {
+                    name += " " + f.getOption2_name() + " (" + f.getVariant().getOption2_value() + ")";
+                } else if (StringUtils.isNotBlank(f.getVariant().getOption3_value())) {
+                    name += " " + f.getOption3_name() + " (" + f.getVariant().getOption3_value() + ")";
+                }
+            }
+            return name;
         });
 
         itemsCmb.addValueChangeListener(v -> {
