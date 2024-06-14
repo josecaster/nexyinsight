@@ -22,7 +22,8 @@ public abstract class Parent {
 
     protected String getToken(Long businessId) {
         Integration byBusinessId = integrationRepository.getByBusinessId(businessId);
-        return byBusinessId == null ? null : byBusinessId.getAccessToken();
+//        return byBusinessId == null ? null : byBusinessId.getAccessToken();//todo
+        return byBusinessId == null ? null : byBusinessId.getPersonalAccessToken();
     }
 
     protected HttpEntity<String> getAuthHttpEntity(String body, String accessToken) {
