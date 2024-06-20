@@ -123,36 +123,36 @@ public class ApiRestController {
         LOGGER.debug("HEADERS[" + headers + "]");
         LOGGER.debug("PAYLOAD[" + payload + "]");
 
-        if (StringUtils.isBlank(authorization)) {
-            List<String> authorization1 = headers.get("x-loyverse-signature");
-            if (authorization1 == null || authorization1.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No x-loyverse-signature");
-            }
-            authorization = authorization1.get(0);
-        }
-
-        LOGGER.debug("AUTH[" + authorization + "]");
-
-        if (StringUtils.isNotBlank(authorization)) {
-            Integration byBusinessId = integrationRepository.getByBusinessId(0L);
-            if (byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getClientSecret())) {
-                String key = byBusinessId.getClientSecret();
-                // Extract HMAC from Authorization header
-                LOGGER.debug("providedHmac[" + authorization + "]");
-
-                // Calculate HMAC of the payload
-                String calculatedHmac = calculateHMAC(payload, key);
-                LOGGER.debug("calculatedHmac[" + calculatedHmac + "]");
-
-                // Compare provided HMAC with calculated HMAC
-                if (!authorization.equals(calculatedHmac)) {
-                    LOGGER.debug("UNAuthorized!!!!");
-                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid HMAC");
-                } else {
-                    LOGGER.debug("Authorized!");
-                }
-            }
-        }
+//        if (StringUtils.isBlank(authorization)) {
+//            List<String> authorization1 = headers.get("x-loyverse-signature");
+//            if (authorization1 == null || authorization1.isEmpty()) {
+//                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No x-loyverse-signature");
+//            }
+//            authorization = authorization1.get(0);
+//        }
+//
+//        LOGGER.debug("AUTH[" + authorization + "]");
+//
+//        if (StringUtils.isNotBlank(authorization)) {
+//            Integration byBusinessId = integrationRepository.getByBusinessId(0L);
+//            if (byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getClientSecret())) {
+//                String key = byBusinessId.getClientSecret();
+//                // Extract HMAC from Authorization header
+//                LOGGER.debug("providedHmac[" + authorization + "]");
+//
+//                // Calculate HMAC of the payload
+//                String calculatedHmac = calculateHMAC(payload, key);
+//                LOGGER.debug("calculatedHmac[" + calculatedHmac + "]");
+//
+//                // Compare provided HMAC with calculated HMAC
+//                if (!authorization.equals(calculatedHmac)) {
+//                    LOGGER.debug("UNAuthorized!!!!");
+//                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid HMAC");
+//                } else {
+//                    LOGGER.debug("Authorized!");
+//                }
+//            }
+//        }
         return null;
     }
 

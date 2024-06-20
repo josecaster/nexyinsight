@@ -43,4 +43,15 @@ class Token {
     public void setExpires_in(Integer expires_in) {
         this.expires_in = expires_in;
     }
+
+    @Override
+    public String toString() {
+        return "Token{" +
+                "access_token='" + access_token + '\'' +
+                ", token_type='" + token_type + '\'' +
+                ", refresh_token='" + refresh_token + '\'' +
+                ", scope='" + scope + '\'' +
+                ", expires_in=" + expires_in +
+                '}';
+    }
 }

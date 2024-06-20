@@ -38,6 +38,7 @@ import sr.we.controllers.StoresController;
 import sr.we.entity.Batch;
 import sr.we.entity.BatchItems;
 import sr.we.entity.eclipsestore.tables.Item;
+import sr.we.entity.eclipsestore.tables.Variant;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
@@ -67,12 +68,13 @@ public class UploadItemsView extends VerticalLayout {
     private ComboBox<Item> itemsCmb;
     //    private TextField sku;
     private TextField code;
-    private TextField name, description;
+    private TextField name, description, optionName1, optionValue1, optionName2, optionValue2, optionName3, optionValue3;
     private ToggleButton variableBtn;
     private IntegerField quantity;
     private BigDecimalField cost;
     private BigDecimalField price;
     private BatchItems batchItems;
+    private boolean enabled = true;
 
     public UploadItemsView(ItemsController ItemService, BatchItemsService batchItemsService, BatchService batchService, AuthenticatedUser authenticatedUser, StoresController storesController, Batch batch) {
         this.batchItemsService = batchItemsService;
@@ -142,7 +144,7 @@ public class UploadItemsView extends VerticalLayout {
             integerField.addValueChangeListener(v -> {
                 l.setRealQuantity(v.getValue());
             });
-            if(!integerField.isReadOnly()){
+            if (!integerField.isReadOnly()) {
                 integerField.setReadOnly(!enabled);
             }
             return integerField;
@@ -152,7 +154,7 @@ public class UploadItemsView extends VerticalLayout {
             integerField.addValueChangeListener(v -> {
                 l.setUpload(v.getValue());
             });
-            if(!integerField.isReadOnly()){
+            if (!integerField.isReadOnly()) {
                 integerField.setReadOnly(!enabled);
             }
             return integerField;
@@ -263,7 +265,7 @@ public class UploadItemsView extends VerticalLayout {
             Reader in = new InputStreamReader(receiver.getInputStream());
 
 
-            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "DESCRIPTION", "QUANTITY", "VARIABLE", "PRICE", "COST").setSkipHeaderRecord(true).build();
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader("SKU", "CODE", "NAME", "DESCRIPTION", "OPTION_1", "OPTION_2", "OPTION_3", "OPTION_VALUE_1", "OPTION_VALUE_2", "OPTION_VALUE_3", "QUANTITY", "VARIABLE", "PRICE", "COST").setSkipHeaderRecord(true).build();
 
             Iterable<CSVRecord> records = null;
             records = csvFormat.parse(in);
@@ -274,21 +276,31 @@ public class UploadItemsView extends VerticalLayout {
                 String sku = record.get("SKU");
                 String code = record.get("CODE");
                 String name = record.get("NAME");
+                String description = record.get("DESCRIPTION");
+                String option1 = record.get("OPTION_1");
+                String optionValue1 = record.get("OPTION_VALUE_1");
+                String option2 = record.get("OPTION_2");
+                String optionValue2 = record.get("OPTION_VALUE_2");
+                String option3 = record.get("OPTION_3");
+                String optionValue3 = record.get("OPTION_VALUE_3");
                 String quantity = record.get("QUANTITY");
                 String price = record.get("PRICE");
                 String cost = record.get("COST");
                 String optional = record.get("VARIABLE");
-                String description = record.get("DESCRIPTION");
 
                 Integer quantity1 = StringUtils.isBlank(quantity) ? null : Integer.valueOf(quantity);
                 BigDecimal price1 = StringUtils.isBlank(price) ? null : BigDecimal.valueOf(Double.parseDouble(price));
                 BigDecimal cost1 = StringUtils.isBlank(cost) ? null : BigDecimal.valueOf(Double.parseDouble(cost));
                 boolean optional1 = !StringUtils.isBlank(optional) && Boolean.parseBoolean(optional);
 
-                BatchItems e = new BatchItems(UploadItemsView.this.batchId, sku, code, name, quantity1, price1, cost1, optional1, description);
-                if(StringUtils.isNotBlank(sku)) {
+                BatchItems e = new BatchItems(UploadItemsView.this.batchId, sku, code, name, quantity1, price1, cost1, optional1, description, option1, optionValue1, option2, optionValue2, option3, optionValue3);
+                if (StringUtils.isNotBlank(sku)) {
                     String itemId = ItemService.sku(sku, batch.getSectionId());
-                    e.setItemId(itemId);
+                    if(StringUtils.isBlank(itemId)){
+                        e.setSku(null);
+                    } else {
+                        e.setItemId(itemId);
+                    }
                 }
                 list.add(e);
             }
@@ -325,10 +337,29 @@ public class UploadItemsView extends VerticalLayout {
         code = new TextField("CODE");
         name = new TextField("NAME");
         description = new TextField("DESCRIPTION");
+//        optionName1, optionValue1,optionName2, optionValue2,optionName3, optionValue3
+        optionName1 = new TextField("OPTION 1");
+        optionValue1 = new TextField("OPTION VALUE 1");
+        optionName2 = new TextField("OPTION 2");
+        optionValue2 = new TextField("OPTION VALUE 2");
+        optionName3 = new TextField("OPTION 3");
+        optionValue3 = new TextField("OPTION VALUE 3");
         variableBtn = new ToggleButton("VARIABLE PRICE");
         quantity = new IntegerField("Quantity");
         cost = new BigDecimalField("COST");
         price = new BigDecimalField("PRICE");
+
+        optionName1.setMaxLength(16);
+        optionName2.setMaxLength(16);
+        optionName3.setMaxLength(16);
+
+        optionName1.setPlaceholder("for example \"Size\"");
+        optionName2.setPlaceholder("for example \"Color\"");
+        optionName3.setPlaceholder("for example \"Material\"");
+
+        optionValue1.setMaxLength(20);
+        optionValue2.setMaxLength(20);
+        optionValue3.setMaxLength(20);
 
         code.setMaxLength(128);
         name.setMaxLength(64);
@@ -371,6 +402,15 @@ public class UploadItemsView extends VerticalLayout {
                 name.setValue(StringUtils.isNotBlank(value.getItem_name()) ? value.getItem_name() : "");
                 cost.setValue(value.getVariant().getCost());
                 price.setValue(value.getVariant().getDefault_price());
+                optionName1.setValue(StringUtils.isBlank(value.getOption1_name()) ? "" : value.getOption1_name());
+                optionName2.setValue(StringUtils.isBlank(value.getOption2_name()) ? "" : value.getOption2_name());
+                optionName3.setValue(StringUtils.isBlank(value.getOption3_name()) ? "" : value.getOption3_name());
+                Variant variant = value.getVariant();
+                if(variant != null){
+                    optionValue1.setValue(StringUtils.isBlank(variant.getOption1_value()) ? "" : variant.getOption1_value());
+                    optionValue2.setValue(StringUtils.isBlank(variant.getOption2_value()) ? "" : variant.getOption2_value());
+                    optionValue3.setValue(StringUtils.isBlank(variant.getOption3_value()) ? "" : variant.getOption3_value());
+                }
             } else {
                 this.batchItems.setItemId(null);
             }
@@ -380,7 +420,7 @@ public class UploadItemsView extends VerticalLayout {
             price.setVisible(!f.getValue());
         });
 
-        formLayout.add(itemsCmb, /*sku,*/ code, name, description, quantity, cost, variableBtn, price);
+        formLayout.add(itemsCmb, /*sku,*/ code, name, description, optionName1, optionValue1, optionName2, optionValue2, optionName3, optionValue3, quantity, cost, variableBtn, price);
 
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);
@@ -464,12 +504,9 @@ public class UploadItemsView extends VerticalLayout {
         this.populateForm = false;
     }
 
-
     public Grid<BatchItems> getGrid() {
         return grid;
     }
-
-    private boolean enabled = true;
 
     @Override
     public void setEnabled(boolean enabled) {

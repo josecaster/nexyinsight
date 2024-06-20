@@ -1,11 +1,14 @@
 package sr.we.integration;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import sr.we.controllers.rest.ApiRestController;
 import sr.we.entity.Integration;
 import sr.we.repository.IntegrationRepository;
 import sr.we.services.IntegrationService;
@@ -15,6 +18,8 @@ public class AuthController extends Parent {
 
     private final IntegrationRepository integrationRepository;
     private final IntegrationService integrationService;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthController.class);
 
     public AuthController(IntegrationRepository integrationRepository, IntegrationService integrationService) {
         super(integrationRepository);
@@ -28,6 +33,8 @@ public class AuthController extends Parent {
         if (integration == null || StringUtils.isBlank(integration.getClientId()) || StringUtils.isBlank(integration.getClientSecret())) {
             return null;
         }
+
+        LOGGER.debug("Auth token refresh["+refresh+"]");
 
         String url = "https://api.loyverse.com/oauth/token";
 
@@ -55,10 +62,13 @@ public class AuthController extends Parent {
         ResponseEntity<Token> exchange = restTemplate.exchange(url, HttpMethod.POST, entity, Token.class);
         Token body = exchange.getBody();
         if (body != null) {
+            LOGGER.debug(body.toString());
             integration.setAccessToken(body.access_token);
             integration.setRefreshToken(body.refresh_token);
             integration.setExpires(body.expires_in);
             integrationService.update(integration);
+        } else {
+            LOGGER.debug("TOKEN IS NULL");
         }
         return body;
     }
