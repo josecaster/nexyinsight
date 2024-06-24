@@ -18,9 +18,7 @@ import sr.we.repository.BatchItemsRepository;
 import sr.we.repository.BatchRepository;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class BatchService {
@@ -61,6 +59,7 @@ public class BatchService {
             Section section = storesController.oneStore(entity.getSectionId());
 
             Optional<Batch> batch = get(entity.getId());
+            Map<String, String> codeItemMap = new HashMap<>();
             if (batch.isPresent() && batch.get().getStatus().compareTo(Batch.Status.APPROVED) != 0 && entity.getStatus().compareTo(Batch.Status.APPROVED) == 0) {
                 List<BatchItems> byBatchId = batchItemsRepository.findByBatchId(entity.getId());
                 // import items
@@ -87,39 +86,44 @@ public class BatchService {
                         if (section.getColor() != null) {
                             item.setColor(section.getColor().name());
                         }
-                        item.setOption1_name(batchItems.getOptionName1());
-                        item.setOption2_name(batchItems.getOptionName2());
-                        item.setOption3_name(batchItems.getOptionName3());
-                        Item add = loyItemsController.add(loyverseToken, item);
+                        item.setOption1_name(StringUtils.isBlank(batchItems.getOptionName1()) ? null : batchItems.getOptionName1());
+                        item.setOption2_name(StringUtils.isBlank(batchItems.getOptionName2()) ? null : batchItems.getOptionName2());
+                        item.setOption3_name(StringUtils.isBlank(batchItems.getOptionName3()) ? null : batchItems.getOptionName3());
+                        codeItemMap.put(batchItems.getCode(), item.getId());
 //                        List<Variant> variants = new ArrayList<>();
                         Variant variant = new Variant();
                         variant.setBarcode(batchItems.getCode());
                         variant.setCost(batchItems.getCost());
                         variant.setDefault_price(batchItems.isOptional() ? null : batchItems.getPrice());
                         variant.setDefault_pricing_type(batchItems.isOptional() ? "VARIABLE" : "FIXED");
-                        variant.setOption1_value(batchItems.getOptionValue1());
-                        variant.setOption2_value(batchItems.getOptionValue2());
-                        variant.setOption3_value(batchItems.getOptionValue3());
+                        variant.setOption1_value(StringUtils.isBlank(batchItems.getOptionValue1()) ? null : batchItems.getOptionValue1());
+                        variant.setOption2_value(StringUtils.isBlank(batchItems.getOptionValue2()) ? null : batchItems.getOptionValue2());
+                        variant.setOption3_value(StringUtils.isBlank(batchItems.getOptionValue3()) ? null : batchItems.getOptionValue3());
+//                        variant.setItem_id(item.getId());
                         VariantStore e1 = new VariantStore();
                         e1.setPricing_type(batchItems.isOptional() ? "VARIABLE" : "FIXED");
-                        e1.setPrice(batchItems.isOptional() ? 0d : batchItems.getPrice().doubleValue());
-                        e1.setStore_id(section.getUuId());
+                        if(!batchItems.isOptional()) {
+                            e1.setPrice(batchItems.getPrice());
+                        }
+                        e1.setStore_id(section.getId());
                         e1.setAvailable_for_sale(true);
                         variant.setStores(List.of(e1));
 //                        variants.add(variant);
-//                        item.setVariants(variants);
+                        item.setVariants(List.of(variant));
+                        item = loyItemsController.add(loyverseToken, item);
 
-                        Variant add1 = loyVariantController.add(loyverseToken, variant);
+//                        variant = loyVariantController.add(loyverseToken, variant);
 
-                        if (add1 != null) {
-                            batchItems.setSku(add1.getSku());
-                            String id = add.getId() + "|" + add1.getVariant_id() + "|" + (add1.getStores().isEmpty() ? "" : add1.getStores().get(0).getStore_id());
+                        if (item.getVariants() != null && !item.getVariants().isEmpty()) {
+                            variant = item.getVariants().get(0);
+                            batchItems.setSku(variant.getSku());
+                            String id = item.getId() + "|" + variant.getVariant_id() + "|" + (variant.getStores().isEmpty() ? "" : variant.getStores().get(0).getStore_id());
                             batchItems.setItemId(id);
                             batchItems.setUpload(false);
                             batchItems = batchItemsRepository.save(batchItems);
 
                             if (batchItems.getRealQuantity() != null) {
-                                InventoryLevels inventoryLevels = getInventoryLevels(batchItems, add1, section);
+                                InventoryLevels inventoryLevels = getInventoryLevels(batchItems, variant, section);
                                 inventoryController.add(loyverseToken, inventoryLevels);
                             }
 
@@ -132,14 +136,14 @@ public class BatchService {
         return repository.save(entity);
     }
 
-    private InventoryLevels getInventoryLevels(BatchItems batchItems, Variant variant1, Section section) {
+    private InventoryLevels getInventoryLevels(BatchItems batchItems, Variant variant, Section section) {
         String id = section.getId();
         Integer stockAfter = batchItems.getRealQuantity();
         InventoryLevels inventoryLevels = new InventoryLevels();
         StockLevel stockLevel = new StockLevel();
         stockLevel.setBusinessId(businessId);
         stockLevel.setStock_after(stockAfter);
-        stockLevel.setVariant_id(variant1.getVariant_id());
+        stockLevel.setVariant_id(variant.getVariant_id());
         stockLevel.setStore_id(id);
         inventoryLevels.setInventory_levels(List.of(stockLevel));
         return inventoryLevels;

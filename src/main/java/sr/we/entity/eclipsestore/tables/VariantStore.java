@@ -1,12 +1,13 @@
 package sr.we.entity.eclipsestore.tables;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Objects;
 
 public class VariantStore implements Serializable {
     public String store_id;
     public String pricing_type;
-    public double price;
+    public BigDecimal price;
     public boolean available_for_sale;
     public Object optimal_stock;
     public Object low_stock;
@@ -27,11 +28,11 @@ public class VariantStore implements Serializable {
         this.pricing_type = pricing_type;
     }
 
-    public double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(double price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 

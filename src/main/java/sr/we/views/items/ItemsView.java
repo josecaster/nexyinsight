@@ -186,7 +186,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         }).setHeader("Section").setAutoWidth(true);
 
         itemsMobileColumn = grid.addComponentColumn(i -> {
-            return CardView.createCard(null, i.getItem_name(), i.getStock_level() + " in stock", BigDecimal.valueOf(i.getVariantStore().getPrice()).toString());
+            return CardView.createCard(null, i.getItem_name(), i.getStock_level() + " in stock", i.getVariantStore().getPrice().toString());
         }).setHeader("List of items");
         itemsMobileColumn.setVisible(false);
 
