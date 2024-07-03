@@ -38,6 +38,8 @@ public class JobbyLauncher implements Runnable {
     @Autowired
     IStoreStorage storeStorage;
     @Autowired
+    ICustomerStorage customerStorage;
+    @Autowired
     IReceiptsStorage receiptsStorage;
     @Autowired
     IInventoryHistoryStorage inventoryHistoryStorage;
@@ -57,6 +59,9 @@ public class JobbyLauncher implements Runnable {
     LoyDeviceController loyDeviceController;
     @Autowired
     LoyItemsController loyItemsController;
+
+    @Autowired
+    LoyCustomersController loyCustomersController;
     @Autowired
     LoyInventoryController inventoryController;
     @Autowired
@@ -83,9 +88,10 @@ public class JobbyLauncher implements Runnable {
 
     @Override
     public void run() {
-        runItems();
-        updateStockLevels();
-        runReceipts();
+//        runItems();
+//        updateStockLevels();
+        storeCustomers();
+//        runReceipts();
     }
 
     private String getLoyverseToken() {
@@ -114,39 +120,39 @@ public class JobbyLauncher implements Runnable {
         }
     }
 
-    private void syncItems() {
-        List<Item> items = itemStorage.allItems(getBusinessId());
-        if (items != null && !items.isEmpty()) {
-
-//            String itemIds = items.stream().map(l -> {
-//                return l.getId().split("\\|")[0];
-//            }).collect(Collectors.joining(","));
-            LOGGER.info("Sync size [" + items.size() + "]");
-            for (Item iitem : items) {
-                ListLoyItems listLoyItems = loyItemsController.getListLoyItems(iitem.getId().split("\\|")[0], null, null, null, null, null, null, loyverseToken);
-                if (listLoyItems.getItems() != null && !listLoyItems.getItems().isEmpty()) {
-                    for (Item item : listLoyItems.getItems()) {
-                        String itemId = item.getId();
-                        if (item.getVariants() == null) {
-                            continue;
-                        }
-                        for (Variant variant : item.getVariants()) {
-                            for (VariantStore store : variant.getStores()) {
-                                String id = itemId + "|" + variant.getVariant_id() + "|" + store.getStore_id();
-                                Item oneItem = itemStorage.oneItemByLoyId(id);
-                                if (oneItem != null) {
-                                    oneItem.setDeleted_at(item.getDeleted_at());
-                                    itemStorage.saveOrUpdate(oneItem);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            LOGGER.info("Sync done");
-
-        }
-    }
+//    private void syncItems() {
+//        List<Item> items = itemStorage.allItems(getBusinessId());
+//        if (items != null && !items.isEmpty()) {
+//
+////            String itemIds = items.stream().map(l -> {
+////                return l.getId().split("\\|")[0];
+////            }).collect(Collectors.joining(","));
+//            LOGGER.info("Sync size [" + items.size() + "]");
+//            for (Item iitem : items) {
+//                ListLoyItems listLoyItems = loyItemsController.getListLoyItems(iitem.getId().split("\\|")[0], null, null, null, null, null, null, loyverseToken);
+//                if (listLoyItems.getItems() != null && !listLoyItems.getItems().isEmpty()) {
+//                    for (Item item : listLoyItems.getItems()) {
+//                        String itemId = item.getId();
+//                        if (item.getVariants() == null) {
+//                            continue;
+//                        }
+//                        for (Variant variant : item.getVariants()) {
+//                            for (VariantStore store : variant.getStores()) {
+//                                String id = itemId + "|" + variant.getVariant_id() + "|" + store.getStore_id();
+//                                Item oneItem = itemStorage.oneItemByLoyId(id);
+//                                if (oneItem != null) {
+//                                    oneItem.setDeleted_at(item.getDeleted_at());
+//                                    itemStorage.saveOrUpdate(oneItem);
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//            LOGGER.info("Sync done");
+//
+//        }
+//    }
 
     //    @Scheduled(fixedDelay = 300000, initialDelay = 300000)
     private void updateStockLevels() {
@@ -256,6 +262,65 @@ public class JobbyLauncher implements Runnable {
                 if (deviceStorage.oneStore(device.getId()) == null) {
                     device.setBusinessId(getBusinessId());
                     deviceStorage.saveOrUpdate(device);
+                }
+            }
+        }
+    }
+
+    private void storeCustomers() {
+        String cursor = null;
+
+        LocalDateTime maxTime = getItemsLastUpdated(false);
+        boolean run;
+
+        run = true;
+        List<Customer> customers = new ArrayList<>();
+        while (run) {
+            CollectCustomers collectCustomers = loyCustomersController.getCollectCustomers(null, null, null, null, null, 250, cursor, getLoyverseToken());
+
+            if (collectCustomers != null && collectCustomers.getCustomers() != null) {
+                customers.addAll(collectCustomers.getCustomers());
+            }
+
+            cursor = collectCustomers == null ? null : collectCustomers.getCursor();
+            run = StringUtils.isNotBlank(cursor);
+            LOGGER.info("Customers: " + (collectCustomers == null ? 0 : (collectCustomers.getCustomers() == null ? 0 : collectCustomers.getCustomers().size())));
+        }
+
+        doForCustomers(customers);
+        LOGGER.info("Done sync customers");
+    }
+
+    public void doForCustomers(List<Customer> customers) {
+        if (!customers.isEmpty()) {
+            for (Customer customer : customers) {
+                // check if customer exists, if not create else do update
+                Customer customer1 = customerStorage.oneCustomerByLoyId(customer.getId());
+                if(customer1 != null){
+                    customer1.setBusinessId(businessId);
+                    customer1.setAddress(customer.getAddress());
+                    customer1.setCustomer_code(customer.getCustomer_code());
+                    customer1.setCity(customer.getCity());
+                    customer1.setDeleted_at(customer.getDeleted_at());
+                    customer1.setCreated_at(customer.getCreated_at());
+                    customer1.setCountry_code(customer.getCountry_code());
+                    customer1.setEmail(customer.getEmail());
+                    customer1.setName(customer.getName());
+                    customer1.setNote(customer.getNote());
+                    customer1.setFirst_visit(customer.getFirst_visit());
+                    customer1.setLast_visit(customer.getLast_visit());
+                    customer1.setPermanent_deletion_at(customer.getPermanent_deletion_at());
+                    customer1.setPostal_code(customer.getPostal_code());
+                    customer1.setRegion(customer.getRegion());
+                    customer1.setPhone_number(customer.getPhone_number());
+                    customer1.setUpdated_at(customer.getUpdated_at());
+                    customer1.setTotal_points(customer.getTotal_points());
+                    customer1.setTotal_spent(customer.getTotal_spent());
+                    customer1.setTotal_visits(customer.getTotal_visits());
+                    customerStorage.saveOrUpdate(customer1);
+                } else {
+                    customer.setBusinessId(businessId);
+                    customerStorage.saveOrUpdate(customer);
                 }
             }
         }
@@ -450,8 +515,9 @@ public class JobbyLauncher implements Runnable {
 
     private void update(Receipt receipt, LineItem item, String id) {
         receipt.setLine_items(null);
+        Item item1 = itemStorage.oneItemByLoyId(item.getItem_id() + "|" + item.getVariant_id() + "|" + receipt.getStore_id());
+        item.setBarcode(item1 == null ? null : item1.getVariant().getBarcode());
         receipt.setLine_item(item);
-        Item item1 = itemStorage.oneItemByLoyId(item.getItem_id() + "|" + receipt.getLine_item().getVariant_id() + "|" + receipt.getStore_id());
         receipt.setCategory_id(item1 == null ? null : item1.getCategory_id());
         receipt.setForm(item1 == null ? null : item1.getForm());
         receipt.setColor(item1 == null ? null : item1.getColor());
@@ -539,7 +605,7 @@ public class JobbyLauncher implements Runnable {
         }
         if (inventoryValuation.getType().compareTo(InventoryValuation.Type.AUTOMATIC) == 0) {
             BigDecimal inventoryValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariant().getCost() != null ? item.getVariant().getCost().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal retailValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariantStore().getPrice().compareTo(BigDecimal.ZERO) != 0 ? item.getVariantStore().getPrice().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal retailValue = items.stream().filter(f -> f.getStock_level() > 0 && f.getDeleted_at() == null).map(item -> item.getVariantStore().getPrice() != null && item.getVariantStore().getPrice().compareTo(BigDecimal.ZERO) != 0 ? item.getVariantStore().getPrice().multiply(BigDecimal.valueOf(item.getStock_level())) : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal profit = retailValue.subtract(inventoryValue);
             BigDecimal divide = inventoryValue.divide(((retailValue == null || retailValue.compareTo(BigDecimal.ZERO) == 0) ? (inventoryValue.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ONE : inventoryValue) : retailValue), 8, RoundingMode.HALF_UP);
             BigDecimal margin = BigDecimal.valueOf(100).subtract(divide.multiply(BigDecimal.valueOf(100)));

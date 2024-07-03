@@ -72,6 +72,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
     private final ItemsController ItemService;
     private final Set<String> linkSections;
     private final List<StockAdjustmentItems> itemList = new ArrayList<>();
+    private final User user;
     TextArea note;
     DatePicker date;
     Select<StockAdjustment.Type> type;
@@ -89,7 +90,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         this.storesController = storesController;
         this.ItemService = ItemService;
 
-        User user = authenticatedUser.get().get();
+        user = authenticatedUser.get().get();
         linkSections = user.getLinkSections();
 
         addClassNames("batches-view");
@@ -341,7 +342,7 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                 integerField.setValue(l.getAdjustment());
             }
             return integerField;
-        }).setHeader("Add Stock");
+        }).setHeader("Add Stock").setWidth("150px");
         Grid.Column<StockAdjustmentItems> costColumn = items.addColumn(StockAdjustmentItems::getCost).setHeader("Cost");
         Grid.Column<StockAdjustmentItems> stockAfterColumn = items.addColumn(StockAdjustmentItems::getStockAfter).setHeader("Stock after");
 
@@ -559,8 +560,10 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
             note.setReadOnly(false);
             sectionId.setReadOnly(false);
             itemsCmb.setReadOnly(false);
-            addAllBtn.setEnabled(true);
-            adjustBtn.setVisible(true);
+            if(user.getRoles().contains(Role.ADMIN)) {
+                addAllBtn.setEnabled(true);
+                adjustBtn.setVisible(true);
+            }
             items.setItems(new ArrayList<>());
             workingVisibility();
         }

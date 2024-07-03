@@ -8,7 +8,7 @@ public class LineItem {
     private String variant_id;
     private String item_name;
     private Object variant_name;
-    private String sku;
+    private String sku, barcode;
     private int quantity;
     private BigDecimal price;
     private BigDecimal gross_total_money;
@@ -68,6 +68,14 @@ public class LineItem {
 
     public void setSku(String sku) {
         this.sku = sku;
+    }
+
+    public String getBarcode() {
+        return barcode;
+    }
+
+    public void setBarcode(String barcode) {
+        this.barcode = barcode;
     }
 
     public int getQuantity() {

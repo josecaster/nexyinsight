@@ -64,10 +64,12 @@ public class BatchService {
                 List<BatchItems> byBatchId = batchItemsRepository.findByBatchId(entity.getId());
                 // import items
                 for (BatchItems batchItems : byBatchId) {
+                    Item existingItem = null;
                     if (batchItems.isUpload()) {
                         Item item = null;
                         if (StringUtils.isNotBlank(batchItems.getItemId())) {
-                            item = ItemService.oneItem(batchItems.getItemId());
+                            existingItem = ItemService.oneItem(batchItems.getItemId());
+                            item = existingItem;
                         }
                         if (item == null) {
                             item = new Item();
@@ -123,7 +125,7 @@ public class BatchService {
                             batchItems = batchItemsRepository.save(batchItems);
 
                             if (batchItems.getRealQuantity() != null) {
-                                InventoryLevels inventoryLevels = getInventoryLevels(batchItems, variant, section);
+                                InventoryLevels inventoryLevels = getInventoryLevels(batchItems, variant, section, existingItem);
                                 inventoryController.add(loyverseToken, inventoryLevels);
                             }
 
@@ -136,9 +138,13 @@ public class BatchService {
         return repository.save(entity);
     }
 
-    private InventoryLevels getInventoryLevels(BatchItems batchItems, Variant variant, Section section) {
+    private InventoryLevels getInventoryLevels(BatchItems batchItems, Variant variant, Section section, Item existingItem) {
         String id = section.getId();
-        Integer stockAfter = batchItems.getRealQuantity();
+        int stockAfter = batchItems.getRealQuantity();
+        if(existingItem != null){
+            int stockLevel = existingItem.getStock_level();
+            stockAfter += stockLevel;
+        }
         InventoryLevels inventoryLevels = new InventoryLevels();
         StockLevel stockLevel = new StockLevel();
         stockLevel.setBusinessId(businessId);

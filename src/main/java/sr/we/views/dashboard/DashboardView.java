@@ -204,7 +204,7 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
             sectionId.setWidthFull();
             sectionId.getElement().getStyle().set("padding","0px");
 
-            BsRow period = new BsRow(new BsColumn(new Div(new Text("Period"), rangePicker)).withSize(BsColumn.Size.XS), new BsColumn(sectionId).withSize(BsColumn.Size.XS), new BsColumn(dashTypeSelect).withSize(BsColumn.Size.XS));
+            BsRow period = new BsRow(new BsColumn(new Div(new Text("Period"), rangePicker)).withSize(BsColumn.Size.XS), new BsColumn(sectionId).withSize(BsColumn.Size.XS)/*, new BsColumn(dashTypeSelect).withSize(BsColumn.Size.XS)*/);
             filterBoard.addRow(period);
 //            period.addClassName("filter-layout");
             add(filterBoard);

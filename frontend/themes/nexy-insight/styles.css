@@ -53,6 +53,7 @@ html {
       --lumo-size-m: 2rem;
       --lumo-size-s: 1.75rem;
       --lumo-size-xs: 1.5rem;*/
+      --lumo-font-family: 'Inter', sans-serif;
 
     }
 
@@ -82,7 +83,7 @@ html {
       --lumo-success-contrast-color: hsl(159, 29%, 10%);
       --lumo-success-text-color: hsl(159, 61%, 40%);
       --lumo-base-color: rgb(33, 33, 33);*/
-
+--lumo-font-family: 'Inter', sans-serif;
     }
 
     [theme~="xxlarge"] {

@@ -3,7 +3,6 @@ package sr.we.views.batches;
 import com.vaadin.componentfactory.onboarding.Onboarding;
 import com.vaadin.componentfactory.onboarding.OnboardingStep;
 import com.vaadin.flow.component.Html;
-import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -77,7 +76,7 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
     private Span batchIdFld;
     private Button uploadBtn;
     private Batch batch;
-    private Set<String> linkSections;
+    private final Set<String> linkSections;
     private List<Section> sections;
     private Div editorLayoutDiv;
 
@@ -163,9 +162,35 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
         });
     }
 
+    private static Span getSpan(Batch bat) {
+        Span span = new Span(bat.getStatus().name());
+        span.getElement().getThemeList().add("badge");
+        span.setWidthFull();
+
+        switch (bat.getStatus()) {
+            case NEW -> {
+                span.getElement().getThemeList().add("warning");
+            }
+            case UPLOAD_ITEMS -> {
+                span.getElement().getThemeList().add("contrast");
+            }
+            case VALIDATE_ITEMS -> {
+                span.getElement().getThemeList().add("primary");
+            }
+            case APPROVED -> {
+                span.getElement().getThemeList().add("success");
+            }
+            case REJECTED, CANCEL -> {
+                span.getElement().getThemeList().add("error");
+            }
+        }
+
+        return span;
+    }
+
     private void save(BatchService batchService) {
         BinderValidationStatus<Batch> validate = binder.validate();
-        if(validate.isOk()) {
+        if (validate.isOk()) {
             try {
                 if (this.batch == null) {
                     this.batch = new Batch();
@@ -325,32 +350,6 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
         return horizontalLayout;
     }
 
-    private static Span getSpan(Batch bat) {
-        Span span = new Span(bat.getStatus().name());
-        span.getElement().getThemeList().add("badge");
-        span.setWidthFull();
-
-        switch (bat.getStatus()) {
-            case NEW -> {
-                span.getElement().getThemeList().add("warning");
-            }
-            case UPLOAD_ITEMS -> {
-                span.getElement().getThemeList().add("contrast");
-            }
-            case VALIDATE_ITEMS -> {
-                span.getElement().getThemeList().add("primary");
-            }
-            case APPROVED -> {
-                span.getElement().getThemeList().add("success");
-            }
-            case REJECTED, CANCEL -> {
-                span.getElement().getThemeList().add("error");
-            }
-        }
-
-        return span;
-    }
-
     private String getSection(Batch r) {
         List<Section> collect = sections.stream().filter(l -> {
             return StringUtils.isNotBlank(r.getSectionId()) && r.getSectionId().equalsIgnoreCase(l.getUuId());
@@ -379,17 +378,59 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
                     }
 
                     // create confirm dialog
-                    ConfirmDialog dialog = new ConfirmDialog();
-                    dialog.setHeader("Batch items");
-                    dialog.setWidth("80%");
+                    Dialog dialog = new Dialog();
+//                    dialog.setHeader("Batch items");
+                    dialog.setWidth("95%");
                     UploadItemsView uploadItemsView = new UploadItemsView(ItemService, batchItemsService, batchService, authenticatedUser, storesController, batch);
                     dialog.add(uploadItemsView);
-                    dialog.setCancelable(true);
+//                    dialog.setCancelable(true);
                     dialog.open();
-                    dialog.addConfirmListener(l -> {
+                    Button cancelBtn = new Button("Cancel", (e) -> dialog.close());
+                    cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+                    cancelBtn.getStyle().set("margin-right", "auto");
+                    dialog.getFooter().add(cancelBtn);
+
+                    Button confirmBtn = new Button("Confirm");
+                    confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+                    dialog.getFooter().add(confirmBtn);
+
+                    confirmBtn.addClickListener(l -> {
+                        boolean success = true;
                         List<BatchItems> list = uploadItemsView.getGrid().getDataProvider().fetch(new Query<>()).toList();
-                        batchItemsService.update(batch.getId(), list);
-                        Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                        String message = "";
+                        for (BatchItems item : list) {
+                            if (!item.isUpload()) {
+                                continue;
+                            }
+                            if (StringUtils.isBlank(item.getCode())) {
+                                success = false;
+                                message = "code is required";
+                                break;
+                            }
+                            if (StringUtils.isBlank(item.getName())) {
+                                success = false;
+                                message = "name is required";
+                                break;
+                            }
+                            if (item.getQuantity() == null) {
+                                success = false;
+                                message = "quantity is required";
+                                break;
+                            }
+                            if (!item.isOptional() && item.getPrice() == null) {
+                                success = false;
+                                message = "price is required for non variable item";
+                                break;
+                            }
+                        }
+                        if (success) {
+                            batchItemsService.update(batch.getId(), list);
+                            Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                            dialog.close();
+                        } else {
+                            Notification.show("Update failed [" + message + "]", 5000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+                            dialog.open();
+                        }
                     });
                 });
                 confirm.open();
@@ -407,17 +448,64 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
 
 
                     // create confirm dialog
-                    ConfirmDialog dialog = new ConfirmDialog();
-                    dialog.setHeader("Validate batch items");
-                    dialog.setWidth("80%");
+                    Dialog dialog = new Dialog();
+//                    dialog.setHeader("Validate batch items");
+                    dialog.setWidth("95%");
                     UploadItemsView uploadItemsView = new UploadItemsView(ItemService, batchItemsService, batchService, authenticatedUser, storesController, batch);
                     dialog.add(uploadItemsView);
-                    dialog.setCancelable(true);
+//                    dialog.setCancelable(true);
                     dialog.open();
-                    dialog.addConfirmListener(l -> {
+                    Button cancelBtn = new Button("Cancel", (e) -> dialog.close());
+                    cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+                    cancelBtn.getStyle().set("margin-right", "auto");
+                    dialog.getFooter().add(cancelBtn);
+
+                    Button confirmBtn = new Button("Confirm");
+                    confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+                    dialog.getFooter().add(confirmBtn);
+
+                    confirmBtn.addClickListener(l -> {
+                        boolean success = true;
                         List<BatchItems> list = uploadItemsView.getGrid().getDataProvider().fetch(new Query<>()).toList();
-                        batchItemsService.update(batch.getId(), list);
-                        Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                        String message = "";
+                        for (BatchItems item : list) {
+                            if (!item.isUpload()) {
+                                continue;
+                            }
+                            if (StringUtils.isBlank(item.getCode())) {
+                                success = false;
+                                message = "code is required";
+                                break;
+                            }
+                            if (StringUtils.isBlank(item.getName())) {
+                                success = false;
+                                message = "name is required";
+                                break;
+                            }
+                            if (item.getQuantity() == null) {
+                                success = false;
+                                message = "quantity is required";
+                                break;
+                            }
+                            if (!item.isOptional() && item.getPrice() == null) {
+                                success = false;
+                                message = "price is required for non variable item";
+                                break;
+                            }
+                            if (item.getRealQuantity() == null) {
+                                success = false;
+                                message = "counted is required";
+                                break;
+                            }
+                        }
+                        if (success) {
+                            batchItemsService.update(batch.getId(), list);
+                            Notification.show("Data updated", 10000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                            dialog.close();
+                        } else {
+                            Notification.show("Update failed [" + message + "]", 5000, Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+                            dialog.open();
+                        }
                     });
                 });
                 confirm.open();

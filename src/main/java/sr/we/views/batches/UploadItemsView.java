@@ -39,14 +39,12 @@ import sr.we.entity.eclipsestore.tables.Variant;
 import sr.we.security.AuthenticatedUser;
 import sr.we.services.BatchItemsService;
 import sr.we.services.BatchService;
+import sr.we.views.components.MyLineAwesome;
 
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static sr.we.entity.Batch.Status.UPLOAD_ITEMS;
 
@@ -120,7 +118,7 @@ public class UploadItemsView extends VerticalLayout {
         anchor.getElement().getStyle().set("margin-left", "auto");
         anchor.setTarget(AnchorTarget.BLANK);
         horizontalLayout.add(anchor);
-        add(horizontalLayout, new Hr(),cancel, splitLayout);
+        add(/*horizontalLayout, new Hr(),*/cancel, splitLayout);
 
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         grid.setHeight("400px");
@@ -130,7 +128,7 @@ public class UploadItemsView extends VerticalLayout {
             ComboBox<Item> itemsCmb = new ComboBox<>();
             itemsCmb.addThemeVariants(ComboBoxVariant.LUMO_SMALL);
             itemsCmb.setPlaceholder("FOR NEW ITEM LEAVE EMPTY");
-            itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), authenticatedUser.get().get(), query.getFilter()));
+            itemsCmb.setItems(query -> ItemService.allItems(getBusinessId(), query.getPage(), query.getPageSize(), Set.of(batch.getSectionId()), query.getFilter()));
             itemsCmb.setItemLabelGenerator(f -> {
                 String name = f.getVariant().getSku() + " - " + f.getItem_name();
                 if (f.getVariant() != null) {
@@ -142,7 +140,7 @@ public class UploadItemsView extends VerticalLayout {
                         name += " " + f.getOption3_name() + " (" + f.getVariant().getOption3_value() + ")";
                     }
                 }
-                return name;
+                return name + "["+f.getStock_level()+"]";
             });
             if (StringUtils.isNotBlank(l.getItemId())) {
                 itemsCmb.setValue(ItemService.id(l.getItemId()));
@@ -157,14 +155,14 @@ public class UploadItemsView extends VerticalLayout {
 //                    this.batchItems.setBatchId(batchId);
 //                }
                 if (value != null) {
-                    l.setItemId(value.getId());
+                    l.setItemId(value.getUuId());
                     l.setSku(StringUtils.isNotBlank(value.getVariant().getSku()) ? value.getVariant().getSku() : "");
                     l.setDescription(StringUtils.isNotBlank(value.getDescription()) ? value.getDescription() : "");
                     l.setOptional(!value.getVariant().getDefault_pricing_type().equalsIgnoreCase("FIXED"));
                     l.setCode(StringUtils.isNotBlank(value.getVariant().getBarcode()) ? value.getVariant().getBarcode() : "");
                     l.setName(StringUtils.isNotBlank(value.getItem_name()) ? value.getItem_name() : "");
                     l.setCost(value.getVariant().getCost());
-                    l.setPrice(value.getVariant().getDefault_price());
+                    l.setPrice(value.getVariantStore().getPrice());
                     l.setOptionName1(StringUtils.isBlank(value.getOption1_name()) ? "" : value.getOption1_name());
                     l.setOptionName2(StringUtils.isBlank(value.getOption2_name()) ? "" : value.getOption2_name());
                     l.setOptionName3(StringUtils.isBlank(value.getOption3_name()) ? "" : value.getOption3_name());
@@ -184,7 +182,7 @@ public class UploadItemsView extends VerticalLayout {
             itemsCmb.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
             itemsCmb.setClearButtonVisible(true);
             return itemsCmb;
-        }).setHeader("SKU").setAutoWidth(true);
+        }).setHeader("Existing item").setAutoWidth(true);
         Grid.Column<BatchItems> codeColumn = grid.addComponentColumn(f -> {
             TextField code = new TextField();
             code.addThemeVariants(TextFieldVariant.LUMO_SMALL);
@@ -210,9 +208,9 @@ public class UploadItemsView extends VerticalLayout {
             return name;
         }).setHeader("NAME").setAutoWidth(true);
         Grid.Column<BatchItems> descriptionColumn = grid.addComponentColumn(f -> {
-            TextArea description = new TextArea();
-            description.addThemeVariants(TextAreaVariant.LUMO_SMALL);
-            description.setMaxLength(512);
+            TextField description = new TextField();
+            description.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+            description.setMaxLength(255);
             description.setClearButtonVisible(true);
             description.setValue(StringUtils.isBlank(f.getDescription()) ? "" : f.getDescription());
             description.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
@@ -221,82 +219,82 @@ public class UploadItemsView extends VerticalLayout {
             });
             return description;
         }).setHeader("DESCRIPTION").setAutoWidth(true);
-        Grid.Column<BatchItems> optionName1Column = grid.addComponentColumn(f -> {
-            TextField option = new TextField();
-            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
-            option.setMaxLength(16);
-            option.setClearButtonVisible(true);
-            option.setValue(StringUtils.isBlank(f.getOptionName1()) ? "" : f.getOptionName1());
-            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
-            option.addValueChangeListener(l -> {
-                f.setOptionName1(l.getValue());
-            });
-            return option;
-        }).setHeader("OPTION 1").setAutoWidth(true);
-        Grid.Column<BatchItems> optionValue1Column = grid.addComponentColumn(f -> {
-            TextField option = new TextField();
-            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
-            option.setMaxLength(20);
-            option.setClearButtonVisible(true);
-            option.setValue(StringUtils.isBlank(f.getOptionValue1()) ? "" : f.getOptionValue1());
-            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
-            option.addValueChangeListener(l -> {
-                f.setOptionValue1(l.getValue());
-            });
-            return option;
-        }).setHeader("VALUE 1").setAutoWidth(true);
-
-        Grid.Column<BatchItems> optionName2Column = grid.addComponentColumn(f -> {
-            TextField option = new TextField();
-            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
-            option.setMaxLength(16);
-            option.setClearButtonVisible(true);
-            option.setValue(StringUtils.isBlank(f.getOptionName2()) ? "" : f.getOptionName2());
-            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
-            option.addValueChangeListener(l -> {
-                f.setOptionName2(l.getValue());
-            });
-            return option;
-        }).setHeader("OPTION 2").setAutoWidth(true);
-
-        Grid.Column<BatchItems> optionValue2Column = grid.addComponentColumn(f -> {
-            TextField option = new TextField();
-            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
-            option.setMaxLength(20);
-            option.setClearButtonVisible(true);
-            option.setValue(StringUtils.isBlank(f.getOptionValue2()) ? "" : f.getOptionValue2());
-            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
-            option.addValueChangeListener(l -> {
-                f.setOptionValue2(l.getValue());
-            });
-            return option;
-        }).setHeader("VALUE 2").setAutoWidth(true);
-
-        Grid.Column<BatchItems> optionName3Column = grid.addComponentColumn(f -> {
-            TextField option = new TextField();
-            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
-            option.setMaxLength(16);
-            option.setClearButtonVisible(true);
-            option.setValue(StringUtils.isBlank(f.getOptionName3()) ? "" : f.getOptionName3());
-            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
-            option.addValueChangeListener(l -> {
-                f.setOptionName3(l.getValue());
-            });
-            return option;
-        }).setHeader("OPTION 3").setAutoWidth(true);
-
-        Grid.Column<BatchItems> optionValue3Column = grid.addComponentColumn(f -> {
-            TextField option = new TextField();
-            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
-            option.setMaxLength(20);
-            option.setClearButtonVisible(true);
-            option.setValue(StringUtils.isBlank(f.getOptionValue3()) ? "" : f.getOptionValue3());
-            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
-            option.addValueChangeListener(l -> {
-                f.setOptionValue3(l.getValue());
-            });
-            return option;
-        }).setHeader("VALUE 3").setAutoWidth(true);
+//        Grid.Column<BatchItems> optionName1Column = grid.addComponentColumn(f -> {
+//            TextField option = new TextField();
+//            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+//            option.setMaxLength(16);
+//            option.setClearButtonVisible(true);
+//            option.setValue(StringUtils.isBlank(f.getOptionName1()) ? "" : f.getOptionName1());
+//            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
+//            option.addValueChangeListener(l -> {
+//                f.setOptionName1(l.getValue());
+//            });
+//            return option;
+//        }).setHeader("OPTION 1").setAutoWidth(true);
+//        Grid.Column<BatchItems> optionValue1Column = grid.addComponentColumn(f -> {
+//            TextField option = new TextField();
+//            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+//            option.setMaxLength(20);
+//            option.setClearButtonVisible(true);
+//            option.setValue(StringUtils.isBlank(f.getOptionValue1()) ? "" : f.getOptionValue1());
+//            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
+//            option.addValueChangeListener(l -> {
+//                f.setOptionValue1(l.getValue());
+//            });
+//            return option;
+//        }).setHeader("VALUE 1").setAutoWidth(true);
+//
+//        Grid.Column<BatchItems> optionName2Column = grid.addComponentColumn(f -> {
+//            TextField option = new TextField();
+//            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+//            option.setMaxLength(16);
+//            option.setClearButtonVisible(true);
+//            option.setValue(StringUtils.isBlank(f.getOptionName2()) ? "" : f.getOptionName2());
+//            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
+//            option.addValueChangeListener(l -> {
+//                f.setOptionName2(l.getValue());
+//            });
+//            return option;
+//        }).setHeader("OPTION 2").setAutoWidth(true);
+//
+//        Grid.Column<BatchItems> optionValue2Column = grid.addComponentColumn(f -> {
+//            TextField option = new TextField();
+//            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+//            option.setMaxLength(20);
+//            option.setClearButtonVisible(true);
+//            option.setValue(StringUtils.isBlank(f.getOptionValue2()) ? "" : f.getOptionValue2());
+//            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
+//            option.addValueChangeListener(l -> {
+//                f.setOptionValue2(l.getValue());
+//            });
+//            return option;
+//        }).setHeader("VALUE 2").setAutoWidth(true);
+//
+//        Grid.Column<BatchItems> optionName3Column = grid.addComponentColumn(f -> {
+//            TextField option = new TextField();
+//            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+//            option.setMaxLength(16);
+//            option.setClearButtonVisible(true);
+//            option.setValue(StringUtils.isBlank(f.getOptionName3()) ? "" : f.getOptionName3());
+//            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
+//            option.addValueChangeListener(l -> {
+//                f.setOptionName3(l.getValue());
+//            });
+//            return option;
+//        }).setHeader("OPTION 3").setAutoWidth(true);
+//
+//        Grid.Column<BatchItems> optionValue3Column = grid.addComponentColumn(f -> {
+//            TextField option = new TextField();
+//            option.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+//            option.setMaxLength(20);
+//            option.setClearButtonVisible(true);
+//            option.setValue(StringUtils.isBlank(f.getOptionValue3()) ? "" : f.getOptionValue3());
+//            option.setReadOnly(batch.getStatus().compareTo(UPLOAD_ITEMS) != 0);
+//            option.addValueChangeListener(l -> {
+//                f.setOptionValue3(l.getValue());
+//            });
+//            return option;
+//        }).setHeader("VALUE 3").setAutoWidth(true);
 
 
         Grid.Column<BatchItems> quantityColumn = grid.addComponentColumn(f -> {
@@ -375,6 +373,21 @@ public class UploadItemsView extends VerticalLayout {
             return integerField;
         }).setHeader("UPLOAD").setTooltipGenerator(l -> "Upload will be turned off after already been uploaded. If you turn it on again it will retry the upload").setAutoWidth(true);
 
+
+        Grid.Column<BatchItems> deleteColumn = grid.addComponentColumn(f -> {
+            Button deleteBtn = new Button();
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR,ButtonVariant.LUMO_SMALL,ButtonVariant.LUMO_ICON);
+            deleteBtn.setIcon(MyLineAwesome.TRASH_SOLID.create());
+            deleteBtn.setEnabled(batch.getStatus().compareTo(Batch.Status.VALIDATE_ITEMS) == 0 || batch.getStatus().compareTo(UPLOAD_ITEMS) == 0);
+            deleteBtn.addClickListener(l -> {
+                if(f.getId() != null){
+                    batchItemsService.delete(f.getId());
+                }
+                byBatchId.remove(f);
+                grid.getDataProvider().refreshAll();
+            });
+            return deleteBtn;
+        }).setHeader("Remove").setAutoWidth(true);
 
         byBatchId = batchItemsService.findByBatchId(batchId);
         grid.setItems(byBatchId);

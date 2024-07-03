@@ -17,9 +17,12 @@ import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.HeaderRow;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.AnchorTarget;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -186,7 +189,7 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
         }).setHeader("Section").setAutoWidth(true);
 
         itemsMobileColumn = grid.addComponentColumn(i -> {
-            return CardView.createCard(null, i.getItem_name(), i.getStock_level() + " in stock", i.getVariantStore().getPrice().toString());
+            return CardView.createCard(null, i.getItem_name(), i.getStock_level() + " in stock", (i.getVariantStore().getPrice() == null ? "0" : i.getVariantStore().getPrice().toString()));
         }).setHeader("List of items");
         itemsMobileColumn.setVisible(false);
 
@@ -466,12 +469,16 @@ public class ItemsView extends Div implements BeforeEnterObserver, HelpFunction,
             searchBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
             searchBtn.addClickListener(e -> onSearch.run());
 
+
+
+
             Div actions = new Div(resetBtn, searchBtn);
             actions.addClassName(LumoUtility.Gap.SMALL);
             actions.addClassName("actions");
 
 //            add(createDateRangeFilter(), actions);
         }
+
 
         private Component createDateRangeFilter() {
             selector.setItems("Today", "Yesterday", "This week", "Last week", "This month", "Last month", "Last 7 days", "Last 30 days");

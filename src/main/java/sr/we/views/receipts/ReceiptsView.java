@@ -17,6 +17,8 @@ import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.grid.HeaderRow;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.AnchorTarget;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -35,16 +37,19 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.query.Criteria;
+import sr.we.controllers.CustomersController;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.ReceiptsController;
 import sr.we.controllers.StoresController;
 import sr.we.entity.User;
+import sr.we.entity.eclipsestore.tables.Customer;
 import sr.we.entity.eclipsestore.tables.Receipt;
 import sr.we.entity.eclipsestore.tables.Section;
 import sr.we.security.AuthenticatedUser;
 import sr.we.views.HelpFunction;
 import sr.we.views.MainLayout;
 import sr.we.views.MobileSupport;
+import sr.we.views.components.MyLineAwesome;
 import sr.we.views.users.CardView;
 
 import java.text.DecimalFormat;
@@ -59,7 +64,7 @@ import java.util.stream.Collectors;
 @Route(value = "receipts", layout = MainLayout.class)
 @RolesAllowed({"ADMIN", "SECTION_OWNER"})
 @Uses(Icon.class)
-public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFunction , MobileSupport {
+public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFunction, MobileSupport {
 
     private static List<Section> sections;
     private static User user;
@@ -69,6 +74,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     private final Filters filters;
     private final StoresController storesController;
     private final VerticalLayout layout;
+    private final CustomersController customersController;
     private Grid<Receipt> grid;
     private TextField receiptNumberFld;
     private BigDecimalField costFld;
@@ -78,7 +84,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     private MultiSelectComboBox<String> sectionId;
     private Select<Type> typeFld;
     private Set<String> linkSections;
-    private TextField itemFld;
+    private TextField itemFld, skuFld, barcodeFld;
     private Grid.Column<Receipt> receiptNumberColumn;
     private Grid.Column<Receipt> storeColumn;
     private Grid.Column<Receipt> itemColumn;
@@ -93,12 +99,17 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     private Grid.Column<Receipt> receiptMobileColumn;
     private boolean isMobile;
     private GridExporter<Receipt> exporter;
+    private Grid.Column<Receipt> skuColumn;
+    private Grid.Column<Receipt> barcodeColumn;
+    private Grid.Column<Receipt> customerNameColumn;
+    private Grid.Column<Receipt> customerContactColumn;
 
-    public ReceiptsView(StoresController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresController storesController) {
+    public ReceiptsView(CustomersController customersController, StoresController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.receiptService = ReceiptService;
         this.sectionService = sectionService;
         this.authenticatedUser = authenticatedUser;
         this.storesController = storesController;
+        this.customersController = customersController;
         setSizeFull();
         addClassNames("items-view");
 
@@ -115,8 +126,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     }
 
     private static List<Section> getSections(Receipt r) {
-        List<Section> collect = sections
-                .stream().filter(l -> ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(), r.getColor(), l)).toList();
+        List<Section> collect = sections.stream().filter(l -> ItemsController.linkSection(l.getId(), r.getCategory_id(), r.getForm(), r.getColor(), l)).toList();
         if (collect.size() > 1) {
             collect = collect.stream().filter(l -> !l.isDefault()).toList();
         }
@@ -161,6 +171,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             return any.map(Section::getDefault_name).orElse(storeId);
         }).setHeader("Store").setAutoWidth(true);
         itemColumn = grid.addColumn(r -> r.getLine_item().getItem_name()).setHeader("Item").setAutoWidth(true);
+        skuColumn = grid.addColumn(r -> r.getLine_item().getSku()).setHeader("SKU").setAutoWidth(true);
+        barcodeColumn = grid.addColumn(r -> r.getLine_item().getBarcode()).setHeader("Barcode").setAutoWidth(true);
         sectionColumn = grid.addComponentColumn(r -> {
 
             List<Section> collect = getSections(r);
@@ -174,10 +186,23 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         discountColumn = grid.addColumn(r -> r.getLine_item().getTotal_discount() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getTotal_discount())).setHeader("Discount").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         totalColumn = grid.addColumn(r -> r.getLine_item().getTotal_money() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getTotal_money())).setHeader("Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
         grossTotalColumn = grid.addColumn(r -> r.getLine_item().getGross_total_money() == null ? null : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getGross_total_money())).setHeader("Gross Total").setAutoWidth(true).setTextAlign(ColumnTextAlign.END);
-
+        customerNameColumn = grid.addColumn(r -> {
+            if (StringUtils.isBlank(r.getCustomer_id())) {
+                return null;
+            }
+            Customer customer = customersController.id(r.getCustomer_id());
+            return customer == null ? null : customer.getName();
+        }).setHeader("Customer name").setAutoWidth(true);
+        customerContactColumn = grid.addColumn(r -> {
+            if (StringUtils.isBlank(r.getCustomer_id())) {
+                return null;
+            }
+            Customer customer = customersController.id(r.getCustomer_id());
+            return customer == null ? null : customer.getPhone_number();
+        }).setHeader("Customer contact").setAutoWidth(true);
         receiptMobileColumn = grid.addComponentColumn(r -> {
             String[] number = r.getReceipt_number().split("-");
-            return CardView.createCard((r.getLine_item().getGross_total_money()  == null ? "N.A." : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getGross_total_money())), (number[0] + "-" + number[1]), r.getLine_item().getItem_name(), r.getReceipt_date().toString(), r.getReceipt_type());
+            return CardView.createCard((r.getLine_item().getGross_total_money() == null ? "N.A." : new DecimalFormat("###,###,###,###,###,##0.00").format(r.getLine_item().getGross_total_money())), (number[0] + "-" + number[1]), r.getLine_item().getItem_name(), r.getReceipt_date().toString(), r.getReceipt_type());
         }).setHeader("List of receipts");
         receiptMobileColumn.setVisible(false);
 
@@ -194,6 +219,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         exporter.setCsvExportEnabled(false);
         exporter.setDocxExportEnabled(false);
         exporter.setPdfExportEnabled(false);
+        exporter.setExcelExportEnabled(true);
         exporter.setTitle("Receipts");
         exporter.setExportValue(sectionColumn, r -> {
             List<Section> collect = getSections(r);
@@ -212,13 +238,19 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         exporter.setCustomHeader(storeColumn, "Store");
         exporter.setCustomHeader(typeColumn, "Type");
         exporter.setCustomHeader(itemColumn, "Item");
+        exporter.setCustomHeader(skuColumn, "SKU");
+        exporter.setCustomHeader(barcodeColumn, "Barcode");
         exporter.setCustomHeader(sectionColumn, "Section");
         exporter.setCustomHeader(costColumn, "Cost");
         exporter.setCustomHeader(discountColumn, "Discount");
         exporter.setCustomHeader(totalColumn, "Total");
+        exporter.setCustomHeader(customerNameColumn, "Customer name");
+        exporter.setCustomHeader(customerContactColumn, "Customer contact");
         exporter.setCustomHeader(grossTotalColumn, "Gross Total");
         exporter.setFileName("GridExportReceipts" + new SimpleDateFormat("yyyyddMM").format(Calendar.getInstance().getTime()));
-
+        if (filters != null) {
+            filters.getActionBtn().setHref(exporter.getExcelStreamResource());
+        }
         return grid;
     }
 
@@ -227,7 +259,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         super.onAttach(attachEvent);
         isMobile = CardView.isMobileDevice();
 //        editHeader.setVisible(isMobile);
-        if(isMobile){
+        if (isMobile) {
 //            if(user == null){
 //                splitLayout.setSplitterPosition(100);
 //            } else {
@@ -241,8 +273,12 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             receiptNumberColumn.setVisible(false);
             grossTotalColumn.setVisible(false);
             itemColumn.setVisible(false);
+            skuColumn.setVisible(false);
+            barcodeColumn.setVisible(false);
             sectionColumn.setVisible(false);
             totalColumn.setVisible(false);
+            customerNameColumn.setVisible(false);
+            customerContactColumn.setVisible(false);
             typeColumn.setVisible(false);
             storeColumn.setVisible(false);
             receiptMobileColumn.setVisible(true);
@@ -257,8 +293,12 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             receiptNumberColumn.setVisible(true);
             grossTotalColumn.setVisible(true);
             itemColumn.setVisible(true);
+            skuColumn.setVisible(true);
+            barcodeColumn.setVisible(true);
             sectionColumn.setVisible(true);
             totalColumn.setVisible(true);
+            customerNameColumn.setVisible(true);
+            customerContactColumn.setVisible(true);
             typeColumn.setVisible(true);
             storeColumn.setVisible(true);
             receiptMobileColumn.setVisible(false);
@@ -292,6 +332,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
 
         receiptNumberFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
         itemFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
+        skuFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
+        barcodeFld = new TextField("", "", l -> grid.getDataProvider().refreshAll());
         typeFld = new Select<Type>();
         costFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
         discountFld = new BigDecimalField("", null, l -> grid.getDataProvider().refreshAll());
@@ -319,6 +361,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         totalFld.setPlaceholder("Filter");
         grossTotalFld.setPlaceholder("Filter");
         itemFld.setPlaceholder("Filter");
+        skuFld.setPlaceholder("Filter");
+        barcodeFld.setPlaceholder("Filter");
 
         storeFld.setWidthFull();
         sectionId.setWidthFull();
@@ -329,6 +373,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         totalFld.setWidthFull();
         grossTotalFld.setWidthFull();
         itemFld.setWidthFull();
+        skuFld.setPlaceholder("Filter");
+        barcodeFld.setPlaceholder("Filter");
 
         storeFld.setClearButtonVisible(true);
         sectionId.setClearButtonVisible(true);
@@ -338,6 +384,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         totalFld.setClearButtonVisible(true);
         grossTotalFld.setClearButtonVisible(true);
         itemFld.setClearButtonVisible(true);
+        skuFld.setClearButtonVisible(true);
+        barcodeFld.setClearButtonVisible(true);
 
         typeFld.setItems(Type.ALL, Type.SALE, Type.REFUND);
         typeFld.setValue(Type.ALL);
@@ -347,6 +395,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         headerRow.getCell(receiptNumberColumn).setComponent(receiptNumberFld);
         headerRow.getCell(typeColumn).setComponent(typeFld);
         headerRow.getCell(itemColumn).setComponent(itemFld);
+        headerRow.getCell(skuColumn).setComponent(skuFld);
+        headerRow.getCell(barcodeColumn).setComponent(barcodeFld);
         headerRow.getCell(sectionColumn).setComponent(sectionId);
         headerRow.getCell(costColumn).setComponent(costFld);
         headerRow.getCell(discountColumn).setComponent(discountFld);
@@ -371,6 +421,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         private final Select<String> selector = new Select<>();
         private final DatePicker startDate = new DatePicker("Receipt date");
         private final DatePicker endDate = new DatePicker();
+        private final Anchor anchorAction;
 
         public Filters(Runnable onSearch) {
 
@@ -395,12 +446,24 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             searchBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
             searchBtn.addClickListener(e -> onSearch.run());
 
-            Div actions = new Div(resetBtn, searchBtn);
+            Button actionBtn = new Button();
+            actionBtn.addThemeVariants(ButtonVariant.LUMO_ICON);
+            actionBtn.setIcon(MyLineAwesome.FILE_EXCEL.create());
+
+            anchorAction = new Anchor("", actionBtn);
+            anchorAction.setTarget(AnchorTarget.BLANK);
+
+            Div actions = new Div(resetBtn, searchBtn, anchorAction);
             actions.addClassName(LumoUtility.Gap.SMALL);
             actions.addClassName("actions");
 
             add(/*name, phone, */createDateRangeFilter()/*, occupations, roles*/, actions);
         }
+
+        public Anchor getActionBtn() {
+            return anchorAction;
+        }
+
 
         private Component createDateRangeFilter() {
             selector.setItems("Today", "Yesterday", "This week", "Last week", "This month", "Last month", "Last 7 days", "Last 30 days");
@@ -485,11 +548,19 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             }
             if (StringUtils.isNotBlank(itemFld.getValue())) {
 //                check = receipt.getLine_item().getItem_name().toUpperCase().contains(itemFld.getValue().toUpperCase());
-                criterias.add(Criteria.where("line_item.item_name").regex(".*"+itemFld.getValue()+".*"));
+                criterias.add(Criteria.where("line_item.item_name").regex(".*" + itemFld.getValue() + ".*"));
+            }
+            if (StringUtils.isNotBlank(skuFld.getValue())) {
+//                check = receipt.getLine_item().getItem_name().toUpperCase().contains(itemFld.getValue().toUpperCase());
+                criterias.add(Criteria.where("line_item.sku").regex(".*" + skuFld.getValue() + ".*"));
+            }
+            if (StringUtils.isNotBlank(barcodeFld.getValue())) {
+//                check = receipt.getLine_item().getItem_name().toUpperCase().contains(itemFld.getValue().toUpperCase());
+                criterias.add(Criteria.where("line_item.barcode").regex(".*" + barcodeFld.getValue() + ".*"));
             }
             if (storeFld.getValue() != null) {
 //                check = receipt.getStore_id().equalsIgnoreCase(storeFld.getValue().getId());
-                criterias.add(Criteria.where("store_id").regex(".*"+storeFld.getValue().getId()+".*"));
+                criterias.add(Criteria.where("store_id").regex(".*" + storeFld.getValue().getId() + ".*"));
             }
             if (StringUtils.isNotBlank(receiptNumberFld.getValue())) {
 //                check = receipt.getReceipt_number().contains(receiptNumberFld.getValue());
@@ -497,7 +568,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             }
             if (typeFld.getValue() != null && typeFld.getValue().compareTo(Type.ALL) != 0) {
 //                check = receipt.getReceipt_type().equalsIgnoreCase(typeFld.getValue().name());
-                criterias.add(Criteria.where("receipt_type").regex(".*"+typeFld.getValue().name()+".*" ));
+                criterias.add(Criteria.where("receipt_type").regex(".*" + typeFld.getValue().name() + ".*"));
             }
             if (costFld.getValue() != null) {
 //                check = receipt.getLine_item().getCost().compareTo(costFld.getValue()) == 0;

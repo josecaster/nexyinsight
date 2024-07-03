@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import sr.we.entity.Integration;
+import sr.we.entity.eclipsestore.tables.ApiCustomers;
 import sr.we.entity.eclipsestore.tables.ApiInventoryLevels;
 import sr.we.entity.eclipsestore.tables.ApiItems;
 import sr.we.entity.eclipsestore.tables.ApiReceipts;
@@ -65,6 +66,8 @@ public class ApiRestController {
         return ResponseEntity.status(HttpStatus.OK).body("Hooked");
     }
 
+
+
     @PostMapping("inventory")
     public ResponseEntity<String> inventory(@RequestHeader MultiValueMap<String, String> headers, @RequestHeader(name = "X-Loyvere-Signature", required = false) String authorization, @RequestBody String payload) {
         ResponseEntity<String> authorize = authorize(headers, authorization, payload);
@@ -84,6 +87,11 @@ public class ApiRestController {
         ResponseEntity<String> authorize = authorize(headers, authorization, payload);
         if (authorize != null) return authorize;
 
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+        ApiCustomers body = new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeDeserializer(formatter)).create().fromJson(payload, ApiCustomers.class);
+        if (body != null && body.getCustomers()!= null) {
+            jobbyLauncher.doForCustomers(body.getCustomers());
+        }
 
         return ResponseEntity.status(HttpStatus.OK).body("Hooked");
     }

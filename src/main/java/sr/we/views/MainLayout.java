@@ -67,6 +67,7 @@ import sr.we.services.UserService;
 import sr.we.services.WebhookService;
 import sr.we.views.batches.BatchesView;
 import sr.we.views.components.MyLineAwesome;
+import sr.we.views.customers.CustomersView;
 import sr.we.views.dashboard.DashboardView;
 import sr.we.views.inventoryvaluation.InventoryValuationView;
 import sr.we.views.items.ItemsView;
@@ -716,6 +717,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
                 new MenuItemInfo("Sections", MyLineAwesome.LAYER_GROUP_SOLID.create(), SectionsView.class), //
                 new MenuItemInfo("Receipts", MyLineAwesome.RECEIPT_SOLID.create(), ReceiptsView.class), //
+                new MenuItemInfo("Customers", MyLineAwesome.PERSON_BOOTH_SOLID.create(), CustomersView.class), //
 
                 new MenuItemInfo("Batches", MyLineAwesome.OBJECT_GROUP.create(), BatchesView.class), //
 
