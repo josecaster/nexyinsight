@@ -50,7 +50,7 @@ import static sr.we.entity.Batch.Status.UPLOAD_ITEMS;
 
 public class UploadItemsView extends VerticalLayout {
 
-    public static final String[] COLUMNS = {"SKU", "CODE", "NAME", "DESCRIPTION", "OPTION_1", "OPTION_2", "OPTION_3", "OPTION_VALUE_1", "OPTION_VALUE_2", "OPTION_VALUE_3", "QUANTITY", "VARIABLE", "PRICE", "COST"};
+    public static final String[] COLUMNS = {"SKU", "CODE", "NAME", "DESCRIPTION", /*"OPTION_1", "OPTION_2", "OPTION_3", "OPTION_VALUE_1", "OPTION_VALUE_2", "OPTION_VALUE_3",*/ "QUANTITY", "VARIABLE", "PRICE", "COST"};
     private final Grid<BatchItems> grid = new Grid<>(BatchItems.class, false);
     private final Button cancel = new Button("Add new BatchItems ");
     private final Button save = new Button("Save");
@@ -118,7 +118,7 @@ public class UploadItemsView extends VerticalLayout {
         anchor.getElement().getStyle().set("margin-left", "auto");
         anchor.setTarget(AnchorTarget.BLANK);
         horizontalLayout.add(anchor);
-        add(/*horizontalLayout, new Hr(),*/cancel, splitLayout);
+        add(horizontalLayout, new Hr(),cancel, splitLayout);
 
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         grid.setHeight("400px");
@@ -509,12 +509,12 @@ public class UploadItemsView extends VerticalLayout {
                 String code = record.get("CODE");
                 String name = record.get("NAME");
                 String description = record.get("DESCRIPTION");
-                String option1 = record.get("OPTION_1");
-                String optionValue1 = record.get("OPTION_VALUE_1");
-                String option2 = record.get("OPTION_2");
-                String optionValue2 = record.get("OPTION_VALUE_2");
-                String option3 = record.get("OPTION_3");
-                String optionValue3 = record.get("OPTION_VALUE_3");
+                String option1 = null;
+                String optionValue1 = null;
+                String option2 = null;
+                String optionValue2 = null;
+                String option3 = null;
+                String optionValue3 = null;
                 String quantity = record.get("QUANTITY");
                 String price = record.get("PRICE");
                 String cost = record.get("COST");

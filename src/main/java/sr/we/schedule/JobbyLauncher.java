@@ -88,10 +88,10 @@ public class JobbyLauncher implements Runnable {
 
     @Override
     public void run() {
-//        runItems();
-//        updateStockLevels();
+        runItems();
+        updateStockLevels();
         storeCustomers();
-//        runReceipts();
+        runReceipts();
     }
 
     private String getLoyverseToken() {

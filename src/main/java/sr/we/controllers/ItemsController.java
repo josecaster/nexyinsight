@@ -299,7 +299,7 @@ public class ItemsController {
         if(items.size() != 1){
             return null;
         } else {
-            return items.get(0).getId();
+            return items.get(0).getUuId();
         }
     }
 
