@@ -275,6 +275,8 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
         items.setHeight("400px");
         items.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COLUMN_BORDERS);
         Grid.Column<StockAdjustmentItems> itemColumn = items.addColumn(StockAdjustmentItems::getItemName).setHeader("Item");
+        Grid.Column<StockAdjustmentItems> skuColumn = items.addColumn(StockAdjustmentItems::getSku).setHeader("SKU");
+        Grid.Column<StockAdjustmentItems> barcodeColumn = items.addColumn(StockAdjustmentItems::getBarcode).setHeader("Barcode");
         Grid.Column<StockAdjustmentItems> inStockColumn = items.addColumn(StockAdjustmentItems::getInStock).setHeader("In Stock");
         Grid.Column<StockAdjustmentItems> adjustColumn = items.addComponentColumn(l -> {
             IntegerField integerField = new IntegerField();
@@ -412,6 +414,8 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                     if (itemList.stream().noneMatch(f -> f.getItemId().equalsIgnoreCase(value.getUuId()))) {
 
                         StockAdjustmentItems stockAdjustmentItems = new StockAdjustmentItems();
+                        stockAdjustmentItems.setSku(value.getVariant().getSku());
+                        stockAdjustmentItems.setBarcode(value.getVariant().getBarcode());
                         stockAdjustmentItems.setItemId(value.getUuId());
                         stockAdjustmentItems.setInStock(value.getStock_level());
                         stockAdjustmentItems.setItemName(value.getItem_name());
@@ -464,6 +468,8 @@ public class StockAdjustmentView extends Div implements BeforeEnterObserver {
                 } else {
 
                     StockAdjustmentItems stockAdjustmentItems = new StockAdjustmentItems();
+                    stockAdjustmentItems.setSku(value.getVariant().getSku());
+                    stockAdjustmentItems.setBarcode(value.getVariant().getBarcode());
                     stockAdjustmentItems.setItemId(value.getUuId());
                     stockAdjustmentItems.setInStock(value.getStock_level());
                     stockAdjustmentItems.setItemName(value.getItem_name());
