@@ -55,7 +55,7 @@ import java.util.*;
 
 @PageTitle("Customers")
 @Route(value = "customers", layout = MainLayout.class)
-@RolesAllowed({"ADMIN", "SECTION_OWNER"})
+@RolesAllowed({"ADMIN"})
 @Uses(Icon.class)
 public class CustomersView extends Div implements BeforeEnterObserver, /*HelpFunction,*/ MobileSupport {
 
