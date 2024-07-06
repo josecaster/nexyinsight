@@ -324,8 +324,8 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
             userName.add(div);
             account(userName);
+            changePassword(userName);
             if (user.getRoles().contains(Role.ADMIN)) {
-                changePassword(userName);
                 loyverseIntegration(userName);
                 synchronize(userName);
             }
