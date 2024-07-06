@@ -462,6 +462,7 @@ public class JobbyLauncher implements Runnable {
                     Receipt receipt1 = receiptsStorage.oneReceiptNumber(id);
                     if (receipt1 != null) {
 //                        receipt.setUuId(receipt1.getUuId());// dont proceed yet, still need to figure out how we will handle it
+                        receipt1.setCancelled_at(receipt.getCancelled_at());
                         update(receipt1, item, id);
                     } else {
                         if (StringUtils.isNotBlank(receipt.getUuId())) {
