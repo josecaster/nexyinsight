@@ -44,6 +44,7 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import com.vaadin.flow.theme.lumo.LumoUtility.*;
 import jakarta.servlet.http.Cookie;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.addons.joelpop.changepassword.ChangePassword;
 import org.vaadin.addons.joelpop.changepassword.ChangePasswordDialog;
@@ -331,6 +332,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             }
             signOut(userName);
             footer.add(userMenu);
+            footer.add(appVresion);
         } else {
             Anchor loginLink = new Anchor("login", "Sign in");
             footer.add(loginLink);
@@ -338,6 +340,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
         return new Footer(footer);
     }
+
+    @Value("${sr.we.build.version}")
+    private String appVresion;
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
@@ -437,6 +442,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             synchronize(userName);
             signOut(userName);
             layout.add(userMenu);
+            layout.add(appVresion);
         } else {
             Anchor loginLink = new Anchor("login", "Sign in");
             layout.add(loginLink);
