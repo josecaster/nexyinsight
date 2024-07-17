@@ -1,6 +1,7 @@
 package sr.we;
 
 import com.vaadin.flow.component.page.AppShellConfigurator;
+import com.vaadin.flow.component.page.Push;
 import com.vaadin.flow.component.page.Viewport;
 import com.vaadin.flow.server.PWA;
 import com.vaadin.flow.theme.Theme;
@@ -38,6 +39,7 @@ import sr.we.repository.SamplePersonRepository;
 @Import(EclipseStoreSpringBoot.class)
 @PWA(name = "NexyInsight", shortName = "NexyInsight")
 @Viewport(Viewport.DEVICE_DIMENSIONS)
+@Push
 public class Application implements AppShellConfigurator {
 
     public static void main(String[] args) {

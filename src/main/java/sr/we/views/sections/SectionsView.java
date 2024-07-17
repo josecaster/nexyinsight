@@ -21,11 +21,11 @@ import com.vaadin.flow.component.menubar.MenuBarVariant;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.Binder;
-import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -66,7 +66,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
     private List<Category> categoryList;
     private ComboBox<String> storeComboBox;
     private Grid.Column<Section> myStoreNameColumn;
-    private ComboBox<String> categoryComboBox;
+    private MultiSelectComboBox<String> categoryComboBox;
     private Grid.Column<Section> sectionsMobileColumn;
     private Grid.Column<Section> linkStoreColumn;
     private Grid.Column<Section> categoryColumn;
@@ -74,6 +74,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
     private Grid.Column<Section> editColumn;
     private Grid.Column<Section> iconColumn;
     private Grid.Column<Section> defaultColumn;
+    private Grid.Column<Section> enabledColumn;
     //    private MultiSelectComboBox<String> deviceComboBox;
 
     public SectionsView(StoresController sectionService, CategoryController categoryController, DevicesController devicesController) {
@@ -175,8 +176,8 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
         grid = new Grid<>();
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_COLUMN_BORDERS);
 
-        grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize()));
-
+        grid.setItems(query -> sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), true));
+        grid.setHeight("100%");
     }
 
     private Long getBusinessId() {
@@ -193,9 +194,10 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
         createLinkStoreColumn();
         createCategoryColumn();
         createDefaultColumn();
+        createEnabledColumn();
         createEditColumn();
         sectionsMobileColumn = grid.addComponentColumn(r -> {
-            return CardView.createCard(r.getProfilePicture(),r.getName(),"","");
+            return CardView.createCard(r.getProfilePicture(), r.getName(), "", "");
         }).setHeader("List of sections");
         sectionsMobileColumn.setVisible(false);
 
@@ -225,7 +227,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
         super.onAttach(attachEvent);
         boolean isMobile = CardView.isMobileDevice();
 //        editHeader.setVisible(isMobile);
-        if(isMobile){
+        if (isMobile) {
 //            if(user == null){
 //                splitLayout.setSplitterPosition(100);
 //            } else {
@@ -356,12 +358,12 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
 
     private void createCategoryColumn() {
         categoryColumn = grid.addComponentColumn(section -> {
-            ComboBox<String> categoryComboBox = new ComboBox<>();
+            MultiSelectComboBox<String> categoryComboBox = new MultiSelectComboBox<>();
             categoryComboBox.setWidthFull();
             categoryComboBox.setReadOnly(true);
             categoryComboBox.setItems((categoryList.stream().map(Category::getId).toList()));
             if (!categoryList.isEmpty() && section.getCategories() != null && !section.getCategories().isEmpty()) {
-                categoryComboBox.setValue(section.getCategories().stream().findAny().get());
+                categoryComboBox.setValue(section.getCategories());
             }
             categoryComboBox.setItemLabelGenerator(l -> {
                 Optional<Category> any = categoryList.stream().filter(n -> n.getId().equalsIgnoreCase(l)).findAny();
@@ -370,15 +372,13 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
             return categoryComboBox;
         }).setHeader("Category");
 
-        categoryComboBox = new ComboBox<>();
+        categoryComboBox = new MultiSelectComboBox<>();
         categoryComboBox.setWidthFull();
-        binder.forField(categoryComboBox).bind(section -> section.getCategories() == null || section.getCategories().isEmpty() ? null : section.getCategories().stream().findAny().get(), (section, value) -> {
-            if (StringUtils.isBlank(value)) {
-                section.setCategories(null);
-            } else {
-                section.setCategories(new HashSet<>(List.of(value)));
-            }
-        });
+        //            if (StringUtils.isBlank(value)) {
+        //            } else {
+        //                section.setCategories(new HashSet<>(List.of(value)));
+        //            }
+        binder.forField(categoryComboBox).bind(section -> section.getCategories() == null || section.getCategories().isEmpty() ? null : section.getCategories(), Section::setCategories);
         categoryColumn.setEditorComponent(categoryComboBox);
     }
 
@@ -387,7 +387,20 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
             Checkbox checkbox = new Checkbox(store.isDefault());
             checkbox.setReadOnly(true);
             return checkbox;
-        });
+        }).setHeader("Default");
+    }
+
+    private void createEnabledColumn() {
+        enabledColumn = grid.addComponentColumn(store -> {
+            Checkbox checkbox = new Checkbox(store.isEnabled());
+            checkbox.setReadOnly(true);
+            return checkbox;
+        }).setHeader("Enabled");
+
+        Checkbox enabledChk = new Checkbox();
+        enabledChk.setWidthFull();
+        binder.forField(enabledChk).bind(Section::isEnabled, Section::setEnabled);
+        enabledColumn.setEditorComponent(enabledChk);
     }
 
     private void createEditColumn() {
@@ -412,13 +425,31 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
     private void addFiltersToGrid() {
         HeaderRow filterRow = grid.appendHeaderRow();
 
-        TextField sectionFilter = new TextField();
+//        TextField sectionFilter = new TextField();
+//        sectionFilter.setPlaceholder("Filter");
+//        sectionFilter.setClearButtonVisible(true);
+//        sectionFilter.setWidth("100%");
+//        sectionFilter.setValueChangeMode(ValueChangeMode.EAGER);
+////        sectionFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> StringUtils.containsIgnoreCase(section.getName(), sectionFilter.getValue())));
+//        filterRow.getCell(myStoreNameColumn).setComponent(sectionFilter);
+
+        Select<String> sectionFilter = new Select<String>();
         sectionFilter.setPlaceholder("Filter");
-        sectionFilter.setClearButtonVisible(true);
         sectionFilter.setWidth("100%");
-        sectionFilter.setValueChangeMode(ValueChangeMode.EAGER);
-//        sectionFilter.addValueChangeListener(event -> gridListDataView.addFilter(section -> StringUtils.containsIgnoreCase(section.getName(), sectionFilter.getValue())));
-        filterRow.getCell(myStoreNameColumn).setComponent(sectionFilter);
+        sectionFilter.setItems("Enabled", "Disabled", "Both");
+        sectionFilter.setValue("Enabled");
+
+        sectionFilter.addValueChangeListener(event -> grid.setItems(query -> {
+            String value = event.getValue();
+            Boolean enabled = true;
+            if (StringUtils.isBlank(value) || value.equalsIgnoreCase("Both")) {
+                enabled = null;
+            } else if (value.equalsIgnoreCase("Disabled")) {
+                enabled = false;
+            }
+            return sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), enabled);
+        }));
+        filterRow.getCell(enabledColumn).setComponent(sectionFilter);
 
 
     }

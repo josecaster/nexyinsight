@@ -74,6 +74,9 @@ public class Section extends SuperDao implements ISection {
     private Form form;
     private Color color;
 
+    @Column(columnDefinition = "boolean default true")
+    private boolean enabled = true;
+
     @Lob
     @Column(length = 1000000)
     private byte[] profilePicture;
@@ -99,6 +102,15 @@ public class Section extends SuperDao implements ISection {
         this.createdAt = LocalDateTime.now();
         this.updatedAtt = this.createdAt;
         this.deletedAt = null;
+        this.enabled = true;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     public byte[] getProfilePicture() {

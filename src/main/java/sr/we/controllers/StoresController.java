@@ -75,7 +75,22 @@ public class StoresController {
      */
     public Stream<Section> allSections(Long businessId, Integer page, Integer pageSize) {
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        Criteria criteriaDefinition = Criteria.where("businessId").is(businessId);
+        criteriaDefinition.orOperator(Criteria.where("enabled").isNull(),Criteria.where("enabled").is(true));
+        query.addCriteria(criteriaDefinition);
+        query.with(PageRequest.of(page, pageSize)).with(Sort.by(Sort.Direction.ASC, "name"));
+        return mongoTemplate.find(query, Section.class).stream();
+    }
+
+    public Stream<Section> allSections(Long businessId, Integer page, Integer pageSize, Boolean enabled) {
+        Query query = new Query();
+        Criteria criteriaDefinition = Criteria.where("businessId").is(businessId);
+        if(enabled ==null || enabled){
+            criteriaDefinition.orOperator(Criteria.where("enabled").isNull(),Criteria.where("enabled").is(true));
+        } else {
+            criteriaDefinition.and("enabled").is(false);
+        }
+        query.addCriteria(criteriaDefinition);
         query.with(PageRequest.of(page, pageSize)).with(Sort.by(Sort.Direction.ASC, "name"));
         return mongoTemplate.find(query, Section.class).stream();
     }
@@ -90,7 +105,9 @@ public class StoresController {
      */
     public Stream<Section> allSections(Long businessId, Integer page, Integer pageSize, Optional<User> userOptional) {
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        Criteria criteriaDefinition = Criteria.where("businessId").is(businessId);
+        criteriaDefinition.orOperator(Criteria.where("enabled").isNull(),Criteria.where("enabled").is(true));
+        query.addCriteria(criteriaDefinition);
         query.with(PageRequest.of(page, pageSize));
 
 
