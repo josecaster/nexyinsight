@@ -103,7 +103,7 @@ public class ItemsController {
     public Stream<Item> allItems(Long businessId, Integer page, Integer pageSize, Set<String> sections, Collection<Criteria> predicate) {
 
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("businessId").is(businessId).and("deleted_at").isNull());
         if (page != null && pageSize != null) {
             query.with(PageRequest.of(page, pageSize));
         }
@@ -146,7 +146,7 @@ public class ItemsController {
 
 
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("businessId").is(businessId).and("deleted_at").isNull());
         if (page != null && pageSize != null) {
             query.with(PageRequest.of(page, pageSize));
         }
@@ -218,7 +218,7 @@ public class ItemsController {
 
 
         Query query = new Query();
-        query.addCriteria(Criteria.where("businessId").is(businessId));
+        query.addCriteria(Criteria.where("businessId").is(businessId).and("deleted_at").isNull());
         if (page != null && pageSize != null) {
             query.with(PageRequest.of(page, pageSize));
         }

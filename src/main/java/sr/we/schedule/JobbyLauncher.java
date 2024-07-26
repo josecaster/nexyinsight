@@ -572,6 +572,7 @@ public class JobbyLauncher implements Runnable {
                         oneItem.setModifiers_ids(item.getModifiers_ids());
                         oneItem.setStoreCountMap(item.getStoreCountMap());
                         oneItem.setLastUpdateStockLevel(item.getLastUpdateStockLevel());
+                        oneItem.setDeleted_at(item.getDeleted_at());
                         iterateStockLevels(oneItem, variant, store, levels, id,b);
                     } else {
                         if (StringUtils.isNotBlank(item.getUuId())) {// this is to split item variants in different nexy-insight items
