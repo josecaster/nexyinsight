@@ -296,7 +296,7 @@ public class JobbyLauncher implements Runnable {
             for (Customer customer : customers) {
                 // check if customer exists, if not create else do update
                 Customer customer1 = customerStorage.oneCustomerByLoyId(customer.getId());
-                if(customer1 != null){
+                if (customer1 != null) {
                     customer1.setBusinessId(businessId);
                     customer1.setAddress(customer.getAddress());
                     customer1.setCustomer_code(customer.getCustomer_code());
@@ -355,7 +355,7 @@ public class JobbyLauncher implements Runnable {
     }
 
     public void doForItems(List<Item> items, boolean b) {
-        if(b) {
+        if (b) {
             List<StockLevel> levels = getStockLevels(); // get stock levels
             iterateItems(items, levels, true);// rectify the amounts
         } else {
@@ -542,46 +542,28 @@ public class JobbyLauncher implements Runnable {
             }
             for (Variant variant : item.getVariants()) {
 
-                for (VariantStore store : variant.getStores()) {
-                    String id = itemId + "|" + variant.getVariant_id() + "|" + store.getStore_id();
-
-                    Item oneItem = itemStorage.oneItemByLoyId(id);
-                    if (oneItem != null) {
-                        oneItem.setBusinessId(item.getBusinessId());
-                        oneItem.setItem_name(item.getItem_name());
-                        oneItem.setCategory_id(item.getCategory_id());
-                        oneItem.setColor(item.getColor());
-                        oneItem.setId(item.getId());// this is the loyverse Id
-                        oneItem.setComponents(item.getComponents());
-                        oneItem.setForm(item.getForm());
-                        oneItem.setHandle(item.getHandle());
-                        oneItem.setImage_url(item.getImage_url());
-                        oneItem.setIs_composite(item.isIs_composite());
-                        oneItem.setIs_composite_string(item.getIs_composite_string());
-                        oneItem.setVariants(item.getVariants());
-                        oneItem.setUse_production(item.isUse_production());
-                        oneItem.setTrack_stock(item.isTrack_stock());
-                        oneItem.setTax_ids(item.getTax_ids());
-                        oneItem.setSold_by_weight(item.isSold_by_weight());
-                        oneItem.setSeaqnsUuId(item.getSeaqnsUuId());
-                        oneItem.setReference_id(item.getReference_id());
-                        oneItem.setPrimary_supplier_id(item.getPrimary_supplier_id());
-                        oneItem.setOption3_name(item.getOption3_name());
-                        oneItem.setOption2_name(item.getOption2_name());
-                        oneItem.setOption1_name(item.getOption1_name());
-                        oneItem.setModifiers_ids(item.getModifiers_ids());
-                        oneItem.setStoreCountMap(item.getStoreCountMap());
-                        oneItem.setLastUpdateStockLevel(item.getLastUpdateStockLevel());
-                        oneItem.setDeleted_at(item.getDeleted_at());
-                        iterateStockLevels(oneItem, variant, store, levels, id,b);
-                    } else {
-                        if (StringUtils.isNotBlank(item.getUuId())) {// this is to split item variants in different nexy-insight items
-                            iterateStockLevels(item.clone(), variant, store, levels, id, b);
-                        } else {
-                            iterateStockLevels(item, variant, store, levels, id, b);
+                if (variant.getStores() == null || variant.getStores().isEmpty()) {
+                    List<Item> items = itemStorage.itemsByHalfLoyId(itemId + "|" + variant.getVariant_id());
+                    if (items != null && !items.isEmpty()) {
+                        for (Item oneItem : items) {
+                            oneItem.setDeleted_at(item.getDeleted_at());
+                            itemStorage.saveOrUpdate(oneItem);
                         }
                     }
-
+                } else {
+                    for (VariantStore store : variant.getStores()) {
+                        String id = itemId + "|" + variant.getVariant_id() + "|" + store.getStore_id();
+                        Item oneItem = itemStorage.oneItemByLoyId(id);
+                        if (oneItem != null) {
+                            doForOneItem(levels, b, item, variant, store, oneItem, id);
+                        } else {
+                            if (StringUtils.isNotBlank(item.getUuId())) {// this is to split item variants in different nexy-insight items
+                                iterateStockLevels(item.clone(), variant, store, levels, id, b);
+                            } else {
+                                iterateStockLevels(item, variant, store, levels, id, b);
+                            }
+                        }
+                    }
 
                 }
             }
@@ -589,6 +571,36 @@ public class JobbyLauncher implements Runnable {
         }
 
         updateInventoryEvaluation();
+    }
+
+    private void doForOneItem(List<StockLevel> levels, boolean b, Item item, Variant variant, VariantStore store, Item oneItem, String id) {
+        oneItem.setBusinessId(item.getBusinessId());
+        oneItem.setItem_name(item.getItem_name());
+        oneItem.setCategory_id(item.getCategory_id());
+        oneItem.setColor(item.getColor());
+        oneItem.setId(item.getId());// this is the loyverse Id
+        oneItem.setComponents(item.getComponents());
+        oneItem.setForm(item.getForm());
+        oneItem.setHandle(item.getHandle());
+        oneItem.setImage_url(item.getImage_url());
+        oneItem.setIs_composite(item.isIs_composite());
+        oneItem.setIs_composite_string(item.getIs_composite_string());
+        oneItem.setVariants(item.getVariants());
+        oneItem.setUse_production(item.isUse_production());
+        oneItem.setTrack_stock(item.isTrack_stock());
+        oneItem.setTax_ids(item.getTax_ids());
+        oneItem.setSold_by_weight(item.isSold_by_weight());
+        oneItem.setSeaqnsUuId(item.getSeaqnsUuId());
+        oneItem.setReference_id(item.getReference_id());
+        oneItem.setPrimary_supplier_id(item.getPrimary_supplier_id());
+        oneItem.setOption3_name(item.getOption3_name());
+        oneItem.setOption2_name(item.getOption2_name());
+        oneItem.setOption1_name(item.getOption1_name());
+        oneItem.setModifiers_ids(item.getModifiers_ids());
+        oneItem.setStoreCountMap(item.getStoreCountMap());
+        oneItem.setLastUpdateStockLevel(item.getLastUpdateStockLevel());
+        oneItem.setDeleted_at(item.getDeleted_at() == null ? variant.getDeleted_at() : item.getDeleted_at());
+        iterateStockLevels(oneItem, variant, store, levels, id, b);
     }
 
     private void updateInventoryEvaluation() {
@@ -680,7 +692,6 @@ public class JobbyLauncher implements Runnable {
     }
 
     public void doForInventoryLevels(List<StockLevel> levels) {
-
 
 
         List<Item> items = itemStorage.allItems(getBusinessId());

@@ -50,4 +50,7 @@ public interface IItemStorage extends MongoRepository<Item, String> {
 
     @Query("{id:?0}")
     Item oneItemByLoyId(String id);
+
+    @Query("{id: /^?0/}")
+    List<Item> itemsByHalfLoyId(String id);
 }

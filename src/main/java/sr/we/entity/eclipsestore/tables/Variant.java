@@ -2,6 +2,7 @@ package sr.we.entity.eclipsestore.tables;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,7 +22,7 @@ public class Variant  implements Serializable {
     public List<VariantStore> stores;
     public String created_at;
     public String updated_at;
-    public String deleted_at;
+    public LocalDateTime deleted_at;
 
     public String getVariant_id() {
         return variant_id;
@@ -143,11 +144,11 @@ public class Variant  implements Serializable {
         this.updated_at = updated_at;
     }
 
-    public String getDeleted_at() {
+    public LocalDateTime getDeleted_at() {
         return deleted_at;
     }
 
-    public void setDeleted_at(String deleted_at) {
+    public void setDeleted_at(LocalDateTime deleted_at) {
         this.deleted_at = deleted_at;
     }
 
