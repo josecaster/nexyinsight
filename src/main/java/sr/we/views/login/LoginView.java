@@ -1,8 +1,11 @@
 package sr.we.views.login;
 
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.login.LoginOverlay;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.page.Viewport;
 import com.vaadin.flow.dom.ThemeList;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -24,6 +27,7 @@ import sr.we.views.dashboard.DashboardView;
 @PageTitle("Login")
 @Route(value = "login")
 //@Viewport("width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no")
+@CssImport(value = "./login-view-background.css", themeFor = "vaadin-login-overlay-wrapper")
 public class LoginView extends LoginOverlay implements BeforeEnterObserver {
 
     private final AuthenticatedUser authenticatedUser;
@@ -34,14 +38,22 @@ public class LoginView extends LoginOverlay implements BeforeEnterObserver {
         this.accessChecker = accessChecker;
         setAction(RouteUtil.getRoutePath(VaadinService.getCurrent().getContext(), getClass()));
 
+        addClassName("login-view");
+
         LoginI18n i18n = LoginI18n.createDefault();
         i18n.setHeader(new LoginI18n.Header());
-        i18n.getHeader().setTitle("NexyInsight");
-        i18n.getHeader().setDescription("Login using user/user or admin/admin");
-        i18n.setAdditionalInformation(null);
+//        i18n.getHeader().setTitle("NexyInsight");
+//        i18n.getHeader().setDescription("Built with ♥");
+        i18n.setAdditionalInformation("Powered by Nexysoft N.V. - The vision is yours, we just make it reality - © 2024");
+
+//        getCustomFormArea().add(new Image("images/icon-full.png","nexysoft pos image"));
+
         setI18n(i18n);
 
-        setForgotPasswordButtonVisible(false);
+        setForgotPasswordButtonVisible(true);
+        addForgotPasswordListener(l -> {
+            Notification.show("Please contact the application owner to restore your password",5000, Notification.Position.MIDDLE);
+        });
         setOpened(true);
 
         Cookie cookieByName = CookieUtil.getCookieByName(CookieUtil.THEME);

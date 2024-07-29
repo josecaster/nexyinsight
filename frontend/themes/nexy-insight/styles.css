@@ -106,3 +106,8 @@ html {
         padding-top: 5px;
 
 }
+
+.login-view vaadin-login-overlay-wrapper::part(brand) {
+  background: url("images/icon-full.png");
+  background-size: cover;
+}

@@ -1,0 +1,11 @@
+/*[part="brand"] {
+    background-size: cover;
+    background-color: #cf2727;
+}*/
+
+/*bg image */
+[part="brand"] {
+    background-image: url("./images/login-header.png");
+    background-size: cover;
+    background-position: 50% 50%;
+}
