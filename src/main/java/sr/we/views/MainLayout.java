@@ -10,6 +10,7 @@ import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.MenuItem;
 import com.vaadin.flow.component.contextmenu.SubMenu;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -33,10 +34,7 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.dom.ThemeList;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.RouterLink;
+import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.auth.AccessAnnotationChecker;
 import com.vaadin.flow.theme.lumo.Lumo;
@@ -82,6 +80,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 /**
@@ -120,6 +120,13 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private Onboarding onboarding;
     private Header header;
     private VerticalLayout headerLayout;
+    @Value("${sr.we.build.version}")
+    private String appVresion;
+    private SvgIcon filterBtn;
+    private HorizontalLayout headerRightLayout;
+    private MenuItemInfo dashboardMenuItem;
+    private MenuItemInfo receiptsMenuItem;
+    private Class<? extends Component> navigationTarget;
 
     public MainLayout(WebhookRepository webhookRepository, WebhookService webhookService, AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
         this.webhookRepository = webhookRepository;
@@ -156,23 +163,59 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         viewTitle = new H2();
         viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
 
-        rangePicker = new DateRangePicker<SimpleDateRange>(() -> new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.TODAY), DATERANGE_VALUES);
+        rangePicker = new DateRangePicker<SimpleDateRange>(() -> new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.DAY), DATERANGE_VALUES);
 //        rangePicker.setWidthFull();
 
         rangePicker.addValueChangeListener(l -> {
-            DateRangeModel<SimpleDateRange> value = l.getValue();
-            if (value.getStart() != null && value.getEnd() != null) {
-//                UI.getCurrent().
+
+            if (/*content != null &&*/ (l.getOldValue() != null && !l.getOldValue().equals(l.getValue()))) {
+                DateRangeModel<SimpleDateRange> value = l.getValue();
+                if (value.getStart() != null && value.getEnd() != null) {
+                    Map<String, String> map = new HashMap<>();
+                    map.put("start_date", l.getValue().getStart().format(DateTimeFormatter.ISO_DATE));
+                    map.put("end_date", l.getValue().getEnd().format(DateTimeFormatter.ISO_DATE));
+                    UI.getCurrent().navigate(navigationTarget, QueryParameters.simple(map));
+                } else {
+                    Map<String, String> map = new HashMap<>();
+                    map.put("start_date", LocalDate.now().format(DateTimeFormatter.ISO_DATE));
+                    map.put("end_date", LocalDate.now().format(DateTimeFormatter.ISO_DATE));
+                    UI.getCurrent().navigate(navigationTarget, QueryParameters.simple(map));
+                }
             }
         });
 
         infoButton = MyLineAwesome.INFO_CIRCLE_SOLID.create();
         infoButton.setColor("var(--lumo-primary-text-color)");
         infoButton.getElement().getStyle().set("margin-right", "var(--lumo-space-s)");
-        infoButton.getElement().getStyle().set("margin-left", "auto");
         infoButton.setVisible(false);
         infoButton.addClickListener(c -> onboarding.start());
-        addToNavbar(true, toggle, viewTitle, infoButton);
+
+
+        filterBtn = MyLineAwesome.FILTER_SOLID.create();
+        filterBtn.setColor("var(--lumo-primary-text-color)");
+        filterBtn.getElement().getStyle().set("margin-right", "var(--lumo-space-s)");
+        filterBtn.addClickListener(c -> {
+            Dialog dialog = new Dialog();
+            dialog.setHeaderTitle("Filter");
+            dialog.add(rangePicker);
+            Button cancelButton = new Button("Search", (e) -> dialog.close());
+            cancelButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            dialog.getFooter().add(cancelButton);
+
+            Button deleteButton = new Button("Cancel", (e) -> dialog.close());
+            deleteButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            deleteButton.getStyle().set("margin-right", "auto");
+            dialog.getFooter().add(deleteButton);
+            dialog.setHeight("400px");
+            dialog.open();
+        });
+
+
+        headerRightLayout = new HorizontalLayout();
+        headerRightLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+        headerRightLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        headerRightLayout.getElement().getStyle().set("margin-left", "auto");
+        addToNavbar(true, toggle, viewTitle, headerRightLayout);
     }
 
     private void addDrawerContent() {
@@ -341,17 +384,18 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         return new Footer(footer);
     }
 
-    @Value("${sr.we.build.version}")
-    private String appVresion;
-
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         boolean isMobile = CardView.isMobileDevice();
-        if(isMobile){
-            for(SideNavItem sideNavItem : webNavs){
+        headerRightLayout.removeAll();
+        if (isMobile) {
+            for (SideNavItem sideNavItem : webNavs) {
                 sideNavItem.setVisible(false);
             }
+            headerRightLayout.add(filterBtn, infoButton);
+        } else {
+            headerRightLayout.add(rangePicker, infoButton);
         }
     }
 
@@ -372,100 +416,100 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         return nav;
     }
 
-    private Component createHeaderContent() {
-        Header header = new Header();
-        header.addClassNames(BoxSizing.BORDER, Display.FLEX, FlexDirection.COLUMN, Width.FULL);
-
-        Div layout = new Div();
-        layout.addClassNames(Display.FLEX, AlignItems.CENTER, Padding.Horizontal.LARGE);
-
-        H1 appName = new H1("NexyInsight");
-        appName.addClassNames(Margin.Vertical.MEDIUM, Margin.End.AUTO, FontSize.LARGE);
-        layout.add(appName);
-
-        String themeLabel = "Dark";
-        Cookie cookieByName = CookieUtil.getCookieByName(CookieUtil.THEME);
-        if (cookieByName == null || cookieByName.getValue().equalsIgnoreCase("DARK")) {
-            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
-            themeList.add(Lumo.DARK);
-            themeLabel = "Dark";
-        } else {
-            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
-            themeList.remove(Lumo.DARK);
-            themeLabel = "Light";
-        }
-
-        toggleButton = new ToggleButton(themeLabel.equalsIgnoreCase("Light"));
-        toggleButton.setLabel(themeLabel);
-        toggleButton.addClickListener(click -> {
-            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
-
-            if (themeList.contains(Lumo.DARK)) {
-                themeList.remove(Lumo.DARK);
-                CookieUtil.createNewCookie("LIGHT", CookieUtil.THEME);
-                toggleButton.setLabel("Light");
-            } else {
-                themeList.add(Lumo.DARK);
-                CookieUtil.createNewCookie("DARK", CookieUtil.THEME);
-                toggleButton.setLabel("Dark");
-            }
-        });
-
-
-        layout.add(toggleButton);
-
-        Optional<User> maybeUser = authenticatedUser.get();
-        if (maybeUser.isPresent()) {
-            user = maybeUser.get();
-
-            Avatar avatar = new Avatar(user.getName());
-            StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(user.getProfilePicture()));
-            avatar.setImageResource(resource);
-            avatar.setThemeName("xsmall");
-            avatar.getElement().setAttribute("tabindex", "-1");
-
-            MenuBar userMenu = new MenuBar();
-            userMenu.setThemeName("tertiary-inline contrast");
-
-            MenuItem userName = userMenu.addItem("");
-            Div div = new Div();
-            div.add(avatar);
-            div.add(user.getName());
-            div.add(new Icon("lumo", "dropdown"));
-            div.getElement().getStyle().set("display", "flex");
-            div.getElement().getStyle().set("align-items", "center");
-            div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
-            userName.add(div);
-            account(userName);
-            changePassword(userName);
-            loyverseIntegration(userName);
-            synchronize(userName);
-            signOut(userName);
-            layout.add(userMenu);
-            layout.add(appVresion);
-        } else {
-            Anchor loginLink = new Anchor("login", "Sign in");
-            layout.add(loginLink);
-        }
-
-        Nav nav = new Nav();
-        nav.addClassNames(Display.FLEX, Overflow.AUTO, Padding.Horizontal.MEDIUM, Padding.Vertical.XSMALL);
-
-        // Wrap the links in a list; improves accessibility
-        UnorderedList list = new UnorderedList();
-        list.addClassNames(Display.FLEX, Gap.SMALL, ListStyleType.NONE, Margin.NONE, Padding.NONE);
-        nav.add(list);
-
-        for (MenuItemInfo menuItem : createMenuItems()) {
-            if (accessChecker.hasAccess(menuItem.getView())) {
-                list.add(menuItem);
-            }
-
-        }
-
-        header.add(layout, nav);
-        return header;
-    }
+//    private Component createHeaderContent() {
+//        Header header = new Header();
+//        header.addClassNames(BoxSizing.BORDER, Display.FLEX, FlexDirection.COLUMN, Width.FULL);
+//
+//        Div layout = new Div();
+//        layout.addClassNames(Display.FLEX, AlignItems.CENTER, Padding.Horizontal.LARGE);
+//
+//        H1 appName = new H1("NexyInsight");
+//        appName.addClassNames(Margin.Vertical.MEDIUM, Margin.End.AUTO, FontSize.LARGE);
+//        layout.add(appName);
+//
+//        String themeLabel = "Dark";
+//        Cookie cookieByName = CookieUtil.getCookieByName(CookieUtil.THEME);
+//        if (cookieByName == null || cookieByName.getValue().equalsIgnoreCase("DARK")) {
+//            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+//            themeList.add(Lumo.DARK);
+//            themeLabel = "Dark";
+//        } else {
+//            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+//            themeList.remove(Lumo.DARK);
+//            themeLabel = "Light";
+//        }
+//
+//        toggleButton = new ToggleButton(themeLabel.equalsIgnoreCase("Light"));
+//        toggleButton.setLabel(themeLabel);
+//        toggleButton.addClickListener(click -> {
+//            ThemeList themeList = UI.getCurrent().getElement().getThemeList();
+//
+//            if (themeList.contains(Lumo.DARK)) {
+//                themeList.remove(Lumo.DARK);
+//                CookieUtil.createNewCookie("LIGHT", CookieUtil.THEME);
+//                toggleButton.setLabel("Light");
+//            } else {
+//                themeList.add(Lumo.DARK);
+//                CookieUtil.createNewCookie("DARK", CookieUtil.THEME);
+//                toggleButton.setLabel("Dark");
+//            }
+//        });
+//
+//
+//        layout.add(toggleButton);
+//
+//        Optional<User> maybeUser = authenticatedUser.get();
+//        if (maybeUser.isPresent()) {
+//            user = maybeUser.get();
+//
+//            Avatar avatar = new Avatar(user.getName());
+//            StreamResource resource = new StreamResource("profile-pic", () -> new ByteArrayInputStream(user.getProfilePicture()));
+//            avatar.setImageResource(resource);
+//            avatar.setThemeName("xsmall");
+//            avatar.getElement().setAttribute("tabindex", "-1");
+//
+//            MenuBar userMenu = new MenuBar();
+//            userMenu.setThemeName("tertiary-inline contrast");
+//
+//            MenuItem userName = userMenu.addItem("");
+//            Div div = new Div();
+//            div.add(avatar);
+//            div.add(user.getName());
+//            div.add(new Icon("lumo", "dropdown"));
+//            div.getElement().getStyle().set("display", "flex");
+//            div.getElement().getStyle().set("align-items", "center");
+//            div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
+//            userName.add(div);
+//            account(userName);
+//            changePassword(userName);
+//            loyverseIntegration(userName);
+//            synchronize(userName);
+//            signOut(userName);
+//            layout.add(userMenu);
+//            layout.add(appVresion);
+//        } else {
+//            Anchor loginLink = new Anchor("login", "Sign in");
+//            layout.add(loginLink);
+//        }
+//
+//        Nav nav = new Nav();
+//        nav.addClassNames(Display.FLEX, Overflow.AUTO, Padding.Horizontal.MEDIUM, Padding.Vertical.XSMALL);
+//
+//        // Wrap the links in a list; improves accessibility
+//        UnorderedList list = new UnorderedList();
+//        list.addClassNames(Display.FLEX, Gap.SMALL, ListStyleType.NONE, Margin.NONE, Padding.NONE);
+//        nav.add(list);
+//
+//        for (MenuItemInfo menuItem : createMenuItems()) {
+//            if (accessChecker.hasAccess(menuItem.getView())) {
+//                list.add(menuItem);
+//            }
+//
+//        }
+//
+//        header.add(layout, nav);
+//        return header;
+//    }
 
     private void account(MenuItem userName) {
         userName.getSubMenu().addItem("Account", e -> {
@@ -718,21 +762,27 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     }
 
     private MenuItemInfo[] createMenuItems() {
+        Map<String, String> map = new HashMap<>();
+        map.put("start_date", LocalDate.now().format(DateTimeFormatter.ISO_DATE));
+        map.put("end_date", LocalDate.now().format(DateTimeFormatter.ISO_DATE));
+
+        dashboardMenuItem = new MenuItemInfo("Dashboard", MyLineAwesome.CHART_AREA_SOLID.create(), DashboardView.class, QueryParameters.simple(map));
+        receiptsMenuItem = new MenuItemInfo("Receipts", MyLineAwesome.RECEIPT_SOLID.create(), ReceiptsView.class, QueryParameters.simple(map));
         return new MenuItemInfo[]{ //
-                new MenuItemInfo("Dashboard", MyLineAwesome.CHART_AREA_SOLID.create(), DashboardView.class), //
+                dashboardMenuItem, //
 
-                new MenuItemInfo("Sections", MyLineAwesome.LAYER_GROUP_SOLID.create(), SectionsView.class), //
-                new MenuItemInfo("Receipts", MyLineAwesome.RECEIPT_SOLID.create(), ReceiptsView.class), //
-                new MenuItemInfo("Customers", MyLineAwesome.PERSON_BOOTH_SOLID.create(), CustomersView.class), //
+                new MenuItemInfo("Sections", MyLineAwesome.LAYER_GROUP_SOLID.create(), SectionsView.class, null), //
+                receiptsMenuItem, //
+                new MenuItemInfo("Customers", MyLineAwesome.PERSON_BOOTH_SOLID.create(), CustomersView.class, null), //
 
-                new MenuItemInfo("Batches", MyLineAwesome.OBJECT_GROUP.create(), BatchesView.class), //
+                new MenuItemInfo("Batches", MyLineAwesome.OBJECT_GROUP.create(), BatchesView.class, null), //
 
-                new MenuItemInfo("Items", MyLineAwesome.PRODUCT_HUNT.create(), ItemsView.class), //
-                new MenuItemInfo("Stock adjustment", MyLineAwesome.BALANCE_SCALE_LEFT_SOLID.create(), StockAdjustmentView.class), //
+                new MenuItemInfo("Items", MyLineAwesome.PRODUCT_HUNT.create(), ItemsView.class, null), //
+                new MenuItemInfo("Stock adjustment", MyLineAwesome.BALANCE_SCALE_LEFT_SOLID.create(), StockAdjustmentView.class, null), //
 
-                new MenuItemInfo("Inventory valuation", MyLineAwesome.CALCULATOR_SOLID.create(), InventoryValuationView.class), //
+                new MenuItemInfo("Inventory valuation", MyLineAwesome.CALCULATOR_SOLID.create(), InventoryValuationView.class, null), //
 
-                new MenuItemInfo("Users", MyLineAwesome.USERS_SOLID.create(), UsersView.class), //
+                new MenuItemInfo("Users", MyLineAwesome.USERS_SOLID.create(), UsersView.class, null), //
 
         };
     }
@@ -758,6 +808,52 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                 }
             }
 
+            Optional<String> startDate = beforeEnterEvent.getLocation().getQueryParameters().getSingleParameter("start_date");
+            Optional<String> endDate = beforeEnterEvent.getLocation().getQueryParameters().getSingleParameter("end_date");
+
+            navigationTarget = (Class<? extends Component>) beforeEnterEvent.getNavigationTarget();
+            // first check the dates
+            Map<String, String> map = new HashMap<>();
+            if(startDate.isPresent() && endDate.isPresent()){
+                try{
+                    String startString = startDate.get();
+                    map.put("start_date", startString);
+                    LocalDate start = LocalDate.parse(startString, DateTimeFormatter.ISO_DATE);
+
+                    String endString = endDate.get();
+                    map.put("end_date", startString);
+                    LocalDate end = LocalDate.parse(endString, DateTimeFormatter.ISO_DATE);
+
+                    // first check if they are aligned with the filter
+                    DateRangeModel<SimpleDateRange> value = rangePicker.getValue();
+                    if(value != null && (end.isAfter(start) || end.isEqual(start))){
+                        if(!value.getStart().isEqual(start) || !value.getEnd().isEqual(end)){
+                            // update query parameters and navigate again
+                            rangePicker.setValue(new DateRangeModel<>(start, end, SimpleDateRanges.FREE));
+                            return;
+                        }
+                        // else proceed
+                    } else if(value != null && end.isBefore(start)){
+                        // update query parameters and navigate again
+                        rangePicker.setValue(new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.DAY));
+                        return;
+                    }
+
+
+                } catch (DateTimeParseException e){
+                    rangePicker.setValue(new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.DAY));
+                }
+                dashboardMenuItem.setQueryParameters(QueryParameters.simple(map));
+                receiptsMenuItem.setQueryParameters(QueryParameters.simple(map));
+            } else {
+//                rangePicker.setValue(new DateRangeModel<>(, , rangePicker.getDateRange()));
+                map.put("start_date", rangePicker.getStart().format(DateTimeFormatter.ISO_DATE));
+                map.put("end_date", rangePicker.getEnd().format(DateTimeFormatter.ISO_DATE));
+                beforeEnterEvent.forwardTo(navigationTarget,QueryParameters.simple(map));
+            }
+
+
+
         }
     }
 
@@ -769,15 +865,16 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         private final Class<? extends Component> view;
         private final String menuTitle;
         private final Component icon;
+        private final RouterLink link;
 
-        public MenuItemInfo(String menuTitle, Component icon, Class<? extends Component> view) {
+        public MenuItemInfo(String menuTitle, Component icon, Class<? extends Component> view, QueryParameters queryParameters) {
             this.view = view;
             this.menuTitle = menuTitle;
             this.icon = icon;
-            RouterLink link = new RouterLink();
-            // Use Lumo classnames for various styling
+            link = new RouterLink();
             link.addClassNames(Display.FLEX, Gap.XSMALL, Height.MEDIUM, AlignItems.CENTER, Padding.Horizontal.SMALL, TextColor.BODY);
             link.setRoute(view);
+            setQueryParameters(queryParameters);
 
             Span text = new Span(menuTitle);
             // Use Lumo classnames for various styling
@@ -788,6 +885,10 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             }
             link.add(text);
             add(link);
+        }
+
+        private void setQueryParameters(QueryParameters queryParameters) {
+            link.setQueryParameters(queryParameters);
         }
 
         public Class<? extends Component> getView() {

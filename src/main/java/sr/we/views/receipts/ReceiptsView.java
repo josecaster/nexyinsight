@@ -29,14 +29,14 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.*;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.query.Criteria;
+import software.xdev.vaadin.daterange_picker.business.DateRangeModel;
+import software.xdev.vaadin.daterange_picker.business.SimpleDateRange;
+import software.xdev.vaadin.daterange_picker.business.SimpleDateRanges;
 import sr.we.controllers.CustomersController;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.ReceiptsController;
@@ -55,6 +55,8 @@ import sr.we.views.users.CardView;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -103,6 +105,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     private Grid.Column<Receipt> barcodeColumn;
     private Grid.Column<Receipt> customerNameColumn;
     private Grid.Column<Receipt> customerContactColumn;
+    private LocalDate startDate;
+    private LocalDate endDate;
 
     public ReceiptsView(CustomersController customersController, StoresController sectionService, ReceiptsController ReceiptService, AuthenticatedUser authenticatedUser, StoresController storesController) {
         this.receiptService = ReceiptService;
@@ -209,7 +213,7 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
 //        sections = sectionService.allStores(getBusinessId());
         Optional<User> userOptional = authenticatedUser.get();
         userOptional.ifPresent(value -> user = value);
-        grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), sectionId.getValue(), filters.check()));
+
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.addClassNames(LumoUtility.Border.TOP, LumoUtility.BorderColor.CONTRAST_10);
 
@@ -411,6 +415,24 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         sections = sectionService.allSections(getBusinessId(), 0, Integer.MAX_VALUE, authenticatedUser.get()).toList();
+
+        Optional<String> start = beforeEnterEvent.getLocation().getQueryParameters().getSingleParameter("start_date");
+        Optional<String> end = beforeEnterEvent.getLocation().getQueryParameters().getSingleParameter("end_date");
+
+        if(start.isPresent() && end.isPresent()){
+            try{
+                String startString = start.get();
+                startDate = LocalDate.parse(startString, DateTimeFormatter.ISO_DATE);
+
+                String endString = end.get();
+                endDate = LocalDate.parse(endString, DateTimeFormatter.ISO_DATE);
+
+            } catch (DateTimeParseException e){
+                throw e;
+            }
+        }
+
+        grid.setItems(query -> receiptService.allReceipts(getBusinessId(), query.getPage(), query.getPageSize(), sectionId.getValue(), filters.check()));
     }
 
     public enum Type {
@@ -418,9 +440,9 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
     }
 
     public class Filters extends Div {
-        private final Select<String> selector = new Select<>();
-        private final DatePicker startDate = new DatePicker("Receipt date");
-        private final DatePicker endDate = new DatePicker();
+//        private final Select<String> selector = new Select<>();
+//        private final DatePicker startDate = new DatePicker("Receipt date");
+//        private final DatePicker endDate = new DatePicker();
         private final Anchor anchorAction;
 
         public Filters(Runnable onSearch) {
@@ -434,8 +456,8 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             Button resetBtn = new Button("Reset");
             resetBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             resetBtn.addClickListener(e -> {
-                startDate.clear();
-                endDate.clear();
+//                startDate.clear();
+//                endDate.clear();
 //                name.clear();
 //                phone.clear();
 //                occupations.clear();
@@ -453,11 +475,11 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
             anchorAction = new Anchor("", actionBtn);
             anchorAction.setTarget(AnchorTarget.BLANK);
 
-            Div actions = new Div(resetBtn, searchBtn, anchorAction);
+            Div actions = new Div(/*resetBtn, searchBtn,*/ anchorAction);
             actions.addClassName(LumoUtility.Gap.SMALL);
             actions.addClassName("actions");
 
-            add(/*name, phone, */createDateRangeFilter()/*, occupations, roles*/, actions);
+            add(/*name, phone, createDateRangeFilter(), occupations, roles,*/ actions);
         }
 
         public Anchor getActionBtn() {
@@ -465,80 +487,80 @@ public class ReceiptsView extends Div implements BeforeEnterObserver, HelpFuncti
         }
 
 
-        private Component createDateRangeFilter() {
-            selector.setItems("Today", "Yesterday", "This week", "Last week", "This month", "Last month", "Last 7 days", "Last 30 days");
-            selector.addValueChangeListener(l -> {
-                if (StringUtils.isBlank(l.getValue())) {
-                    selector.setValue("Today");
-                } else {
-                    String value = l.getValue();
-                    switch (value) {
-                        case "Today" -> {
-                            startDate.setValue(LocalDate.now());
-                            endDate.setValue(startDate.getValue());
-                        }
-                        case "Yesterday" -> {
-                            startDate.setValue(LocalDate.now().minusDays(1));
-                            endDate.setValue(startDate.getValue());
-                        }
-                        case "This week" -> {
-                            LocalDate lastWeekSameDay = LocalDate.now();
-                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
-                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
-                        }
-                        case "Last week" -> {
-                            LocalDate lastWeekSameDay = LocalDate.now().minusWeeks(1);
-                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
-                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
-                        }
-                        case "This month" -> {
-                            startDate.setValue(YearMonth.now().atDay(1));
-                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
-                        }
-                        case "Last month" -> {
-                            startDate.setValue(YearMonth.now().atDay(1).minusMonths(1));
-                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
-                        }
-                        case "Last 7 days" -> {
-                            startDate.setValue(LocalDate.now().minusWeeks(1));
-                            endDate.setValue(LocalDate.now());
-                        }
-                        case "Last 30 days" -> {
-                            startDate.setValue(LocalDate.now().minusDays(30));
-                            endDate.setValue(LocalDate.now());
-                        }
-                    }
-                }
-            });
-            selector.setValue("Today");
-            startDate.setPlaceholder("From");
-
-            endDate.setPlaceholder("To");
-
-            // For screen readers
-            startDate.setAriaLabel("From date");
-            endDate.setAriaLabel("To date");
-
-
-            startDate.setWidth("166px");
-            endDate.setWidth("166px");
-
-            FlexLayout dateRangeComponent = new FlexLayout(selector, new Text(" : "), startDate, new Text(" – "), endDate);
-            dateRangeComponent.setAlignItems(FlexComponent.Alignment.BASELINE);
-            dateRangeComponent.getElement().getStyle().set("justify-self", "self-start");
-            dateRangeComponent.addClassName(LumoUtility.Gap.XSMALL);
-
-
-            return dateRangeComponent;
-        }
+//        private Component createDateRangeFilter() {
+////            selector.setItems("Today", "Yesterday", "This week", "Last week", "This month", "Last month", "Last 7 days", "Last 30 days");
+////            selector.addValueChangeListener(l -> {
+////                if (StringUtils.isBlank(l.getValue())) {
+////                    selector.setValue("Today");
+////                } else {
+////                    String value = l.getValue();
+////                    switch (value) {
+////                        case "Today" -> {
+////                            startDate.setValue(LocalDate.now());
+////                            endDate.setValue(startDate.getValue());
+////                        }
+////                        case "Yesterday" -> {
+////                            startDate.setValue(LocalDate.now().minusDays(1));
+////                            endDate.setValue(startDate.getValue());
+////                        }
+////                        case "This week" -> {
+////                            LocalDate lastWeekSameDay = LocalDate.now();
+////                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
+////                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
+////                        }
+////                        case "Last week" -> {
+////                            LocalDate lastWeekSameDay = LocalDate.now().minusWeeks(1);
+////                            startDate.setValue(lastWeekSameDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)));
+////                            endDate.setValue(startDate.getValue().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY)));
+////                        }
+////                        case "This month" -> {
+////                            startDate.setValue(YearMonth.now().atDay(1));
+////                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
+////                        }
+////                        case "Last month" -> {
+////                            startDate.setValue(YearMonth.now().atDay(1).minusMonths(1));
+////                            endDate.setValue(YearMonth.from(startDate.getValue()).atEndOfMonth());
+////                        }
+////                        case "Last 7 days" -> {
+////                            startDate.setValue(LocalDate.now().minusWeeks(1));
+////                            endDate.setValue(LocalDate.now());
+////                        }
+////                        case "Last 30 days" -> {
+////                            startDate.setValue(LocalDate.now().minusDays(30));
+////                            endDate.setValue(LocalDate.now());
+////                        }
+////                    }
+////                }
+////            });
+////            selector.setValue("Today");
+////            startDate.setPlaceholder("From");
+////
+////            endDate.setPlaceholder("To");
+////
+////            // For screen readers
+////            startDate.setAriaLabel("From date");
+////            endDate.setAriaLabel("To date");
+////
+////
+////            startDate.setWidth("166px");
+////            endDate.setWidth("166px");
+//
+//            FlexLayout dateRangeComponent = new FlexLayout(selector, new Text(" : "), startDate, new Text(" – "), endDate);
+//            dateRangeComponent.setAlignItems(FlexComponent.Alignment.BASELINE);
+//            dateRangeComponent.getElement().getStyle().set("justify-self", "self-start");
+//            dateRangeComponent.addClassName(LumoUtility.Gap.XSMALL);
+//
+//
+//            return dateRangeComponent;
+//        }
 
 
         public Collection<Criteria> check() {
 //            boolean check = true;
             List<Criteria> criterias = new ArrayList<>();
-            if (startDate.getValue() != null && endDate.getValue() != null) {
-                LocalDateTime starting = LocalDateTime.of(startDate.getValue(), LocalTime.MIN);
-                LocalDateTime ending = LocalDateTime.of(endDate.getValue(), LocalTime.MAX);
+            if (startDate != null && endDate != null) {
+                LocalDateTime starting = LocalDateTime.of(startDate, LocalTime.MIN);
+                LocalDateTime ending = LocalDateTime.of(endDate, LocalTime.MAX);
                 Criteria criteria = Criteria.where("receipt_date").gte(starting).andOperator(Criteria.where("receipt_date").lte(ending));
                 criterias.add(criteria);
                 //                LocalDate receiptDate = receipt.getReceipt_date().toLocalDate();

@@ -241,6 +241,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
             categoryColumn.setVisible(false);
             editColumn.setVisible(false);
             defaultColumn.setVisible(false);
+            enabledColumn.setVisible(false);
             sectionsMobileColumn.setVisible(true);
 //            createPictureColumn();
 //            createStoreNameColumn();
@@ -259,6 +260,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
             categoryColumn.setVisible(true);
             editColumn.setVisible(true);
             defaultColumn.setVisible(true);
+            enabledColumn.setVisible(true);
             sectionsMobileColumn.setVisible(false);
 
 //            filters.setVisible(true);

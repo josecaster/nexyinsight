@@ -33,6 +33,7 @@ import sr.we.views.MainLayout;
 import sr.we.views.MobileSupport;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -65,6 +66,8 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
     private Future<?> submit;
     private VerticalLayout viewEvents;
     private HorizontalLayout header;
+    private LocalDate start;
+    private LocalDate end;
 
     public DashboardView(ItemsController ItemService, AuthenticatedUser authenticatedUser, InventoryValuationController inventoryValuationStorage, ReceiptsController receiptsController, StoresController storesController) {
         addClassNames("dashboard-view","items-view");
@@ -108,8 +111,8 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
             if (salesBoard == null) {
                 salesBoard = new SalesBoard(this, getBusinessId(), receiptsController, ui, board, storesController);
             }
-            if (filters.rangePicker.getValue() != null && filters.rangePicker.getValue().getStart() != null && filters.rangePicker.getValue().getEnd() != null && !filters.sectionId.getValue().isEmpty()) {
-                salesBoard.build(filters.rangePicker.getValue().getStart(), filters.rangePicker.getValue().getEnd(), filters.sectionId.getValue());
+            if (start != null && end != null && !filters.sectionId.getValue().isEmpty()) {
+                salesBoard.build(start, end, filters.sectionId.getValue());
             }
             filters.setSalesBoard(salesBoard);
         }
@@ -129,6 +132,20 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
+        QueryParameters redirectQueryParameters = beforeEnterEvent.getLocation().getQueryParameters();;
+        if(redirectQueryParameters != null){
+            Optional<String> startDate = redirectQueryParameters.getSingleParameter("start_date");
+            Optional<String> endDate = redirectQueryParameters.getSingleParameter("end_date");
+
+            if(startDate.isPresent() && endDate.isPresent()){
+                start = LocalDate.parse(startDate.get(), DateTimeFormatter.ISO_DATE);
+                end = LocalDate.parse(endDate.get(), DateTimeFormatter.ISO_DATE);
+            }
+        }
+        if(start == null || end == null){
+            start = LocalDate.now();
+            end = LocalDate.now();
+        }
         Optional<User> maybeUser = authenticatedUser.get();
         maybeUser.ifPresent(value -> user = value);
         if (user.getRoles().contains(Role.SECTION_OWNER)) {
@@ -173,7 +190,7 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
 //        private final Select<String> selector = new Select<>();
 //        private final DatePicker startDate = new DatePicker("Period");
 //        private final DatePicker endDate = new DatePicker();
-        private final DateRangePicker<SimpleDateRange> rangePicker;
+
         private final MultiSelectComboBox<String> sectionId;
         private final Long businessId;
         private Set<String> linkSections;
@@ -189,8 +206,7 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
 //
 
             // Action buttons
-            rangePicker = new DateRangePicker<SimpleDateRange>(() -> new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.TODAY), DATERANGE_VALUES);
-            rangePicker.setWidthFull();
+
 
             dashTypeSelect = new Select<>();
             dashTypeSelect.setWidthFull();
@@ -204,7 +220,7 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
             sectionId.setWidthFull();
             sectionId.getElement().getStyle().set("padding","0px");
 
-            BsRow period = new BsRow(new BsColumn(new Div(new Text("Period"), rangePicker)).withSize(BsColumn.Size.XS), new BsColumn(sectionId).withSize(BsColumn.Size.XS)/*, new BsColumn(dashTypeSelect).withSize(BsColumn.Size.XS)*/);
+            BsRow period = new BsRow(/*new BsColumn(new Div(new Text("Period"), rangePicker)).withSize(BsColumn.Size.XS),*/ new BsColumn(sectionId).withSize(BsColumn.Size.XS)/*, new BsColumn(dashTypeSelect).withSize(BsColumn.Size.XS)*/);
             filterBoard.addRow(period);
 //            period.addClassName("filter-layout");
             add(filterBoard);
@@ -220,13 +236,13 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
             sectionId.setValue(sects);
 
 
-            rangePicker.addValueChangeListener(l -> {
-                DateRangeModel<SimpleDateRange> value = l.getValue();
-                if(value.getStart() != null && value.getEnd() != null &&  !sectionId.getValue().isEmpty()){
-                    board.removeAll();
-                    salesBoard.build(value.getStart(), value.getEnd(), sectionId.getValue());
-                }
-            });
+//            rangePicker.addValueChangeListener(l -> {
+//                DateRangeModel<SimpleDateRange> value = l.getValue();
+//                if(value.getStart() != null && value.getEnd() != null &&  !sectionId.getValue().isEmpty()){
+//                    board.removeAll();
+//                    salesBoard.build(value.getStart(), value.getEnd(), sectionId.getValue());
+//                }
+//            });
 //            startDate.addValueChangeListener(l -> {
 //                if (startDate.getValue() != null && endDate.getValue() != null && !sectionId.getValue().isEmpty()) {
 //                    board.removeAll();
@@ -240,10 +256,10 @@ public class DashboardView extends Main implements BeforeEnterObserver , MobileS
 //                }
 //            });
             sectionId.addValueChangeListener(l -> {
-                DateRangeModel<SimpleDateRange> value = rangePicker.getValue();
-                if (value.getStart() != null && value.getEnd() != null && !sectionId.getValue().isEmpty()) {
+//                DateRangeModel<SimpleDateRange> value = rangePicker.getValue();
+                if (start != null && end != null && !sectionId.getValue().isEmpty()) {
                     board.removeAll();
-                    salesBoard.build(value.getStart(), value.getEnd(), sectionId.getValue());
+                    salesBoard.build(start, end, sectionId.getValue());
                 }
             });
         }
