@@ -127,6 +127,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     private MenuItemInfo dashboardMenuItem;
     private MenuItemInfo receiptsMenuItem;
     private Class<? extends Component> navigationTarget;
+    private RouteParameters routeParameters;
 
     public MainLayout(WebhookRepository webhookRepository, WebhookService webhookService, AuthController authController, IntegrationRepository integrationRepository, IntegrationService integrationService, JobbyLauncher jobbyLauncher, CustomTaskScheduler executor, AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker, UserService userService, PasswordEncoder passwordEncoder, TaskRepository taskRepository, TaskService taskService) {
         this.webhookRepository = webhookRepository;
@@ -174,12 +175,20 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                     Map<String, String> map = new HashMap<>();
                     map.put("start_date", l.getValue().getStart().format(DateTimeFormatter.ISO_DATE));
                     map.put("end_date", l.getValue().getEnd().format(DateTimeFormatter.ISO_DATE));
-                    UI.getCurrent().navigate(navigationTarget, QueryParameters.simple(map));
+                    if (routeParameters == null) {
+                        UI.getCurrent().navigate(navigationTarget, QueryParameters.simple(map));
+                    } else {
+                        UI.getCurrent().navigate(navigationTarget, routeParameters, QueryParameters.simple(map));
+                    }
                 } else {
                     Map<String, String> map = new HashMap<>();
                     map.put("start_date", LocalDate.now().format(DateTimeFormatter.ISO_DATE));
                     map.put("end_date", LocalDate.now().format(DateTimeFormatter.ISO_DATE));
-                    UI.getCurrent().navigate(navigationTarget, QueryParameters.simple(map));
+                    if (routeParameters == null) {
+                        UI.getCurrent().navigate(navigationTarget, QueryParameters.simple(map));
+                    } else {
+                        UI.getCurrent().navigate(navigationTarget, routeParameters, QueryParameters.simple(map));
+                    }
                 }
             }
         });
@@ -794,13 +803,14 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             user = maybeUser.get();
             Integration byBusinessId = integrationRepository.getByBusinessId(user.getBusinessId());
 
+            QueryParameters queryParameters = beforeEnterEvent.getLocation().getQueryParameters();
             if (byBusinessId != null && StringUtils.isNotBlank(byBusinessId.getState())) {
-                boolean containsCode = beforeEnterEvent.getLocation().getQueryParameters().getParameters().containsKey("code");
-                boolean containsState = beforeEnterEvent.getLocation().getQueryParameters().getParameters().containsKey("state");
+                boolean containsCode = queryParameters.getParameters().containsKey("code");
+                boolean containsState = queryParameters.getParameters().containsKey("state");
 
-                List<String> state = beforeEnterEvent.getLocation().getQueryParameters().getParameters().get("state");
+                List<String> state = queryParameters.getParameters().get("state");
                 if (containsCode && containsState && state.contains(byBusinessId.getState())) {
-                    List<String> code = beforeEnterEvent.getLocation().getQueryParameters().getParameters().get("code");
+                    List<String> code = queryParameters.getParameters().get("code");
                     byBusinessId.setCode(code.get(0));
                     integrationService.update(byBusinessId);
                     authController.authorize(byBusinessId.getBusinessId(), false);
@@ -808,50 +818,54 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                 }
             }
 
-            Optional<String> startDate = beforeEnterEvent.getLocation().getQueryParameters().getSingleParameter("start_date");
-            Optional<String> endDate = beforeEnterEvent.getLocation().getQueryParameters().getSingleParameter("end_date");
+            Optional<String> startDate = queryParameters.getSingleParameter("start_date");
+            Optional<String> endDate = queryParameters.getSingleParameter("end_date");
 
             navigationTarget = (Class<? extends Component>) beforeEnterEvent.getNavigationTarget();
+            routeParameters = beforeEnterEvent.getRouteParameters();
             // first check the dates
-            Map<String, String> map = new HashMap<>();
-            if(startDate.isPresent() && endDate.isPresent()){
-                try{
+            Map<String, List<String>> map = queryParameters.getParameters() == null ? new HashMap<>() : new HashMap<>(queryParameters.getParameters());
+            if (startDate.isPresent() && endDate.isPresent()) {
+                try {
                     String startString = startDate.get();
-                    map.put("start_date", startString);
+                    map.put("start_date", List.of(startString));
                     LocalDate start = LocalDate.parse(startString, DateTimeFormatter.ISO_DATE);
 
                     String endString = endDate.get();
-                    map.put("end_date", startString);
+                    map.put("end_date", List.of(startString));
                     LocalDate end = LocalDate.parse(endString, DateTimeFormatter.ISO_DATE);
 
                     // first check if they are aligned with the filter
                     DateRangeModel<SimpleDateRange> value = rangePicker.getValue();
-                    if(value != null && (end.isAfter(start) || end.isEqual(start))){
-                        if(!value.getStart().isEqual(start) || !value.getEnd().isEqual(end)){
+                    if (value != null && (end.isAfter(start) || end.isEqual(start))) {
+                        if (!value.getStart().isEqual(start) || !value.getEnd().isEqual(end)) {
                             // update query parameters and navigate again
                             rangePicker.setValue(new DateRangeModel<>(start, end, SimpleDateRanges.FREE));
                             return;
                         }
                         // else proceed
-                    } else if(value != null && end.isBefore(start)){
+                    } else if (value != null && end.isBefore(start)) {
                         // update query parameters and navigate again
                         rangePicker.setValue(new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.DAY));
                         return;
                     }
 
 
-                } catch (DateTimeParseException e){
+                } catch (DateTimeParseException e) {
                     rangePicker.setValue(new DateRangeModel<>(LocalDate.now(), LocalDate.now(), SimpleDateRanges.DAY));
                 }
-                dashboardMenuItem.setQueryParameters(QueryParameters.simple(map));
-                receiptsMenuItem.setQueryParameters(QueryParameters.simple(map));
+                dashboardMenuItem.setQueryParameters(new QueryParameters(map));
+                receiptsMenuItem.setQueryParameters(new QueryParameters(map));
             } else {
 //                rangePicker.setValue(new DateRangeModel<>(, , rangePicker.getDateRange()));
-                map.put("start_date", rangePicker.getStart().format(DateTimeFormatter.ISO_DATE));
-                map.put("end_date", rangePicker.getEnd().format(DateTimeFormatter.ISO_DATE));
-                beforeEnterEvent.forwardTo(navigationTarget,QueryParameters.simple(map));
+                map.put("start_date", List.of(rangePicker.getStart().format(DateTimeFormatter.ISO_DATE)));
+                map.put("end_date", List.of(rangePicker.getEnd().format(DateTimeFormatter.ISO_DATE)));
+                if (routeParameters == null) {
+                    beforeEnterEvent.forwardTo(navigationTarget, new QueryParameters(map));
+                } else {
+                    beforeEnterEvent.forwardTo(navigationTarget, routeParameters, new QueryParameters(map));
+                }
             }
-
 
 
         }
