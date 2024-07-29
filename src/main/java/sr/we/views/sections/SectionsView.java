@@ -425,7 +425,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
 
 
     private void addFiltersToGrid() {
-        HeaderRow filterRow = grid.appendHeaderRow();
+//        HeaderRow filterRow = grid.appendHeaderRow();
 
 //        TextField sectionFilter = new TextField();
 //        sectionFilter.setPlaceholder("Filter");
@@ -451,7 +451,7 @@ public class SectionsView extends Div implements BeforeEnterObserver, MobileSupp
             }
             return sectionService.allSections(getBusinessId(), query.getPage(), query.getPageSize(), enabled);
         }));
-        filterRow.getCell(enabledColumn).setComponent(sectionFilter);
+        enabledColumn.setHeader(sectionFilter);
 
 
     }
