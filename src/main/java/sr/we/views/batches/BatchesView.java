@@ -12,6 +12,8 @@ import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridSortOrder;
+import com.vaadin.flow.component.grid.GridSortOrderBuilder;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -26,6 +28,7 @@ import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.data.provider.SortDirection;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -34,6 +37,7 @@ import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import jakarta.annotation.security.RolesAllowed;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import sr.we.controllers.ItemsController;
 import sr.we.controllers.StoresController;
@@ -101,7 +105,8 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
         add(splitLayout);
 
         // Configure Grid
-        grid.addColumn(AbstractEntity::getId).setHeader("#").setAutoWidth(true);
+        Grid.Column<Batch> id = grid.addColumn(AbstractEntity::getId).setHeader("#").setAutoWidth(true).setSortable(true).setSortProperty("id");
+        grid.sort(List.of(new GridSortOrder<Batch>(id, SortDirection.DESCENDING)));
         grid.addColumn(Batch::getDescription).setHeader("Description").setAutoWidth(true);
         grid.addComponentColumn(r -> {
             String collect1 = getSection(r);
@@ -123,8 +128,8 @@ public class BatchesView extends Div implements BeforeEnterObserver, HelpFunctio
 
         grid.setItems(query -> {
             PageRequest pageable = PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query));
-            Stream<Batch> sectionId1 = user.getRoles().contains(Role.ADMIN) ? batchService.list(pageable).stream() : batchService.list(pageable, (root, query2, cb) -> root.get("sectionId").in(linkSections)).stream();
-            return sectionId1.sorted(Comparator.comparingLong(Batch::getId).reversed());
+//            pageable.withSort(Sort.Direction.ASC,"id");
+            return user.getRoles().contains(Role.ADMIN) ? batchService.list(pageable).stream() : batchService.list(pageable, (root, query2, cb) -> root.get("sectionId").in(linkSections)).stream()/*.sorted(Comparator.comparingLong(Batch::getId).reversed())*/;
         });
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 
